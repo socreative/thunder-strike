@@ -74,6 +74,7 @@ export interface Snapshot {
   radarDown: boolean;
   stats: MissionStats;
   volume: number;
+  musicVolume: number;
   muted: boolean;
   fps: number;
 }
@@ -107,6 +108,7 @@ export const initialSnapshot: Snapshot = {
   radarDown: false,
   stats: { kills: 0, rescued: 0, shotsFired: 0, damageTaken: 0, livesLost: 0, elapsed: 0 },
   volume: 0.7,
+  musicVolume: 0.55,
   muted: false,
   fps: 0,
 };

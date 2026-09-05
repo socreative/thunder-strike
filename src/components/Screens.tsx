@@ -19,9 +19,11 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
 
   if (error) {
     return (
-      <div className="screen">
-        <div className="card">
-          <h1 className="title">THUNDER STRIKE</h1>
+      <div className="screen splash">
+        <div className="card menu-card">
+          <h1 className="logo">
+            <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
+          </h1>
           <p className="error">The renderer failed to start.</p>
           <pre className="error-detail">{error}</pre>
           <p className="muted">Try a current Chrome, Edge or Safari, and make sure hardware acceleration is on.</p>
@@ -33,9 +35,11 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
   switch (snap.screen) {
     case "loading":
       return (
-        <div className="screen">
-          <div className="card">
-            <h1 className="title">THUNDER STRIKE</h1>
+        <div className="screen splash">
+          <div className="card menu-card">
+            <h1 className="logo">
+              <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
+            </h1>
             <div className="load-track">
               <div className="load-fill" style={{ width: `${Math.round(snap.loadProgress * 100)}%` }} />
             </div>
@@ -94,8 +98,12 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
           <div className="card small">
             <h2 className="subtitle">PAUSED</h2>
             <label className="volume">
-              Volume
+              Master
               <input type="range" min={0} max={1} step={0.05} value={snap.volume} onChange={(e) => game?.setVolume(parseFloat(e.target.value))} />
+            </label>
+            <label className="volume">
+              Music
+              <input type="range" min={0} max={1} step={0.05} value={snap.musicVolume} onChange={(e) => game?.setMusicVolume(parseFloat(e.target.value))} />
             </label>
             <button className="btn" onClick={() => game?.toggleMute()}>
               {snap.muted ? "Unmute" : "Mute"} <span className="key">M</span>
@@ -187,7 +195,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
               Vehicle models: &ldquo;Low Poly Military Vehicles&rdquo; by Zsky, licensed CC-BY 4.0 via Poly Pizza. Additional models by Quaternius (CC0). Where a model is missing the game builds a primitive
               placeholder instead.
             </p>
-            <p>All sound is synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro.</p>
+            <p>Music: &ldquo;Iron Sector Run&rdquo;, generated with Suno. Sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro.</p>
             <button className="btn primary" onClick={() => game?.backToTitle()}>
               BACK <span className="key">Esc</span>
             </button>

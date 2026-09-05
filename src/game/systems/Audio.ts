@@ -38,7 +38,16 @@ export class Audio {
   private lastPlay = new Map<Sfx, number>();
   volume = 0.7;
   muted = false;
+  musicVolume = 0.55;
   private rotorOn = false;
+  private musicGain!: GainNode;
+  private musicDuck!: GainNode;
+  private musicBuffers = new Map<string, AudioBuffer>();
+  private musicLoading = new Map<string, Promise<AudioBuffer | null>>();
+  private musicCurrent: string | null = null;
+  private musicWanted: string | null = null;
+  private musicVoices: { src: AudioBufferSourceNode; gain: GainNode; endsAt: number; track: string }[] = [];
+  private musicNextAt = 0;
 
   /** Must be called from a user gesture. Safe to call repeatedly. */
   ensure(): void {
@@ -56,6 +65,13 @@ export class Audio {
     this.sfx = ctx.createGain();
     this.sfx.gain.value = 1;
     this.sfx.connect(this.master);
+    // Music bus: level control, then a duck stage the game pulls down under heavy action.
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.value = this.musicVolume;
+    this.musicDuck = ctx.createGain();
+    this.musicDuck.gain.value = 1;
+    this.musicGain.connect(this.musicDuck).connect(this.master);
+    if (this.musicWanted) this.playMusic(this.musicWanted);
 
     // White noise buffer reused by everything percussive.
     const len = ctx.sampleRate * 2;
@@ -277,6 +293,105 @@ export class Audio {
     o.connect(g).connect(this.sfx);
     o.start(t);
     o.stop(t + duration + 0.02);
+  }
+
+  /* Music */
+
+  setMusicVolume(v: number): void {
+    this.musicVolume = v;
+    if (this.ctx) this.musicGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+  }
+
+  /** 1 = full music, lower values duck it (used during combat or menus). */
+  setMusicDuck(level: number, time = 0.6): void {
+    if (!this.ctx) return;
+    this.musicDuck.gain.setTargetAtTime(level, this.ctx.currentTime, time);
+  }
+
+  private async loadMusic(track: string): Promise<AudioBuffer | null> {
+    const cached = this.musicBuffers.get(track);
+    if (cached) return cached;
+    let pending = this.musicLoading.get(track);
+    if (!pending) {
+      pending = (async () => {
+        const ctx = this.ctx;
+        if (!ctx) return null;
+        const probe = document.createElement("audio");
+        const ext = probe.canPlayType('audio/webm; codecs="opus"') ? "webm" : "mp3";
+        try {
+          const res = await fetch(`/music/${track}.${ext}`);
+          if (!res.ok) throw new Error(`${res.status}`);
+          const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+          this.musicBuffers.set(track, buf);
+          return buf;
+        } catch (err) {
+          console.warn(`[audio] music "${track}" unavailable`, err);
+          return null;
+        }
+      })();
+      this.musicLoading.set(track, pending);
+    }
+    return pending;
+  }
+
+  /**
+   * Start a looping track, crossfading from whatever is playing. Tracks loop
+   * with a short overlap so the join is seamless even if the file has a tail.
+   */
+  playMusic(track: string | null): void {
+    this.musicWanted = track;
+    if (!this.ctx) return;
+    if (track === this.musicCurrent) return;
+    const ctx = this.ctx;
+    // Fade out current voices.
+    for (const v of this.musicVoices) {
+      v.gain.gain.cancelScheduledValues(ctx.currentTime);
+      v.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
+      v.src.stop(ctx.currentTime + 2.5);
+    }
+    this.musicVoices = [];
+    this.musicCurrent = track;
+    if (!track) return;
+    void this.loadMusic(track).then((buf) => {
+      if (!buf || this.musicCurrent !== track || !this.ctx) return;
+      this.startVoice(track, buf, this.ctx.currentTime + 0.05, 1.2);
+    });
+  }
+
+  private loopLength(track: string, buf: AudioBuffer): number {
+    // Known trailing silence per track; default trims nothing.
+    const trims: Record<string, number> = { "iron-sector-run": 57.17 };
+    return Math.min(buf.duration, trims[track] ?? buf.duration);
+  }
+
+  private startVoice(track: string, buf: AudioBuffer, at: number, fadeIn: number): void {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, at);
+    gain.gain.linearRampToValueAtTime(1, at + fadeIn);
+    src.connect(gain).connect(this.musicGain);
+    const len = this.loopLength(track, buf);
+    const xfade = 0.35;
+    src.start(at, 0, len + 0.05);
+    gain.gain.setValueAtTime(1, at + len - xfade);
+    gain.gain.linearRampToValueAtTime(0, at + len);
+    this.musicVoices.push({ src, gain, endsAt: at + len, track });
+    this.musicNextAt = at + len - xfade;
+  }
+
+  /** Call every frame: schedules the next loop iteration a little ahead of time. */
+  updateMusic(): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicCurrent) return;
+    const buf = this.musicBuffers.get(this.musicCurrent);
+    if (!buf || this.musicVoices.length === 0) return;
+    const now = ctx.currentTime;
+    if (this.musicNextAt - now < 0.25) {
+      this.startVoice(this.musicCurrent, buf, this.musicNextAt, 0.35);
+    }
+    this.musicVoices = this.musicVoices.filter((v) => v.endsAt > now - 0.1);
   }
 
   dispose(): void {

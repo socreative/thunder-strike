@@ -17,6 +17,14 @@ Models fetched by `scripts/fetch-assets.mjs`. Where a model is missing the game 
 Zsky's models are licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
 Quaternius models are CC0 (public domain).
 
+## Music
+
+"Iron Sector Run", generated with Suno by the project author.
+
 ## Sound
 
 All sound effects are synthesised at runtime with the Web Audio API.
+
+## Artwork
+
+Title artwork and logo generated with Nano Banana Pro.

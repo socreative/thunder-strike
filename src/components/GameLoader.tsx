@@ -8,7 +8,9 @@ const GameShell = dynamic(() => import("./GameShell"), {
   ssr: false,
   loading: () => (
     <div className="boot">
-      <div className="boot-title">THUNDER STRIKE</div>
+      {/* Plain img: next/image is not worth loading before the bundle is up. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="boot-logo" src="/logo.webp" alt="Thunder Strike" />
       <div className="boot-sub">loading</div>
     </div>
   ),

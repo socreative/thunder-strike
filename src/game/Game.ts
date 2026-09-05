@@ -185,6 +185,40 @@ export class Game {
     this.store.set({ volume: v });
   }
 
+  setMusicVolume(v: number): void {
+    this.audio.setMusicVolume(v);
+    this.store.set({ musicVolume: v });
+  }
+
+  /** Pick the music for the current screen. One track for now, ducked on menus. */
+  private updateMusic(): void {
+    switch (this.screen) {
+      case "title":
+      case "briefing":
+      case "credits":
+      case "controls":
+      case "playing":
+      case "dead":
+        this.audio.playMusic("iron-sector-run");
+        break;
+      case "paused":
+        this.audio.playMusic("iron-sector-run");
+        break;
+      case "won":
+      case "lost":
+        this.audio.playMusic(null);
+        break;
+      default:
+        break;
+    }
+    const world = this.world;
+    let duck = 1;
+    if (this.screen === "paused" || this.screen === "controls") duck = 0.35;
+    else if (this.screen === "playing" && world && world.incomingMissile()) duck = 0.7;
+    this.audio.setMusicDuck(duck);
+    this.audio.updateMusic();
+  }
+
   toggleMute(): void {
     this.audio.setMuted(!this.audio.muted);
     this.store.set({ muted: this.audio.muted });
@@ -203,6 +237,7 @@ export class Game {
     // Global keys
     if (input.interacted) this.audio.ensure();
     if (input.wasPressed("KeyM")) this.toggleMute();
+    this.updateMusic();
     switch (this.screen) {
       case "title":
         if (input.wasPressed("Enter", "Space")) this.start();

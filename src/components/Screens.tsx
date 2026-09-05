@@ -50,7 +50,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
 
     case "title":
       return (
-        <div className="screen splash">
+        <div className="screen splash" onPointerDown={() => game?.unlockAudio()}>
           {backendBadge}
           <div className="card title-card menu-card">
             <h1 className="logo">
@@ -58,15 +58,23 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
             </h1>
             <div className="eyebrow">AH-64 ATTACK HELICOPTER SIMULATION</div>
             <p className="tagline">One aircraft. One province. Bring the pilots home.</p>
-            <button className="btn primary" onClick={() => game?.start()}>
-              START MISSION <span className="key">Enter</span>
-            </button>
-            <button className="btn" onClick={() => game?.showControls()}>
-              CONTROLS
-            </button>
-            <button className="btn link" onClick={() => game?.showCredits()}>
-              Credits
-            </button>
+            {snap.audioReady ? (
+              <>
+                <button className="btn primary" onClick={() => game?.start()}>
+                  START MISSION <span className="key">Enter</span>
+                </button>
+                <button className="btn" onClick={() => game?.showControls()}>
+                  CONTROLS
+                </button>
+                <button className="btn link" onClick={() => game?.showCredits()}>
+                  Credits
+                </button>
+              </>
+            ) : (
+              <button className="btn primary press-any" onClick={() => game?.unlockAudio()}>
+                PRESS ANY KEY
+              </button>
+            )}
           </div>
         </div>
       );

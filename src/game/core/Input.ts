@@ -75,6 +75,10 @@ export class Input {
     return false;
   }
 
+  anyPressed(): boolean {
+    return this.pressed.size > 0;
+  }
+
   wasPressed(...codes: string[]): boolean {
     for (const c of codes) if (this.pressed.has(c)) return true;
     return false;

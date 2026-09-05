@@ -76,6 +76,7 @@ export interface Snapshot {
   volume: number;
   musicVolume: number;
   muted: boolean;
+  audioReady: boolean;
   fps: number;
 }
 
@@ -110,6 +111,7 @@ export const initialSnapshot: Snapshot = {
   volume: 0.7,
   musicVolume: 0.55,
   muted: false,
+  audioReady: false,
   fps: 0,
 };
 

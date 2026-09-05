@@ -651,3 +651,7 @@ button {
 .keycap.wide {
   min-width: 74px;
 }
+
+.press-any {
+  animation: blink 1.1s steps(2) infinite;
+}

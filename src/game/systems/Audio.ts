@@ -49,6 +49,10 @@ export class Audio {
   private musicVoices: { src: AudioBufferSourceNode; gain: GainNode; endsAt: number; track: string }[] = [];
   private musicNextAt = 0;
 
+  get ready(): boolean {
+    return this.ctx !== null && this.ctx.state === "running";
+  }
+
   /** Must be called from a user gesture. Safe to call repeatedly. */
   ensure(): void {
     if (this.ctx) {

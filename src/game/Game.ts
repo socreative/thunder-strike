@@ -131,7 +131,17 @@ export class Game {
     this.store.set({ screen: s });
   }
 
+  /** First user gesture: unlock audio so the menu music can start. */
+  unlockAudio(): void {
+    this.audio.ensure();
+    if (this.audio.ready && !this.store.get().audioReady) this.store.set({ audioReady: true });
+  }
+
   start(): void {
+    if (!this.store.get().audioReady) {
+      this.unlockAudio();
+      return;
+    }
     this.audio.ensure();
     if (this.screen === "title") this.setScreen("briefing");
     else if (this.screen === "briefing") {
@@ -234,13 +244,18 @@ export class Game {
     const world = this.world;
     const input = this.input;
 
-    // Global keys
-    if (input.interacted) this.audio.ensure();
+    // Global keys. Remember whether audio was already unlocked before this
+    // frame so the unlocking keypress is not also treated as a menu choice.
+    const wasReady = this.store.get().audioReady;
+    if (input.interacted) this.unlockAudio();
     if (input.wasPressed("KeyM")) this.toggleMute();
     this.updateMusic();
     switch (this.screen) {
       case "title":
-        if (input.wasPressed("Enter", "Space")) this.start();
+        if (!wasReady) {
+          // Any key is consumed by the audio unlock so the menu is heard, not skipped.
+          if (input.anyPressed()) this.unlockAudio();
+        } else if (input.wasPressed("Enter", "Space")) this.start();
         break;
       case "briefing":
         if (input.wasPressed("Enter", "Space")) this.start();

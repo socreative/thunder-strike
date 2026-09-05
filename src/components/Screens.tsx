@@ -1,0 +1,209 @@
+"use client";
+
+import type { Snapshot } from "@/src/game/core/Store";
+import type { Game } from "@/src/game/Game";
+import { mission1 } from "@/src/game/data/mission1";
+
+const CONTROLS: [string, string][] = [
+  ["W / Up", "Forward thrust"],
+  ["S / Down", "Brake and reverse"],
+  ["A D / Left Right", "Rotate"],
+  ["Q / E", "Strafe"],
+  ["Space", "Fire selected weapon"],
+  ["1 2 3 / Tab", "Chain gun, Hydra rockets, Hellfire missiles"],
+  ["Hover slowly", "Winch up crates and POWs"],
+  ["Mouse wheel", "Zoom"],
+  ["Esc / P", "Pause"],
+  ["M", "Mute"],
+];
+
+function formatTime(s: number): string {
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+export default function Screens({ snap, game, error }: { snap: Snapshot; game: Game | null; error: string | null }) {
+  const backendBadge = snap.backend && (
+    <div className={`backend ${snap.backend}`}>{snap.backend === "webgpu" ? "WebGPU" : "WebGL 2 fallback: WebGPU is not available in this browser"}</div>
+  );
+
+  if (error) {
+    return (
+      <div className="screen">
+        <div className="card">
+          <h1 className="title">THUNDER STRIKE</h1>
+          <p className="error">The renderer failed to start.</p>
+          <pre className="error-detail">{error}</pre>
+          <p className="muted">Try a current Chrome, Edge or Safari, and make sure hardware acceleration is on.</p>
+        </div>
+      </div>
+    );
+  }
+
+  switch (snap.screen) {
+    case "loading":
+      return (
+        <div className="screen">
+          <div className="card">
+            <h1 className="title">THUNDER STRIKE</h1>
+            <div className="load-track">
+              <div className="load-fill" style={{ width: `${Math.round(snap.loadProgress * 100)}%` }} />
+            </div>
+            <p className="muted">{snap.loadLabel}</p>
+          </div>
+        </div>
+      );
+
+    case "title":
+      return (
+        <div className="screen">
+          {backendBadge}
+          <div className="card title-card">
+            <div className="eyebrow">AH-64 ATTACK HELICOPTER SIMULATION</div>
+            <h1 className="title big">THUNDER STRIKE</h1>
+            <p className="tagline">One aircraft. One province. Bring the pilots home.</p>
+            <button className="btn primary" onClick={() => game?.start()}>
+              START MISSION <span className="key">Enter</span>
+            </button>
+            <table className="controls">
+              <tbody>
+                {CONTROLS.map(([k, v]) => (
+                  <tr key={k}>
+                    <td className="key-cell">{k}</td>
+                    <td>{v}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <button className="btn link" onClick={() => game?.showCredits()}>
+              Credits
+            </button>
+          </div>
+        </div>
+      );
+
+    case "briefing":
+      return (
+        <div className="screen">
+          <div className="card briefing">
+            <div className="eyebrow">MISSION BRIEFING</div>
+            <h2 className="subtitle">{mission1.name}</h2>
+            {mission1.briefing.map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+            <ol className="brief-objectives">
+              {mission1.objectives.map((o) => (
+                <li key={o.id}>{o.text}</li>
+              ))}
+            </ol>
+            <button className="btn primary" onClick={() => game?.start()}>
+              TAKE OFF <span className="key">Enter</span>
+            </button>
+          </div>
+        </div>
+      );
+
+    case "paused":
+      return (
+        <div className="screen dim">
+          <div className="card small">
+            <h2 className="subtitle">PAUSED</h2>
+            <label className="volume">
+              Volume
+              <input type="range" min={0} max={1} step={0.05} value={snap.volume} onChange={(e) => game?.setVolume(parseFloat(e.target.value))} />
+            </label>
+            <button className="btn" onClick={() => game?.toggleMute()}>
+              {snap.muted ? "Unmute" : "Mute"} <span className="key">M</span>
+            </button>
+            <button className="btn primary" onClick={() => game?.togglePause()}>
+              RESUME <span className="key">Esc</span>
+            </button>
+            <button className="btn" onClick={() => game?.restart()}>
+              Restart mission
+            </button>
+            <button className="btn link" onClick={() => game?.backToTitle()}>
+              Abandon to title
+            </button>
+          </div>
+        </div>
+      );
+
+    case "dead":
+      return (
+        <div className="screen transparent">
+          <div className="flash-text">AIRCRAFT LOST</div>
+        </div>
+      );
+
+    case "won":
+    case "lost": {
+      const won = snap.screen === "won";
+      const s = snap.stats;
+      return (
+        <div className="screen dim">
+          <div className="card">
+            <div className="eyebrow">{won ? "MISSION COMPLETE" : "MISSION FAILED"}</div>
+            <h2 className={`subtitle ${won ? "good" : "bad"}`}>{won ? "Welcome home, pilot." : "All airframes lost."}</h2>
+            <table className="stats">
+              <tbody>
+                <tr>
+                  <td>Time</td>
+                  <td>{formatTime(s.elapsed)}</td>
+                </tr>
+                <tr>
+                  <td>Kills</td>
+                  <td>{s.kills}</td>
+                </tr>
+                <tr>
+                  <td>POWs rescued</td>
+                  <td>{s.rescued}</td>
+                </tr>
+                <tr>
+                  <td>Rounds fired</td>
+                  <td>{s.shotsFired}</td>
+                </tr>
+                <tr>
+                  <td>Damage taken</td>
+                  <td>{Math.round(s.damageTaken)}</td>
+                </tr>
+                <tr>
+                  <td>Aircraft lost</td>
+                  <td>{s.livesLost}</td>
+                </tr>
+              </tbody>
+            </table>
+            <button className="btn primary" onClick={() => game?.restart()}>
+              FLY AGAIN <span className="key">Enter</span>
+            </button>
+            <button className="btn link" onClick={() => game?.backToTitle()}>
+              Title screen
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    case "credits":
+      return (
+        <div className="screen">
+          <div className="card">
+            <div className="eyebrow">CREDITS</div>
+            <h2 className="subtitle">Thunder Strike</h2>
+            <p>A tribute to Desert Strike (Electronic Arts, 1992). Built with Three.js on the WebGPU renderer, TSL node materials and Next.js.</p>
+            <p>
+              Vehicle models: &ldquo;Low Poly Military Vehicles&rdquo; by Zsky, licensed CC-BY 4.0 via Poly Pizza. Additional models by Quaternius (CC0). Where a model is missing the game builds a primitive
+              placeholder instead.
+            </p>
+            <p>All sound is synthesised in the browser with the Web Audio API.</p>
+            <button className="btn primary" onClick={() => game?.backToTitle()}>
+              BACK <span className="key">Esc</span>
+            </button>
+          </div>
+        </div>
+      );
+
+    default:
+      return snap.backend === "webgl" ? <div className="backend webgl corner">WebGL 2 fallback</div> : null;
+  }
+}

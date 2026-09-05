@@ -1,0 +1,73 @@
+/** Every gameplay tunable in one place. Units: world metres, seconds. */
+export const balance = {
+  map: {
+    size: 800,
+    seaEdgeX: -270, // land falls into the sea west of this
+    cellSize: 24,
+  },
+  heli: {
+    hoverHeight: 14,
+    thrustAccel: 34,
+    reverseAccel: 16,
+    strafeAccel: 24,
+    maxSpeed: 44,
+    maxReverse: 14,
+    maxStrafe: 22,
+    drag: 1.6,
+    turnRate: 2.3,
+    armorMax: 600,
+    fuelMax: 100,
+    fuelIdleDrain: 100 / 300, // 5 minutes of hovering
+    fuelThrustDrain: 100 / 400, // extra while under thrust
+    passengersMax: 6,
+    lives: 3,
+    radius: 4.5,
+    winchRange: 9,
+    winchMaxSpeed: 6,
+    winchTime: 1.1,
+    unloadTime: 0.6,
+    lzRadius: 14,
+    lzRefuelRate: 25,
+    lzRepairRate: 80,
+  },
+  weapons: {
+    gun: { ammo: 1200, rate: 11, speed: 240, damage: 7, life: 1.1, spread: 0.035, splash: 0 },
+    hydra: { ammo: 38, rate: 3, speed: 130, damage: 70, life: 2.2, spread: 0.02, splash: 7 },
+    hellfire: { ammo: 8, rate: 1, speed: 60, damage: 260, life: 6, spread: 0, splash: 9, turnRate: 2.4, lockRange: 160 },
+  },
+  enemyShots: {
+    shell: { speed: 75, damage: 45, life: 3.5, splash: 4 },
+    aa: { speed: 170, damage: 7, life: 1.4, splash: 0 },
+    rifle: { speed: 120, damage: 3, life: 1.2, splash: 0 },
+    sam: { speed: 40, maxSpeed: 78, accel: 18, damage: 70, life: 7.5, splash: 6, turnRate: 1.25, hp: 10, proximity: 4 },
+  },
+  enemies: {
+    tank: { hp: 150, range: 95, reload: 2.6, speed: 6, turretRate: 1.4, radius: 4 },
+    lightTank: { hp: 90, range: 80, reload: 2.0, speed: 10, turretRate: 2.0, radius: 3.4 },
+    aa: { hp: 70, range: 75, burst: 4, burstGap: 0.09, reload: 1.8, spread: 0.085, radius: 3 },
+    sam: { hp: 110, range: 150, minRange: 25, reload: 8, radius: 4.5 },
+    infantry: { hp: 12, range: 42, reload: 1.4, speed: 4, radius: 1 },
+    radar: { hp: 320, radius: 6 },
+    hq: { hp: 900, radius: 12 },
+    prison: { hp: 380, radius: 9 },
+    building: { hp: 140, radius: 5 },
+    wall: { hp: 60, radius: 3 },
+    tower: { hp: 90, radius: 2.5 },
+    fuelDepot: { hp: 50, radius: 4, blastRadius: 16, blastDamage: 220 },
+  },
+  pickups: {
+    fuel: 60,
+    ammo: { gun: 400, hydra: 12, hellfire: 3 },
+    armor: 200,
+  },
+  camera: {
+    yaw: Math.PI / 4,
+    pitch: 0.92, // radians below horizontal
+    distance: 95,
+    minDistance: 55,
+    maxDistance: 150,
+    followLambda: 4,
+    lead: 0.7,
+  },
+  radarRange: 140,
+};

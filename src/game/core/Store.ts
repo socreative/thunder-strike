@@ -1,0 +1,136 @@
+export type Screen =
+  | "loading"
+  | "title"
+  | "briefing"
+  | "playing"
+  | "paused"
+  | "dead"
+  | "won"
+  | "lost"
+  | "credits";
+
+export type WeaponId = "gun" | "hydra" | "hellfire";
+export type Backend = "webgpu" | "webgl" | null;
+
+export interface ObjectiveState {
+  id: string;
+  text: string;
+  done: boolean;
+  progress?: number;
+  total?: number;
+  locked?: boolean;
+}
+
+export type BlipKind = "enemy" | "sam" | "objective" | "pickup" | "pow" | "lz" | "missile";
+
+export interface Blip {
+  x: number;
+  z: number;
+  kind: BlipKind;
+}
+
+export interface RadioMessage {
+  id: number;
+  text: string;
+  time: number;
+}
+
+export interface MissionStats {
+  kills: number;
+  rescued: number;
+  shotsFired: number;
+  damageTaken: number;
+  livesLost: number;
+  elapsed: number;
+}
+
+export interface Snapshot {
+  screen: Screen;
+  backend: Backend;
+  loadProgress: number;
+  loadLabel: string;
+  armor: number;
+  armorMax: number;
+  fuel: number;
+  fuelMax: number;
+  ammo: Record<WeaponId, number>;
+  ammoMax: Record<WeaponId, number>;
+  weapon: WeaponId;
+  passengers: number;
+  passengersMax: number;
+  rescued: number;
+  lives: number;
+  objectives: ObjectiveState[];
+  messages: RadioMessage[];
+  winchProgress: number;
+  winchLabel: string;
+  incoming: boolean;
+  lowFuel: boolean;
+  lowArmor: boolean;
+  heli: { x: number; z: number; heading: number };
+  blips: Blip[];
+  mapSize: number;
+  radarDown: boolean;
+  stats: MissionStats;
+  volume: number;
+  muted: boolean;
+  fps: number;
+}
+
+export const initialSnapshot: Snapshot = {
+  screen: "loading",
+  backend: null,
+  loadProgress: 0,
+  loadLabel: "initialising renderer",
+  armor: 600,
+  armorMax: 600,
+  fuel: 100,
+  fuelMax: 100,
+  ammo: { gun: 1200, hydra: 38, hellfire: 8 },
+  ammoMax: { gun: 1200, hydra: 38, hellfire: 8 },
+  weapon: "gun",
+  passengers: 0,
+  passengersMax: 6,
+  rescued: 0,
+  lives: 3,
+  objectives: [],
+  messages: [],
+  winchProgress: 0,
+  winchLabel: "",
+  incoming: false,
+  lowFuel: false,
+  lowArmor: false,
+  heli: { x: 0, z: 0, heading: 0 },
+  blips: [],
+  mapSize: 800,
+  radarDown: false,
+  stats: { kills: 0, rescued: 0, shotsFired: 0, damageTaken: 0, livesLost: 0, elapsed: 0 },
+  volume: 0.7,
+  muted: false,
+  fps: 0,
+};
+
+type Listener = () => void;
+
+/**
+ * Minimal external store. The game writes a fresh snapshot a few times per
+ * second; React reads it through useSyncExternalStore in the HUD.
+ */
+export class Store {
+  private snap: Snapshot = initialSnapshot;
+  private listeners = new Set<Listener>();
+
+  get = (): Snapshot => this.snap;
+
+  set(partial: Partial<Snapshot>): void {
+    this.snap = { ...this.snap, ...partial };
+    for (const l of this.listeners) l();
+  }
+
+  subscribe = (listener: Listener): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+}

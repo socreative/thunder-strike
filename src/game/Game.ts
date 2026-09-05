@@ -1,0 +1,351 @@
+import * as THREE from "three/webgpu";
+import { pass } from "three/tsl";
+import { bloom } from "three/addons/tsl/display/BloomNode.js";
+import { Assets } from "./core/Assets";
+import { Input } from "./core/Input";
+import type { Blip, Screen, Store } from "./core/Store";
+import { balance } from "./data/balance";
+import { mission1 } from "./data/mission1";
+import { Audio } from "./systems/Audio";
+import { CameraRig } from "./systems/CameraRig";
+import { World } from "./World";
+
+const STEP = 1 / 60;
+const PUBLISH_HZ = 20;
+
+/** Owns the renderer, the loop and screen flow. Gameplay lives in World. */
+export class Game {
+  private renderer!: THREE.WebGPURenderer;
+  private readonly input = new Input();
+  private readonly audio = new Audio();
+  private readonly assets = new Assets();
+  private world: World | null = null;
+  private rig: CameraRig;
+  private post: THREE.PostProcessing | null = null;
+  private usePost = true;
+  private screen: Screen = "loading";
+  private acc = 0;
+  private last = 0;
+  private publishAcc = 0;
+  private fpsAcc = 0;
+  private fpsFrames = 0;
+  private fps = 0;
+  private overview: ImageData | null = null;
+  private disposed = false;
+  private onResize = () => this.resize();
+
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly store: Store,
+  ) {
+    this.rig = new CameraRig(window.innerWidth / window.innerHeight);
+  }
+
+  async init(): Promise<void> {
+    const params = new URLSearchParams(window.location.search);
+    const forceWebGL = params.get("webgl") === "1";
+    this.usePost = params.get("nopost") !== "1";
+
+    this.renderer = new THREE.WebGPURenderer({ canvas: this.canvas, antialias: true, forceWebGL });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
+    await this.renderer.init();
+    if (this.disposed) return;
+    const backend = (this.renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? "webgpu" : "webgl";
+    this.store.set({ backend, loadLabel: "loading models", loadProgress: 0.1 });
+    console.info(`[thunder-strike] renderer backend: ${backend}`);
+
+    await this.assets.load((done, total, label) => {
+      this.store.set({ loadProgress: 0.1 + 0.6 * (done / total), loadLabel: `loading ${label}` });
+    });
+    if (this.disposed) return;
+
+    this.store.set({ loadLabel: "building the province", loadProgress: 0.75 });
+    // Yield so the label paints before the heavy terrain build.
+    await new Promise((r) => setTimeout(r, 30));
+    this.createWorld();
+    this.input.attach();
+    window.addEventListener("resize", this.onResize);
+    this.setScreen("title");
+    this.store.set({ loadProgress: 1, mapSize: balance.map.size });
+    this.last = performance.now();
+    this.renderer.setAnimationLoop((t) => this.frame(t));
+    if (process.env.NODE_ENV !== "production") {
+      (window as unknown as { __thunder: Game }).__thunder = this;
+    }
+  }
+
+  /** Development helper: move the aircraft somewhere on the map. */
+  debugTeleport(x: number, z: number, heading?: number): void {
+    const world = this.world;
+    if (!world) return;
+    world.heli.pos.set(x, world.terrain.heightAt(x, z) + balance.heli.hoverHeight, z);
+    if (heading !== undefined) world.heli.heading = heading;
+    world.heli.vel.set(0, 0, 0);
+    world.grid.update(world.heli);
+    this.rig.snapTo(world.heli.pos);
+  }
+
+  /** Development helper: current world for inspection. */
+  debugWorld(): World | null {
+    return this.world;
+  }
+
+  private createWorld(): void {
+    if (this.world) {
+      this.world.dispose();
+      this.world = null;
+    }
+    const world = new World(mission1, this.input, this.assets, this.audio);
+    this.world = world;
+    this.audio.setListener(world.heli.pos);
+    this.rig.snapTo(world.heli.pos);
+    this.overview ??= world.terrain.renderOverview(96);
+    this.buildPost(world);
+  }
+
+  private buildPost(world: World): void {
+    this.post = null;
+    if (!this.usePost) return;
+    try {
+      const post = new THREE.PostProcessing(this.renderer);
+      const scenePass = pass(world.scene, this.rig.camera);
+      const color = scenePass.getTextureNode("output");
+      const glow = bloom(color, 0.32, 0.55, 0.9);
+      post.outputNode = color.add(glow);
+      this.post = post;
+    } catch (err) {
+      console.warn("[thunder-strike] post-processing disabled", err);
+      this.post = null;
+    }
+  }
+
+  /* Screen flow */
+
+  private setScreen(s: Screen): void {
+    this.screen = s;
+    this.store.set({ screen: s });
+  }
+
+  start(): void {
+    this.audio.ensure();
+    if (this.screen === "title") this.setScreen("briefing");
+    else if (this.screen === "briefing") {
+      this.setScreen("playing");
+      this.audio.play("select");
+    }
+  }
+
+  togglePause(): void {
+    if (this.screen === "playing") {
+      this.setScreen("paused");
+      this.audio.setRotor(false, 0);
+    } else if (this.screen === "paused") {
+      this.setScreen("playing");
+    }
+  }
+
+  restart(): void {
+    this.audio.ensure();
+    this.createWorld();
+    this.publish(true);
+    this.setScreen("briefing");
+  }
+
+  showCredits(): void {
+    this.setScreen("credits");
+  }
+
+  backToTitle(): void {
+    if (this.world && (this.world.phase !== "playing" || this.screen === "paused")) this.createWorld();
+    this.setScreen("title");
+  }
+
+  setVolume(v: number): void {
+    this.audio.setVolume(v);
+    this.store.set({ volume: v });
+  }
+
+  toggleMute(): void {
+    this.audio.setMuted(!this.audio.muted);
+    this.store.set({ muted: this.audio.muted });
+  }
+
+  /* Loop */
+
+  private frame(now: number): void {
+    if (this.disposed || !this.world) return;
+    let dt = (now - this.last) / 1000;
+    this.last = now;
+    if (dt > 0.1) dt = 0.1;
+    const world = this.world;
+    const input = this.input;
+
+    // Global keys
+    if (input.interacted) this.audio.ensure();
+    if (input.wasPressed("KeyM")) this.toggleMute();
+    switch (this.screen) {
+      case "title":
+        if (input.wasPressed("Enter", "Space")) this.start();
+        break;
+      case "briefing":
+        if (input.wasPressed("Enter", "Space")) this.start();
+        if (input.wasPressed("Escape")) this.setScreen("title");
+        break;
+      case "playing":
+        if (input.wasPressed("Escape", "KeyP")) this.togglePause();
+        break;
+      case "paused":
+        if (input.wasPressed("Escape", "KeyP", "Enter")) this.togglePause();
+        break;
+      case "won":
+      case "lost":
+        if (input.wasPressed("Enter")) this.restart();
+        break;
+      case "credits":
+        if (input.wasPressed("Escape", "Enter")) this.setScreen("title");
+        break;
+    }
+
+    if (this.screen === "playing" || this.screen === "dead") {
+      if (input.wheel !== 0) this.rig.zoom(input.wheel);
+      this.acc += dt;
+      let steps = 0;
+      while (this.acc >= STEP && steps < 5) {
+        world.update(STEP);
+        this.acc -= STEP;
+        steps++;
+        // Edge-triggered keys are consumed by the first simulation step.
+        input.endFrame();
+      }
+      // Mirror world phase onto screens.
+      if (world.phase === "dead" && this.screen !== "dead") this.setScreen("dead");
+      else if (world.phase === "playing" && this.screen === "dead") this.setScreen("playing");
+      else if (world.phase === "won") {
+        this.setScreen("won");
+        this.audio.setRotor(false, 0);
+      } else if (world.phase === "lost") {
+        this.setScreen("lost");
+        this.audio.setRotor(false, 0);
+      }
+      const heli = world.heli;
+      const throttle = heli.speed / balance.heli.maxSpeed;
+      this.audio.setRotor(heli.alive, throttle);
+    } else {
+      // Menus: keep the scene alive but frozen, rotors idle.
+      world.particles.update(dt);
+      this.audio.setRotor(false, 0);
+    }
+    input.endFrame();
+
+    this.rig.update(dt, world.heli.pos, world.heli.vel, world.shakeAmount, world.time);
+
+    // FPS
+    this.fpsAcc += dt;
+    this.fpsFrames++;
+    if (this.fpsAcc >= 0.5) {
+      this.fps = Math.round(this.fpsFrames / this.fpsAcc);
+      this.fpsAcc = 0;
+      this.fpsFrames = 0;
+    }
+
+    this.publishAcc += dt;
+    if (this.publishAcc >= 1 / PUBLISH_HZ) {
+      this.publishAcc = 0;
+      this.publish(false);
+    }
+
+    if (this.post) this.post.render();
+    else this.renderer.render(world.scene, this.rig.camera);
+  }
+
+  private publish(force: boolean): void {
+    const world = this.world;
+    if (!world) return;
+    const heli = world.heli;
+    const mission = world.mission;
+    const blips: Blip[] = [];
+    const radarDown = mission.radarDown;
+    const range2 = balance.radarRange * balance.radarRange;
+    for (const e of world.entities) {
+      if (!e.alive) continue;
+      if (e.kind === "projectile") {
+        if ((e as { projKind?: string }).projKind === "sam") blips.push({ x: e.pos.x, z: e.pos.z, kind: "missile" });
+        continue;
+      }
+      if (e.kind === "pickup") {
+        blips.push({ x: e.pos.x, z: e.pos.z, kind: "pickup" });
+        continue;
+      }
+      if (e.kind === "pow") {
+        blips.push({ x: e.pos.x, z: e.pos.z, kind: "pow" });
+        continue;
+      }
+      if (e.tag) {
+        blips.push({ x: e.pos.x, z: e.pos.z, kind: e.tag === "sam" ? "sam" : "objective" });
+        continue;
+      }
+      if (!e.blip || e.team !== "enemy") continue;
+      const dx = e.pos.x - heli.pos.x;
+      const dz = e.pos.z - heli.pos.z;
+      if (radarDown || dx * dx + dz * dz < range2) blips.push({ x: e.pos.x, z: e.pos.z, kind: "enemy" });
+    }
+    blips.push({ x: world.data.lz.x, z: world.data.lz.z, kind: "lz" });
+
+    const recent = world.messages.filter((m) => world.time - m.time < 7);
+    this.store.set({
+      backend: this.store.get().backend,
+      armor: Math.round(heli.hp),
+      armorMax: heli.maxHp,
+      fuel: heli.fuel,
+      fuelMax: balance.heli.fuelMax,
+      ammo: { ...heli.ammo },
+      weapon: heli.weapon,
+      passengers: heli.passengers,
+      passengersMax: balance.heli.passengersMax,
+      rescued: world.stats.rescued,
+      lives: world.lives,
+      objectives: mission.objectives.map((o) => ({ ...o })),
+      messages: recent.map((m) => ({ ...m })),
+      winchProgress: heli.winchProgress,
+      winchLabel: world.winchLabel,
+      incoming: world.incomingMissile(),
+      lowFuel: heli.fuel < 22,
+      lowArmor: heli.hp < heli.maxHp * 0.25,
+      heli: { x: heli.pos.x, z: heli.pos.z, heading: heli.heading },
+      blips,
+      radarDown,
+      stats: { ...world.stats },
+      fps: this.fps,
+      ...(force ? { screen: this.screen } : {}),
+    });
+  }
+
+  getOverview(): ImageData | null {
+    return this.overview;
+  }
+
+  private resize(): void {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.renderer.setSize(w, h, false);
+    this.rig.resize(w / h);
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    window.removeEventListener("resize", this.onResize);
+    this.input.detach();
+    this.audio.dispose();
+    if (this.renderer) {
+      this.renderer.setAnimationLoop(null);
+      this.renderer.dispose();
+    }
+    this.world?.dispose();
+    this.world = null;
+  }
+}

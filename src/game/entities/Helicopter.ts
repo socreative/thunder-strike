@@ -186,7 +186,7 @@ export class Helicopter extends Entity {
 
     this.heading += turn * H.turnRate * dt;
     this.forward(tmpForward);
-    tmpRight.set(tmpForward.z, 0, -tmpForward.x);
+    tmpRight.set(-tmpForward.z, 0, tmpForward.x); // starboard side when facing along forward
 
     const accel = new THREE.Vector3();
     accel.addScaledVector(tmpForward, thrust * H.thrustAccel - reverse * H.reverseAccel);
@@ -212,8 +212,9 @@ export class Helicopter extends Entity {
     this.pos.y = damp(this.pos.y, targetY, 5, dt);
 
     // Visual attitude
-    const targetPitch = clamp(-fwdSpeed * 0.011 - (thrust - reverse) * 0.06, -0.42, 0.3);
-    const targetBank = clamp(-sideSpeed * 0.02 - turn * 0.16, -0.5, 0.5);
+    // Positive X rotation drops the nose (+Z), positive Z rotation dips the left side.
+    const targetPitch = clamp(fwdSpeed * 0.011 + (thrust - reverse) * 0.06, -0.3, 0.42);
+    const targetBank = clamp(-sideSpeed * 0.02 + turn * 0.16, -0.5, 0.5);
     this.pitch = damp(this.pitch, targetPitch, 4, dt);
     this.bank = damp(this.bank, targetBank, 4, dt);
     this.object.rotation.set(0, this.heading, 0);
@@ -267,7 +268,7 @@ export class Helicopter extends Entity {
     this.cooldown = 1 / spec.rate;
     world.stats.shotsFired++;
     this.forward(tmpForward);
-    tmpRight.set(tmpForward.z, 0, -tmpForward.x);
+    tmpRight.set(-tmpForward.z, 0, tmpForward.x); // starboard side when facing along forward
 
     if (this.weapon === "gun") {
       this.gunSide = -this.gunSide;

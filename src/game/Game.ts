@@ -160,6 +160,21 @@ export class Game {
     this.setScreen("credits");
   }
 
+  private controlsReturn: Screen = "paused";
+
+  /** Controls overlay, reachable from the pause menu and the title screen. */
+  showControls(): void {
+    if (this.screen === "controls") return;
+    this.controlsReturn = this.screen === "playing" ? "paused" : this.screen;
+    this.setScreen("controls");
+    this.audio.setRotor(false, 0);
+  }
+
+  hideControls(): void {
+    if (this.screen !== "controls") return;
+    this.setScreen(this.controlsReturn);
+  }
+
   backToTitle(): void {
     if (this.world && (this.world.phase !== "playing" || this.screen === "paused")) this.createWorld();
     this.setScreen("title");
@@ -208,6 +223,9 @@ export class Game {
         break;
       case "credits":
         if (input.wasPressed("Escape", "Enter")) this.setScreen("title");
+        break;
+      case "controls":
+        if (input.wasPressed("Escape", "Enter")) this.hideControls();
         break;
     }
 

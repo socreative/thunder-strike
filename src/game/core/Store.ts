@@ -7,7 +7,8 @@ export type Screen =
   | "dead"
   | "won"
   | "lost"
-  | "credits";
+  | "credits"
+  | "controls";
 
 export type WeaponId = "gun" | "hydra" | "hellfire";
 export type Backend = "webgpu" | "webgl" | null;

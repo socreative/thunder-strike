@@ -6,7 +6,7 @@ export const balance = {
     cellSize: 24,
   },
   heli: {
-    hoverHeight: 14,
+    hoverHeight: 24,
     thrustAccel: 34,
     reverseAccel: 16,
     strafeAccel: 24,
@@ -62,8 +62,8 @@ export const balance = {
   },
   camera: {
     yaw: Math.PI / 4,
-    pitch: 0.92, // radians below horizontal
-    distance: 95,
+    pitch: 0.78, // radians below horizontal
+    distance: 105,
     minDistance: 55,
     maxDistance: 150,
     followLambda: 4,

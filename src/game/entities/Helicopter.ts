@@ -273,7 +273,7 @@ export class Helicopter extends Entity {
       this.gunSide = -this.gunSide;
       tmpMuzzle.copy(this.pos).addScaledVector(tmpForward, 5.5).add(new THREE.Vector3(0, -1.4, 0));
       tmpDir.copy(tmpForward);
-      tmpDir.y = -0.16; // slight downward so rounds reach the ground
+      tmpDir.y = -0.22; // downward so rounds reach the ground from hover altitude
       tmpDir.x += (Math.random() - 0.5) * spec.spread;
       tmpDir.z += (Math.random() - 0.5) * spec.spread;
       tmpDir.normalize();
@@ -284,7 +284,7 @@ export class Helicopter extends Entity {
       this.hydraSide = -this.hydraSide;
       tmpMuzzle.copy(this.pos).addScaledVector(tmpRight, this.hydraSide * 3).addScaledVector(tmpForward, 2).add(new THREE.Vector3(0, -1, 0));
       tmpDir.copy(tmpForward);
-      tmpDir.y = -0.14;
+      tmpDir.y = -0.2;
       tmpDir.x += (Math.random() - 0.5) * spec.spread;
       tmpDir.z += (Math.random() - 0.5) * spec.spread;
       tmpDir.normalize();

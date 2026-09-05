@@ -366,7 +366,7 @@ export class Particles {
       sizeEnd: 5.5,
       color: 0xe0c48e,
       colorEnd: 0xd5bb88,
-      alpha: 0.28 * strength,
+      alpha: 0.12 * strength,
       drag: 2.2,
     });
   }

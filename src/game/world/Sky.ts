@@ -29,12 +29,12 @@ export function createSun(): { sun: THREE.DirectionalLight; hemi: THREE.Hemisphe
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   const cam = sun.shadow.camera;
-  cam.left = -110;
-  cam.right = 110;
-  cam.top = 110;
-  cam.bottom = -110;
+  cam.left = -140;
+  cam.right = 140;
+  cam.top = 140;
+  cam.bottom = -140;
   cam.near = 20;
-  cam.far = 420;
+  cam.far = 480;
   sun.shadow.bias = -0.0006;
   sun.shadow.normalBias = 0.6;
   const hemi = new THREE.HemisphereLight(0x9fb9d6, 0x8a6b45, 0.7);

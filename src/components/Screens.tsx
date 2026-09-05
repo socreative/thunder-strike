@@ -3,19 +3,7 @@
 import type { Snapshot } from "@/src/game/core/Store";
 import type { Game } from "@/src/game/Game";
 import { mission1 } from "@/src/game/data/mission1";
-
-const CONTROLS: [string, string][] = [
-  ["W / Up", "Forward thrust"],
-  ["S / Down", "Brake and reverse"],
-  ["A D / Left Right", "Rotate"],
-  ["Q / E", "Strafe"],
-  ["Space", "Fire selected weapon"],
-  ["1 2 3 / Tab", "Chain gun, Hydra rockets, Hellfire missiles"],
-  ["Hover slowly", "Winch up crates and POWs"],
-  ["Mouse wheel", "Zoom"],
-  ["Esc / P", "Pause"],
-  ["M", "Mute"],
-];
+import ControlsOverlay from "./ControlsOverlay";
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -66,16 +54,9 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
             <button className="btn primary" onClick={() => game?.start()}>
               START MISSION <span className="key">Enter</span>
             </button>
-            <table className="controls">
-              <tbody>
-                {CONTROLS.map(([k, v]) => (
-                  <tr key={k}>
-                    <td className="key-cell">{k}</td>
-                    <td>{v}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <button className="btn" onClick={() => game?.showControls()}>
+              CONTROLS
+            </button>
             <button className="btn link" onClick={() => game?.showCredits()}>
               Credits
             </button>
@@ -118,6 +99,9 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
             </button>
             <button className="btn primary" onClick={() => game?.togglePause()}>
               RESUME <span className="key">Esc</span>
+            </button>
+            <button className="btn" onClick={() => game?.showControls()}>
+              Controls
             </button>
             <button className="btn" onClick={() => game?.restart()}>
               Restart mission
@@ -183,6 +167,9 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
         </div>
       );
     }
+
+    case "controls":
+      return <ControlsOverlay onClose={() => game?.hideControls()} />;
 
     case "credits":
       return (

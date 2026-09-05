@@ -311,9 +311,10 @@ export class World {
       this.flashLight.intensity = Math.max(0, this.flashLight.intensity - this.flashLight.intensity * this.flashDecay * dt - 20 * dt);
     }
 
-    // Shadow frustum follows the aircraft.
+    // Shadow frustum follows the aircraft. The sun is low and oblique so the
+    // aircraft's shadow falls well away from it and altitude reads clearly.
     const h = this.heli.pos;
-    this.sun.position.set(h.x + 90, h.y + 160, h.z + 60);
+    this.sun.position.set(h.x - 150, 120, h.z + 95);
     this.sun.target.position.set(h.x, 0, h.z);
     this.sun.target.updateMatrixWorld();
 

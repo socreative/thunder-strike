@@ -34,7 +34,7 @@ export default function GameShell() {
   return (
     <div className="game-root">
       <canvas ref={canvasRef} className="game-canvas" />
-      {(snap.screen === "playing" || snap.screen === "paused" || snap.screen === "dead") && <Hud snap={snap} overview={game?.getOverview() ?? null} />}
+      {(snap.screen === "playing" || snap.screen === "paused" || snap.screen === "dead" || snap.screen === "controls") && <Hud snap={snap} overview={game?.getOverview() ?? null} />}
       <Screens snap={snap} game={game} error={error} />
     </div>
   );

@@ -347,6 +347,25 @@ button {
 .screen.dim {
   background: rgba(4, 6, 5, 0.6);
 }
+.screen.splash {
+  background:
+    linear-gradient(90deg, rgba(8, 10, 8, 0.55) 0%, rgba(8, 10, 8, 0.25) 45%, rgba(8, 10, 8, 0.05) 100%),
+    url("/splash.jpg") center / cover no-repeat,
+    var(--bg);
+  justify-items: start;
+  padding-left: 7vw;
+}
+.screen.splash .card {
+  background: rgba(10, 14, 11, 0.82);
+  backdrop-filter: blur(4px);
+}
+@media (max-width: 1100px) {
+  .screen.splash {
+    justify-items: center;
+    padding-left: 0;
+    background-position: 70% center;
+  }
+}
 .screen.transparent {
   background: transparent;
   pointer-events: none;

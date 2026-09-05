@@ -45,7 +45,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
 
     case "title":
       return (
-        <div className="screen">
+        <div className="screen splash">
           {backendBadge}
           <div className="card title-card">
             <div className="eyebrow">AH-64 ATTACK HELICOPTER SIMULATION</div>
@@ -173,7 +173,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
 
     case "credits":
       return (
-        <div className="screen">
+        <div className="screen splash">
           <div className="card">
             <div className="eyebrow">CREDITS</div>
             <h2 className="subtitle">Thunder Strike</h2>
@@ -182,7 +182,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
               Vehicle models: &ldquo;Low Poly Military Vehicles&rdquo; by Zsky, licensed CC-BY 4.0 via Poly Pizza. Additional models by Quaternius (CC0). Where a model is missing the game builds a primitive
               placeholder instead.
             </p>
-            <p>All sound is synthesised in the browser with the Web Audio API.</p>
+            <p>All sound is synthesised in the browser with the Web Audio API. Title artwork generated with Nano Banana Pro.</p>
             <button className="btn primary" onClick={() => game?.backToTitle()}>
               BACK <span className="key">Esc</span>
             </button>

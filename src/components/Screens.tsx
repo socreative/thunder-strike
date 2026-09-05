@@ -3,6 +3,7 @@
 import type { Snapshot } from "@/src/game/core/Store";
 import type { Game } from "@/src/game/Game";
 import { mission1 } from "@/src/game/data/mission1";
+import Image from "next/image";
 import ControlsOverlay from "./ControlsOverlay";
 
 function formatTime(s: number): string {
@@ -47,9 +48,11 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
       return (
         <div className="screen splash">
           {backendBadge}
-          <div className="card title-card">
+          <h1 className="logo">
+            <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
+          </h1>
+          <div className="card title-card menu-card">
             <div className="eyebrow">AH-64 ATTACK HELICOPTER SIMULATION</div>
-            <h1 className="title big">THUNDER STRIKE</h1>
             <p className="tagline">One aircraft. One province. Bring the pilots home.</p>
             <button className="btn primary" onClick={() => game?.start()}>
               START MISSION <span className="key">Enter</span>
@@ -174,15 +177,17 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
     case "credits":
       return (
         <div className="screen splash">
-          <div className="card">
+          <h1 className="logo">
+            <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
+          </h1>
+          <div className="card menu-card">
             <div className="eyebrow">CREDITS</div>
-            <h2 className="subtitle">Thunder Strike</h2>
             <p>A tribute to Desert Strike (Electronic Arts, 1992). Built with Three.js on the WebGPU renderer, TSL node materials and Next.js.</p>
             <p>
               Vehicle models: &ldquo;Low Poly Military Vehicles&rdquo; by Zsky, licensed CC-BY 4.0 via Poly Pizza. Additional models by Quaternius (CC0). Where a model is missing the game builds a primitive
               placeholder instead.
             </p>
-            <p>All sound is synthesised in the browser with the Web Audio API. Title artwork generated with Nano Banana Pro.</p>
+            <p>All sound is synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro.</p>
             <button className="btn primary" onClick={() => game?.backToTitle()}>
               BACK <span className="key">Esc</span>
             </button>

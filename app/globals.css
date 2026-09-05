@@ -349,21 +349,39 @@ button {
 }
 .screen.splash {
   background:
-    linear-gradient(90deg, rgba(8, 10, 8, 0.55) 0%, rgba(8, 10, 8, 0.25) 45%, rgba(8, 10, 8, 0.05) 100%),
+    linear-gradient(180deg, rgba(8, 10, 8, 0.15) 0%, rgba(8, 10, 8, 0.05) 40%, rgba(8, 10, 8, 0.35) 100%),
     url("/splash.jpg") center / cover no-repeat,
     var(--bg);
-  justify-items: start;
-  padding-left: 7vw;
 }
-.screen.splash .card {
-  background: rgba(10, 14, 11, 0.82);
-  backdrop-filter: blur(4px);
+.screen.splash .menu-card {
+  background: rgba(10, 14, 11, 0.62);
+  backdrop-filter: blur(6px);
+  width: min(440px, 92vw);
+  padding: 26px 30px;
 }
-@media (max-width: 1100px) {
+.logo {
+  position: absolute;
+  top: 3vh;
+  left: 3vw;
+  margin: 0;
+  width: min(34vw, 520px);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+.logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 900px) {
+  .logo {
+    position: static;
+    width: min(70vw, 420px);
+    margin-bottom: 10px;
+  }
   .screen.splash {
-    justify-items: center;
-    padding-left: 0;
-    background-position: 70% center;
+    grid-auto-flow: row;
+    align-content: center;
+    background-position: 65% center;
   }
 }
 .screen.transparent {

@@ -136,32 +136,50 @@ export function splitRotorFromModel(asset: THREE.Object3D): RotorSplit | null {
     candidateSet.add(t);
   }
 
-  const rotorKeys = new Set<string>();
-  const inRotor = new Set<Tri>();
-  for (const tri of candidates) {
-    if (!tri.flat) continue;
-    inRotor.add(tri);
-    rotorKeys.add(keyOf(tri.a));
-    rotorKeys.add(keyOf(tri.b));
-    rotorKeys.add(keyOf(tri.c));
-  }
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const tri of candidates) {
-      if (inRotor.has(tri)) continue;
-      const ka = keyOf(tri.a);
-      const kb = keyOf(tri.b);
-      const kc = keyOf(tri.c);
-      if (rotorKeys.has(ka) || rotorKeys.has(kb) || rotorKeys.has(kc)) {
-        inRotor.add(tri);
-        rotorKeys.add(ka);
-        rotorKeys.add(kb);
-        rotorKeys.add(kc);
-        grew = true;
-      }
+  // Group candidates into connected components (shared vertex positions).
+  // Blades and their hub form one big component; a stabiliser or fin top at
+  // the same height forms a small separate one and is dropped.
+  const parent = candidates.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
     }
-  }
+    return i;
+  };
+  const union = (a: number, b: number) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  };
+  const firstByKey = new Map<string, number>();
+  candidates.forEach((tri, i) => {
+    for (const v of [tri.a, tri.b, tri.c]) {
+      const k = keyOf(v);
+      const other = firstByKey.get(k);
+      if (other === undefined) firstByKey.set(k, i);
+      else union(i, other);
+    }
+  });
+  // A blade component runs from near the hub out to the tips. A stabiliser
+  // at the same height is far out only, and a hub cap is near only.
+  let candMaxR = 0;
+  for (const tri of candidates) if (tri.r > candMaxR) candMaxR = tri.r;
+  const compMin = new Map<number, number>();
+  const compMax = new Map<number, number>();
+  const compFlat = new Map<number, boolean>();
+  candidates.forEach((tri, i) => {
+    const r = find(i);
+    compMin.set(r, Math.min(compMin.get(r) ?? Infinity, tri.r));
+    compMax.set(r, Math.max(compMax.get(r) ?? 0, tri.r));
+    if (tri.flat) compFlat.set(r, true);
+  });
+  const inRotor = new Set<Tri>();
+  candidates.forEach((tri, i) => {
+    const r = find(i);
+    const isBlade = compFlat.get(r) && (compMax.get(r) ?? 0) >= candMaxR * 0.5 && (compMin.get(r) ?? Infinity) <= candMaxR * 0.4;
+    if (isBlade) inRotor.add(tri);
+  });
 
   const bodyIdx: number[] = [];
   const rotorIdx: number[] = [];
@@ -182,6 +200,24 @@ export function splitRotorFromModel(asset: THREE.Object3D): RotorSplit | null {
     bodyIdx.push(a, b, c);
   }
   if (rotorIdx.length < 12) return null;
+
+  // Refine the hub: the blade set is symmetric, so its XZ bounding box centre
+  // is the true axis, unlike the tip average which drifts with uneven tips.
+  let bxMin = Infinity;
+  let bxMax = -Infinity;
+  let bzMin = Infinity;
+  let bzMax = -Infinity;
+  for (const i of rotorIdx) {
+    const x = pts[i * 3];
+    const z = pts[i * 3 + 2];
+    if (x < bxMin) bxMin = x;
+    if (x > bxMax) bxMax = x;
+    if (z < bzMin) bzMin = z;
+    if (z > bzMax) bzMax = z;
+  }
+  hx = (bxMin + bxMax) / 2;
+  hz = (bzMin + bzMax) / 2;
+  bladeMaxR = Math.max(bxMax - bxMin, bzMax - bzMin) / 2;
 
   // Body keeps the original attributes with the blade triangles removed.
   const bodyGeo = geo.clone();

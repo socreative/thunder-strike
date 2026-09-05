@@ -48,10 +48,10 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
       return (
         <div className="screen splash">
           {backendBadge}
-          <h1 className="logo">
-            <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
-          </h1>
           <div className="card title-card menu-card">
+            <h1 className="logo">
+              <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
+            </h1>
             <div className="eyebrow">AH-64 ATTACK HELICOPTER SIMULATION</div>
             <p className="tagline">One aircraft. One province. Bring the pilots home.</p>
             <button className="btn primary" onClick={() => game?.start()}>
@@ -177,10 +177,10 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
     case "credits":
       return (
         <div className="screen splash">
-          <h1 className="logo">
-            <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
-          </h1>
           <div className="card menu-card">
+            <h1 className="logo">
+              <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
+            </h1>
             <div className="eyebrow">CREDITS</div>
             <p>A tribute to Desert Strike (Electronic Arts, 1992). Built with Three.js on the WebGPU renderer, TSL node materials and Next.js.</p>
             <p>

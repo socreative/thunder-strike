@@ -354,17 +354,15 @@ button {
     var(--bg);
 }
 .screen.splash .menu-card {
-  background: rgba(10, 14, 11, 0.62);
+  background: rgba(10, 14, 11, 0.66);
   backdrop-filter: blur(6px);
-  width: min(440px, 92vw);
-  padding: 26px 30px;
+  width: min(460px, 92vw);
+  padding: 26px 30px 28px;
 }
 .logo {
-  position: absolute;
-  top: 3vh;
-  left: 3vw;
-  margin: 0;
-  width: min(34vw, 520px);
+  margin: -6px 0 4px;
+  width: 100%;
+  max-width: 360px;
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
 }
 .logo img {
@@ -373,14 +371,7 @@ button {
   height: auto;
 }
 @media (max-width: 900px) {
-  .logo {
-    position: static;
-    width: min(70vw, 420px);
-    margin-bottom: 10px;
-  }
   .screen.splash {
-    grid-auto-flow: row;
-    align-content: center;
     background-position: 65% center;
   }
 }

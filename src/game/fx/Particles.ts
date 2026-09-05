@@ -73,7 +73,7 @@ class Layer {
     const c = instancedBufferAttribute<"vec4">(this.colorAttr, "vec4");
     // Soft round falloff so no texture is needed.
     const d = uv().sub(0.5).length().mul(2);
-    const soft = smoothstep(1.0, 0.25, d);
+    const soft = smoothstep(0.25, 1.0, d).oneMinus();
     mat.colorNode = vec4(c.xyz, c.w.mul(soft));
     mat.opacityNode = float(1);
     mat.transparent = true;

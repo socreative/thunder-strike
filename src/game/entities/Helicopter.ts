@@ -5,6 +5,7 @@ import { clamp, damp } from "../core/MathUtil";
 import type { WeaponId } from "../core/Store";
 import type { Pickup } from "./Pickup";
 import type { Pow } from "./Pow";
+import { createRotorDisc, splitRotorFromModel } from "../fx/Rotor";
 
 const H = balance.heli;
 const W = balance.weapons;
@@ -84,10 +85,16 @@ export class Helicopter extends Entity {
         }
       });
       if (this.rotors.length === 0) {
-        const rotor = this.buildRotor(7.5);
-        rotor.position.y = 1.8;
-        this.body.add(rotor);
-        this.rotors.push(rotor);
+        // Single-mesh model: carve the blades out so they can spin.
+        const split = splitRotorFromModel(asset);
+        if (split) {
+          this.rotors.push(split.pivot);
+        } else {
+          const rotor = this.buildRotor(7.5);
+          rotor.position.y = 1.8;
+          this.body.add(rotor);
+          this.rotors.push(rotor);
+        }
       }
       return;
     }
@@ -135,8 +142,12 @@ export class Helicopter extends Entity {
   private buildRotor(radius: number): THREE.Group {
     const g = new THREE.Group();
     g.add(cylinder(0.5, 0.5, 0.4, 0x222222, 0, 0, 0, 8));
+    const bladeMat = sharedMat(0x1e211e, { roughness: 0.6 }).clone();
+    bladeMat.transparent = true;
+    bladeMat.opacity = 0.7;
+    bladeMat.depthWrite = false;
     for (let i = 0; i < 4; i++) {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.07, radius), sharedMat(0x1e211e, { roughness: 0.6 }));
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.07, radius), bladeMat);
       blade.position.z = radius / 2;
       blade.castShadow = true;
       const pivot = new THREE.Group();
@@ -144,10 +155,8 @@ export class Helicopter extends Entity {
       pivot.add(blade);
       g.add(pivot);
     }
-    // Faint disc that reads as motion blur.
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(radius, 24), new THREE.MeshBasicNodeMaterial({ color: 0x333333, transparent: true, opacity: 0.18, depthWrite: false }));
-    disc.rotation.x = -Math.PI / 2;
-    disc.position.y = 0.05;
+    const disc = createRotorDisc(radius);
+    disc.position.y = -0.1;
     g.add(disc);
     return g;
   }
@@ -222,7 +231,9 @@ export class Helicopter extends Entity {
     this.syncObject();
 
     // Rotors
-    const rotorSpeed = 28 + this.speed * 0.15;
+    // Slow enough that the blades read as turning rather than strobing;
+    // the streaked disc underneath carries the sense of speed.
+    const rotorSpeed = 13 + this.speed * 0.06;
     for (const r of this.rotors) r.rotation.y += rotorSpeed * dt;
     for (const r of this.tailRotors) r.rotation.x += rotorSpeed * 2.4 * dt;
 

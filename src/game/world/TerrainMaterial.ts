@@ -32,9 +32,9 @@ export function createTerrainMaterial(): THREE.MeshStandardNodeMaterial {
 
   // Wet sand near the water line, then a greenish tint just under it.
   const y = positionWorld.y;
-  const wet = smoothstep(3.2, 0.6, y);
+  const wet = smoothstep(0.6, 3.2, y).oneMinus();
   col = mix(col, color(0x8f7d59), wet);
-  const under = smoothstep(0.2, -4, y);
+  const under = smoothstep(-4, 0.2, y).oneMinus();
   col = mix(col, color(0x4e6a5e), under);
 
   mat.colorNode = col;

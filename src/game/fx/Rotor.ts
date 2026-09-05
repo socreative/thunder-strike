@@ -97,26 +97,89 @@ export function splitRotorFromModel(asset: THREE.Object3D): RotorSplit | null {
   hy /= count;
 
   const index = geo.index ? Array.from(geo.index.array) : Array.from({ length: n }, (_, i) => i);
-  const bodyIdx: number[] = [];
-  const rotorIdx: number[] = [];
   const hubExclude = maxR * 0.12;
-  let bladeMaxR = 0;
+  const keyOf = (i: number) => `${pts[i * 3].toFixed(3)},${pts[i * 3 + 1].toFixed(3)},${pts[i * 3 + 2].toFixed(3)}`;
+
+  // Candidates: top-band triangles away from the hub. Seeds are the flat
+  // ones (blade tops and bottoms); the rest join by touching a seed, so blade
+  // side walls come along while an unconnected tail fin top does not.
+  interface Tri {
+    a: number;
+    b: number;
+    c: number;
+    r: number;
+    flat: boolean;
+  }
+  const candidates: Tri[] = [];
+  const candidateSet = new Set<number>();
   for (let t = 0; t < index.length; t += 3) {
     const a = index[t];
     const b = index[t + 1];
     const c = index[t + 2];
     const inBand = pts[a * 3 + 1] >= bandY && pts[b * 3 + 1] >= bandY && pts[c * 3 + 1] >= bandY;
-    let isRotor = false;
-    if (inBand) {
-      const cx = (pts[a * 3] + pts[b * 3] + pts[c * 3]) / 3 - hx;
-      const cz = (pts[a * 3 + 2] + pts[b * 3 + 2] + pts[c * 3 + 2]) / 3 - hz;
-      const r = Math.hypot(cx, cz);
-      if (r > hubExclude) {
-        isRotor = true;
-        if (r > bladeMaxR) bladeMaxR = r;
+    if (!inBand) continue;
+    const cx = (pts[a * 3] + pts[b * 3] + pts[c * 3]) / 3 - hx;
+    const cz = (pts[a * 3 + 2] + pts[b * 3 + 2] + pts[c * 3 + 2]) / 3 - hz;
+    const r = Math.hypot(cx, cz);
+    if (r <= hubExclude) continue;
+    const ux = pts[b * 3] - pts[a * 3];
+    const uy = pts[b * 3 + 1] - pts[a * 3 + 1];
+    const uz = pts[b * 3 + 2] - pts[a * 3 + 2];
+    const vx = pts[c * 3] - pts[a * 3];
+    const vy = pts[c * 3 + 1] - pts[a * 3 + 1];
+    const vz = pts[c * 3 + 2] - pts[a * 3 + 2];
+    const nx = uy * vz - uz * vy;
+    const ny = uz * vx - ux * vz;
+    const nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    candidates.push({ a, b, c, r, flat: Math.abs(ny / len) > 0.6 });
+    candidateSet.add(t);
+  }
+
+  const rotorKeys = new Set<string>();
+  const inRotor = new Set<Tri>();
+  for (const tri of candidates) {
+    if (!tri.flat) continue;
+    inRotor.add(tri);
+    rotorKeys.add(keyOf(tri.a));
+    rotorKeys.add(keyOf(tri.b));
+    rotorKeys.add(keyOf(tri.c));
+  }
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const tri of candidates) {
+      if (inRotor.has(tri)) continue;
+      const ka = keyOf(tri.a);
+      const kb = keyOf(tri.b);
+      const kc = keyOf(tri.c);
+      if (rotorKeys.has(ka) || rotorKeys.has(kb) || rotorKeys.has(kc)) {
+        inRotor.add(tri);
+        rotorKeys.add(ka);
+        rotorKeys.add(kb);
+        rotorKeys.add(kc);
+        grew = true;
       }
     }
-    (isRotor ? rotorIdx : bodyIdx).push(a, b, c);
+  }
+
+  const bodyIdx: number[] = [];
+  const rotorIdx: number[] = [];
+  let bladeMaxR = 0;
+  let ci = 0;
+  for (let t = 0; t < index.length; t += 3) {
+    const a = index[t];
+    const b = index[t + 1];
+    const c = index[t + 2];
+    if (candidateSet.has(t)) {
+      const tri = candidates[ci++];
+      if (inRotor.has(tri)) {
+        rotorIdx.push(a, b, c);
+        if (tri.r > bladeMaxR) bladeMaxR = tri.r;
+        continue;
+      }
+    }
+    bodyIdx.push(a, b, c);
   }
   if (rotorIdx.length < 12) return null;
 
@@ -131,17 +194,19 @@ export function splitRotorFromModel(asset: THREE.Object3D): RotorSplit | null {
   rotorGeo.setIndex(rotorIdx);
   const bladeMat = (mesh.material as THREE.Material).clone();
   bladeMat.transparent = true;
-  bladeMat.opacity = 0.7;
+  bladeMat.opacity = 0.85;
   bladeMat.depthWrite = false;
   const blades = new THREE.Mesh(rotorGeo, bladeMat);
   blades.castShadow = true;
   blades.renderOrder = 6;
   const pivot = new THREE.Group();
   pivot.position.set(hx, hy, hz);
+  // Low-poly models tend to have stubby rotors; widen the sweep so it reads from the air.
+  pivot.scale.set(1.4, 1, 1.4);
   tmpM.makeTranslation(-hx, -hy, -hz).multiply(toAsset);
   tmpM.decompose(blades.position, blades.quaternion, blades.scale);
   pivot.add(blades);
-  const disc = createRotorDisc(bladeMaxR * 0.86);
+  const disc = createRotorDisc(bladeMaxR * 0.95);
   disc.position.y = -0.15;
   pivot.add(disc);
   asset.add(pivot);

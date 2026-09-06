@@ -127,10 +127,18 @@ export abstract class Entity {
   }
 }
 
+export interface MatOpts {
+  roughness?: number;
+  metalness?: number;
+  flat?: boolean;
+  emissive?: number;
+  side?: THREE.Side;
+}
+
 /** Shared materials so hundreds of props do not each compile a shader. */
 const matCache = new Map<string, THREE.MeshStandardNodeMaterial>();
-export function sharedMat(color: number, opts: { roughness?: number; metalness?: number; flat?: boolean; emissive?: number } = {}): THREE.MeshStandardNodeMaterial {
-  const key = `${color}|${opts.roughness ?? 0.8}|${opts.metalness ?? 0.1}|${opts.flat ? 1 : 0}|${opts.emissive ?? 0}`;
+export function sharedMat(color: number, opts: MatOpts = {}): THREE.MeshStandardNodeMaterial {
+  const key = `${color}|${opts.roughness ?? 0.8}|${opts.metalness ?? 0.1}|${opts.flat ? 1 : 0}|${opts.emissive ?? 0}|${opts.side ?? 0}`;
   let m = matCache.get(key);
   if (!m) {
     m = new THREE.MeshStandardNodeMaterial({
@@ -140,6 +148,7 @@ export function sharedMat(color: number, opts: { roughness?: number; metalness?:
       flatShading: opts.flat ?? false,
       emissive: opts.emissive ?? 0x000000,
     });
+    if (opts.side !== undefined) m.side = opts.side;
     matCache.set(key, m);
   }
   return m;

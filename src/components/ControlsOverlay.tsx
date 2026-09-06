@@ -115,7 +115,7 @@ export default function ControlsOverlay({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <button className="btn primary" onClick={onClose}>
-          BACK <span className="key">Esc</span>
+          BACK
         </button>
       </div>
     </div>

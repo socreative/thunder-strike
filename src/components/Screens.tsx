@@ -61,13 +61,13 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
             {snap.audioReady ? (
               <>
                 <button className="btn primary" onClick={() => game?.start()}>
-                  START MISSION <span className="key">Enter</span>
+                  START MISSION
                 </button>
                 <button className="btn" onClick={() => game?.showControls()}>
                   CONTROLS
                 </button>
                 <button className="btn link" onClick={() => game?.showCredits()}>
-                  Credits
+                  CREDITS
                 </button>
               </>
             ) : (
@@ -94,7 +94,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
               ))}
             </ol>
             <button className="btn primary" onClick={() => game?.start()}>
-              TAKE OFF <span className="key">Enter</span>
+              TAKE OFF
             </button>
           </div>
         </div>
@@ -114,19 +114,19 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
               <input type="range" min={0} max={1} step={0.05} value={snap.musicVolume} onChange={(e) => game?.setMusicVolume(parseFloat(e.target.value))} />
             </label>
             <button className="btn" onClick={() => game?.toggleMute()}>
-              {snap.muted ? "Unmute" : "Mute"} <span className="key">M</span>
+              {snap.muted ? "UNMUTE" : "MUTE"}
             </button>
             <button className="btn primary" onClick={() => game?.togglePause()}>
-              RESUME <span className="key">Esc</span>
+              RESUME
             </button>
             <button className="btn" onClick={() => game?.showControls()}>
-              Controls
+              CONTROLS
             </button>
             <button className="btn" onClick={() => game?.restart()}>
-              Restart mission
+              RESTART MISSION
             </button>
             <button className="btn link" onClick={() => game?.backToTitle()}>
-              Abandon to title
+              ABANDON TO TITLE
             </button>
           </div>
         </div>
@@ -177,10 +177,10 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
               </tbody>
             </table>
             <button className="btn primary" onClick={() => game?.restart()}>
-              FLY AGAIN <span className="key">Enter</span>
+              FLY AGAIN
             </button>
             <button className="btn link" onClick={() => game?.backToTitle()}>
-              Title screen
+              TITLE SCREEN
             </button>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
             </p>
             <p>Music: &ldquo;Iron Sector Run&rdquo;, generated with Suno. Sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro.</p>
             <button className="btn primary" onClick={() => game?.backToTitle()}>
-              BACK <span className="key">Esc</span>
+              BACK
             </button>
           </div>
         </div>

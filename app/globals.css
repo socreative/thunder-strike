@@ -438,16 +438,21 @@ button {
   color: var(--muted);
   text-align: center !important;
 }
+/* Every menu button shares one box so the stack reads as a single column. */
 .btn {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  padding: 12px 22px;
+  text-align: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--panel-border);
-  padding: 12px 22px;
   letter-spacing: 0.2em;
   cursor: pointer;
-  min-width: 240px;
   transition:
     background 0.12s,
-    border-color 0.12s;
+    border-color 0.12s,
+    color 0.12s;
 }
 .btn:hover {
   background: rgba(255, 255, 255, 0.1);
@@ -462,38 +467,16 @@ button {
 .btn.primary:hover {
   background: #ffcb6b;
 }
+/* Tertiary actions keep the same box but recede until hovered. */
 .btn.link {
-  border: none;
   background: none;
-  color: var(--muted);
-  min-width: 0;
-  letter-spacing: 0.1em;
-  text-decoration: underline;
-}
-.key {
-  display: inline-block;
-  margin-left: 10px;
-  padding: 1px 6px;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-  font-size: 10px;
-  opacity: 0.75;
-}
-.controls {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 12px;
-}
-.controls td {
-  padding: 4px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  text-align: left;
+  border-color: transparent;
   color: var(--muted);
 }
-.controls .key-cell {
-  color: var(--amber);
-  white-space: nowrap;
-  width: 40%;
+.btn.link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--panel-border);
+  color: var(--ink);
 }
 .brief-objectives {
   text-align: left;

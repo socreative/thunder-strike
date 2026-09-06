@@ -57,7 +57,8 @@ export function findRotorsByShape(asset: THREE.Object3D): FoundRotor[] {
     mesh.geometry.computeBoundingBox();
     const geoBox = mesh.geometry.boundingBox;
     if (!geoBox) continue;
-    const box = geoBox.clone().applyMatrix4(local.multiplyMatrices(toAsset, mesh.matrixWorld));
+    local.multiplyMatrices(toAsset, mesh.matrixWorld);
+    const box = geoBox.clone().applyMatrix4(local);
     box.getSize(size);
     box.getCenter(centre);
     const ext = [size.x, size.y, size.z];
@@ -66,6 +67,19 @@ export function findRotorsByShape(asset: THREE.Object3D): FoundRotor[] {
     // A disc: two comparable long axes and a much shorter third.
     if (mid < wide * 0.6 || thin > wide * 0.35) continue;
     const thinAxis = order[2];
+    // The spin axis is the centre of mass across the disc, not the centre of
+    // the bounding box: one stray blade tip skews a box badly, and the error
+    // is invisible on the long blades but obvious on a small mast radome
+    // riding the same hub.
+    const pos = mesh.geometry.attributes.position;
+    const hub = new THREE.Vector3();
+    const vert = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) hub.add(vert.fromBufferAttribute(pos, i).applyMatrix4(local));
+    hub.divideScalar(Math.max(1, pos.count));
+    // Only the two axes across the disc matter for rotation; keep the box
+    // centre along the axis itself so the pivot sits mid-thickness.
+    hub.setComponent(thinAxis, centre.getComponent(thinAxis));
+    centre.copy(hub);
     const dir = new THREE.Vector3();
     dir.setComponent(thinAxis, 1);
     const pivot = new THREE.Group();

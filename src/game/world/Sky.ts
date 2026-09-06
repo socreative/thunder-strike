@@ -27,14 +27,16 @@ export function createSky(radius: number): THREE.Mesh {
 export function createSun(): { sun: THREE.DirectionalLight; hemi: THREE.HemisphereLight } {
   const sun = new THREE.DirectionalLight(0xfff0d6, 3.0);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  // The volume is resized each frame to the camera's ground footprint, so the
+  // map needs enough resolution for the widest zoom, not just the default one.
+  sun.shadow.mapSize.set(3072, 3072);
   const cam = sun.shadow.camera;
-  cam.left = -140;
-  cam.right = 140;
-  cam.top = 140;
-  cam.bottom = -140;
-  cam.near = 20;
-  cam.far = 480;
+  cam.left = -180;
+  cam.right = 180;
+  cam.top = 180;
+  cam.bottom = -180;
+  cam.near = 10;
+  cam.far = 760;
   sun.shadow.bias = -0.0006;
   sun.shadow.normalBias = 0.6;
   const hemi = new THREE.HemisphereLight(0x9fb9d6, 0x8a6b45, 0.7);

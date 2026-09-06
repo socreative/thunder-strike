@@ -12,6 +12,7 @@ import { World } from "./World";
 
 const STEP = 1 / 60;
 const zeroVel = new THREE.Vector3();
+const shadowCentre = new THREE.Vector3();
 const PUBLISH_HZ = 20;
 
 /** Owns the renderer, the loop and screen flow. Gameplay lives in World. */
@@ -21,7 +22,7 @@ export class Game {
   private readonly audio = new Audio();
   private readonly assets = new Assets();
   private world: World | null = null;
-  private rig: CameraRig;
+  rig: CameraRig;
   private post: THREE.PostProcessing | null = null;
   private usePost = true;
   private screen: Screen = "loading";
@@ -313,6 +314,9 @@ export class Game {
 
     const focus = world.cameraFocus();
     this.rig.update(dt, focus, focus === world.heli.pos ? world.heli.vel : zeroVel, world.shakeAmount, world.time);
+    const groundY = Math.max(world.terrain.heightAt(focus.x, focus.z), 0);
+    const radius = this.rig.groundFootprint(groundY, shadowCentre);
+    world.setShadowVolume(shadowCentre, radius);
 
     // FPS
     this.fpsAcc += dt;

@@ -71,6 +71,7 @@ export class World {
   private hemi: THREE.HemisphereLight;
   private flashDecay = 0;
   private incoming = false;
+  private shadowRadius = 0;
   private alertTimer = 0;
 
   constructor(
@@ -348,12 +349,9 @@ export class World {
       this.flashLight.intensity = Math.max(0, this.flashLight.intensity - this.flashLight.intensity * this.flashDecay * dt - 20 * dt);
     }
 
-    // Shadow frustum follows the aircraft. The sun is low and oblique so the
-    // aircraft's shadow falls well away from it and altitude reads clearly.
-    const h = this.heli.pos;
-    this.sun.position.set(h.x - 150, 120, h.z + 95);
-    this.sun.target.position.set(h.x, 0, h.z);
-    this.sun.target.updateMatrixWorld();
+    // The sun is low and oblique so the aircraft's shadow falls well away from
+    // it and altitude reads clearly. Where the shadow volume sits is decided by
+    // the camera, in setShadowVolume, not here.
 
     // Winch label for the HUD
     if (this.heli.alive) {
@@ -381,6 +379,28 @@ export class World {
           this.events.emit("missionLost", {});
         }
       }
+    }
+  }
+
+  /**
+   * Aim the sun's shadow volume at the ground the camera can see. Centring it
+   * on the aircraft left the top of the screen unshadowed, so objects only
+   * grew shadows once they had scrolled well inside the frame.
+   */
+  setShadowVolume(centre: THREE.Vector3, radius: number): void {
+    this.sun.position.set(centre.x - 150, centre.y + 120, centre.z + 95);
+    this.sun.target.position.copy(centre);
+    this.sun.target.updateMatrixWorld();
+    const cam = this.sun.shadow.camera;
+    // Resizing every frame makes shadows swim, so only when the view changes.
+    if (Math.abs(radius - this.shadowRadius) > 4) {
+      this.shadowRadius = radius;
+      cam.left = -radius;
+      cam.right = radius;
+      cam.top = radius;
+      cam.bottom = -radius;
+      cam.far = radius * 2.6 + 260;
+      cam.updateProjectionMatrix();
     }
   }
 

@@ -26,10 +26,12 @@ const TENT_SPOTS: [number, number, number][] = [
   [-24, -9, -Math.PI / 2],
   [-24, 1, -Math.PI / 2],
   [-24, 11, -Math.PI / 2],
-  // Row beside the flag at (12, 14), doors facing back down the camp street.
-  [2, 23, Math.PI],
-  [12, 23, Math.PI],
-  [22, 23, Math.PI],
+  // Row beside the flag at (12, 14). Turned across the row so the tents stand
+  // shoulder to shoulder rather than end to end, and spaced to their 3.4 m
+  // width rather than their 7.5 m length.
+  [6.5, 23, -Math.PI / 2],
+  [12, 23, -Math.PI / 2],
+  [17.5, 23, -Math.PI / 2],
 ];
 /**
  * Where aircraft sit, in carrier-local metres: lateral, fore-aft, heading. The

@@ -22,6 +22,8 @@ export const MODEL_SPECS: ModelSpec[] = [
   { name: "truck", url: "/models/truck.glb", scale: 1, yaw: 0 },
   { name: "boat", url: "/models/boat.glb", scale: 1, yaw: 0 },
   { name: "carrier", url: "/models/carrier.glb", scale: 1, yaw: 0 },
+  { name: "jet", url: "/models/jet.glb", scale: 1, yaw: 0 },
+  { name: "tent", url: "/models/tent.glb", scale: 1, yaw: 0 },
 ];
 
 /**

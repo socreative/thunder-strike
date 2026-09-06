@@ -7,10 +7,12 @@
  *   - Zsky, "Low Poly Military Vehicles" (CC-BY 4.0) via Poly Pizza
  *   - Quaternius, "Tank" (CC0) via Poly Pizza
  *
- * public/models/carrier.glb is not fetched here: Sketchfab needs a signed-in
- * download. It is "Gerald Ford Aircraft Carrier" by Uxman (CC-BY 4.0), reduced
- * with `npx @gltf-transform/cli optimize <in> public/models/carrier.glb
- * --texture-size 1024 --texture-compress webp --compress false --simplify false`.
+ * carrier.glb, jet.glb and tent.glb are not fetched here: Sketchfab needs a
+ * signed-in download. They are "Gerald Ford Aircraft Carrier" by Uxman,
+ * "F-16 Fighter Jet" by iedalton and "Jungle Tent" by SyntheticMN, all CC-BY
+ * 4.0, each reduced with:
+ *   npx @gltf-transform/cli optimize <in> public/models/<name>.glb \
+ *     --texture-size <1024|512> --texture-compress webp --compress false --simplify false
  *
  * Every model is optional: the game builds primitive placeholders for any
  * file that is missing, so a failed download never blocks development.

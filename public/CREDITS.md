@@ -15,13 +15,15 @@ Models fetched by `scripts/fetch-assets.mjs`. Where a model is missing the game 
 - **Military Boat** by Zsky, CC-BY 4.0, https://poly.pizza/m/wouBxOe3CD
 
 - **Gerald Ford Aircraft Carrier** by Uxman, CC-BY 4.0, https://sketchfab.com/3d-models/gerald-ford-aircraft-carrier-324120997379466caad30917911bcd8b
+- **F-16 Fighter Jet** by iedalton, CC-BY 4.0, https://sketchfab.com/3d-models/f-16-fighter-jet-d84491f443384ee488593cc6f0f0839e
+- **Jungle Tent** by SyntheticMN, CC-BY 4.0, https://sketchfab.com/3d-models/jungle-tent-52332b0f55f24c739215342954e49f54
 
-The carrier is downloaded manually from Sketchfab, then reduced for the web with
-`@gltf-transform/cli optimize --texture-size 1024 --texture-compress webp`,
-which takes it from 8.5 MB to about 320 KB. If it is missing the game builds a
-procedural carrier instead.
+Those three are downloaded manually from Sketchfab, then reduced for the web
+with `@gltf-transform/cli optimize --texture-compress webp` and a texture size
+cap. Together they go from about 27 MB to 730 KB. Where any model is missing the
+game builds a procedural stand-in instead.
 
-Zsky's and Uxman's models are licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
+The models above are licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
 Quaternius models are CC0 (public domain).
 
 ## Music

@@ -70,6 +70,49 @@ export class Structure extends Entity {
     }
     // Each build sets its own silhouette height; float the damage bar above it.
     this.barHeight = this.height + 1.6;
+    this.setFootprint(type, variant, length);
+  }
+
+  /**
+   * Match the hit shape to the model. Half-extents come from the built
+   * geometry, and the radius becomes the circumradius so the broad-phase grid
+   * query never misses a corner.
+   */
+  private setFootprint(type: StructureType, variant: number, length: number): void {
+    let hx: number;
+    let hz: number;
+    switch (type) {
+      case "radar":
+        hx = 5.2;
+        hz = 4.3;
+        break;
+      case "hq":
+        hx = 13;
+        hz = 10;
+        break;
+      case "prison":
+        hx = 6.9;
+        hz = 4.9;
+        break;
+      case "wall":
+        hx = length / 2 + 0.3;
+        hz = 1.0;
+        break;
+      case "tower":
+        hx = 2.2;
+        hz = 2.2;
+        break;
+      case "fuelDepot":
+        hx = 5.5;
+        hz = 4.0;
+        break;
+      default:
+        // Warehouse is broad, barracks is deep, the house is square.
+        hx = variant === 0 ? 6.2 : variant === 1 ? 4.9 : 4.4;
+        hz = variant === 0 ? 4.4 : variant === 1 ? 6.9 : 4.4;
+    }
+    this.footprint = { hx, hz };
+    this.radius = Math.sqrt(hx * hx + hz * hz);
   }
 
   /**

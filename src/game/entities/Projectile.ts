@@ -90,6 +90,7 @@ export class Projectile extends Entity {
   owner: Entity | null = null;
   /** Lured onto a flare: it will burst harmlessly. */
   decoyed = false;
+  private readonly prev = new THREE.Vector3();
   private speed: number;
 
   constructor(kind: ProjectileKind, pos: THREE.Vector3, dir: THREE.Vector3, team: Team, owner: Entity | null, target: Entity | null = null) {
@@ -103,6 +104,7 @@ export class Projectile extends Entity {
     this.life = this.spec.life;
     this.speed = this.spec.speed;
     this.pos.copy(pos);
+    this.prev.copy(pos);
     this.vel.copy(dir).normalize().multiplyScalar(this.speed);
     this.radius = this.spec.radius;
     this.hp = this.maxHp = this.spec.hp ?? 1;
@@ -160,6 +162,7 @@ export class Projectile extends Entity {
     // Enemy ground fire droops toward the ground slowly for a shell-like arc.
     if (this.projKind === "shell") this.vel.y -= 6 * dt;
 
+    this.prev.copy(this.pos);
     this.pos.addScaledVector(this.vel, dt);
     this.orient();
     this.syncObject();
@@ -189,23 +192,42 @@ export class Projectile extends Entity {
       return;
     }
 
-    // Target hits.
+    // Target hits. A gun round covers about four metres per step, so testing
+    // only the end point would let it tunnel straight through a thin wall.
+    // The broad phase spans the whole step, then each candidate is tested at
+    // samples along it against its real footprint.
     const enemyTeam: Team = this.team === "player" ? "enemy" : "player";
-    const reach = this.team === "player" ? this.radius + 1.2 : this.radius + 0.5;
-    world.grid.query(this.pos.x, this.pos.z, reach, hits, (e) => e.team === enemyTeam && e.targetable && e !== this.owner);
-    for (const h of hits) {
-      if (this.team === "player") {
-        // Arcade rule, as in the original: anything under the round's path is hit.
-        // Missiles in the air still need rough height agreement.
-        if (h.kind === "projectile" && Math.abs(h.pos.y - this.pos.y) > 10) continue;
-      } else {
-        // Enemy fire has to actually reach the aircraft's altitude.
-        const top = h.kind === "helicopter" ? h.pos.y + 3 : world.terrain.heightAt(h.pos.x, h.pos.z) + heightOf(h);
-        const bottom = h.kind === "helicopter" ? h.pos.y - 3 : -10;
-        if (this.pos.y > top + this.radius || this.pos.y < bottom) continue;
+    const pad = this.radius + (this.team === "player" ? 1.0 : 0.4);
+    const stepLen = this.prev.distanceTo(this.pos);
+    const midX = (this.prev.x + this.pos.x) / 2;
+    const midZ = (this.prev.z + this.pos.z) / 2;
+    world.grid.query(midX, midZ, pad + stepLen / 2, hits, (e) => e.team === enemyTeam && e.targetable && e !== this.owner);
+    if (hits.length > 0) {
+      const samples = Math.max(1, Math.ceil(stepLen / 1.2));
+      for (let i = 1; i <= samples; i++) {
+        const t = i / samples;
+        const sx = this.prev.x + (this.pos.x - this.prev.x) * t;
+        const sy = this.prev.y + (this.pos.y - this.prev.y) * t;
+        const sz = this.prev.z + (this.pos.z - this.prev.z) * t;
+        for (const h of hits) {
+          if (!h.alive || !h.hitsXZ(sx, sz, pad)) continue;
+          if (this.team === "player") {
+            // Arcade rule, as in the original: anything under the round's path
+            // is hit. Missiles in the air still need rough height agreement.
+            if (h.kind === "projectile" && Math.abs(h.pos.y - sy) > 10) continue;
+          } else {
+            // Enemy fire has to actually reach the aircraft's altitude.
+            const top = h.kind === "helicopter" ? h.pos.y + 3 : world.terrain.heightAt(h.pos.x, h.pos.z) + heightOf(h);
+            const bottom = h.kind === "helicopter" ? h.pos.y - 3 : -10;
+            if (sy > top + this.radius || sy < bottom) continue;
+          }
+          // Detonate where contact happened, not where the step ended.
+          this.pos.set(sx, sy, sz);
+          this.syncObject();
+          this.detonate(h);
+          return;
+        }
       }
-      this.detonate(h);
-      return;
     }
   }
 

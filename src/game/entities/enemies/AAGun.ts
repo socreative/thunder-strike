@@ -24,7 +24,8 @@ export class AAGun extends Entity {
     super();
     this.kind = "aa";
     this.hp = this.maxHp = S.hp;
-    this.radius = S.radius;
+    // The sandbag emplacement reads wider than the gun itself.
+    this.radius = 3.9;
     this.barHeight = 5.4;
 
     // Emplacement: dug-in floor, two courses of sandbags with a rear gap for

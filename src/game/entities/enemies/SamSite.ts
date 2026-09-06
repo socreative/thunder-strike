@@ -21,7 +21,8 @@ export class SamSite extends Entity {
     super();
     this.kind = "sam";
     this.hp = this.maxHp = S.hp;
-    this.radius = S.radius;
+    // Cover the revetment pad, not just the launcher.
+    this.radius = 5.8;
     this.barHeight = 7.5;
 
     // Revetment: graded pad, sandbag horseshoe open to the front, cable ducts

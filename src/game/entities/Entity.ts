@@ -30,6 +30,13 @@ export abstract class Entity {
   barHeight = 5;
   /** World time of the most recent hit, used to fade the bar out. */
   lastHitAt = -999;
+  /**
+   * Local half-extents on X and Z. Long or wide targets are poor circles: a
+   * 12 m warehouse tested as a 5 m circle lets rounds through its flanks, and
+   * a 50 m wall tested as a 25 m circle stops them in open air. When set, this
+   * rectangle is used for hit tests instead.
+   */
+  footprint: { hx: number; hz: number } | null = null;
   private flashTimer = 0;
   private flashMats: THREE.MeshStandardNodeMaterial[] | null = null;
 
@@ -124,6 +131,23 @@ export abstract class Entity {
         if (m.userData.flashClone) m.dispose();
       }
     });
+  }
+
+  /** Does a point lie within this target's footprint, grown by `pad`? */
+  hitsXZ(x: number, z: number, pad = 0): boolean {
+    const dx = x - this.pos.x;
+    const dz = z - this.pos.z;
+    const f = this.footprint;
+    if (!f) {
+      const r = this.radius + pad;
+      return dx * dx + dz * dz <= r * r;
+    }
+    const a = this.object.rotation.y;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const lx = dx * cos - dz * sin;
+    const lz = dx * sin + dz * cos;
+    return Math.abs(lx) <= f.hx + pad && Math.abs(lz) <= f.hz + pad;
   }
 
   distanceXZ(other: { pos: THREE.Vector3 } | THREE.Vector3): number {

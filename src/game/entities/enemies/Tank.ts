@@ -33,6 +33,9 @@ export class Tank extends Entity {
     this.hp = this.maxHp = this.spec.hp;
     this.radius = this.spec.radius;
     this.barHeight = light ? 4.2 : 5.0;
+    // Hulls are roughly twice as long as they are wide.
+    this.footprint = light ? { hx: 2.1, hz: 3.4 } : { hx: 2.7, hz: 4.2 };
+    this.radius = Math.hypot(this.footprint.hx, this.footprint.hz);
     this.heading = heading;
     this.reload = this.spec.reload * Math.random();
     this.object.add(this.hull);

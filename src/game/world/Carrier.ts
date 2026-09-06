@@ -82,32 +82,136 @@ function beamAt(z: number): number {
   return STATIONS[STATIONS.length - 1].ht;
 }
 
-/** A parked jet, roughly delta winged, for scale on the deck. */
-function parkedJet(b: Build, x: number, z: number, ry: number): void {
-  const c = { x, z, ry };
-  b.cyl(0.55, 0.42, 7.2, 0x6f757a, { ...c, y: DECK_Y + 0.95, rx: Math.PI / 2, seg: 8, mat: { metalness: 0.35 } });
-  b.cone(0.55, 1.8, 0x6f757a, { ...c, y: DECK_Y + 0.95, z: z + Math.cos(ry) * 4.2, x: x + Math.sin(ry) * 4.2, rx: Math.PI / 2, seg: 8 });
-  b.box(0.9, 0.5, 1.6, 0x2b3238, { ...c, y: DECK_Y + 1.35, z: z + Math.cos(ry) * 1.6, x: x + Math.sin(ry) * 1.6 });
-  // Delta wings and canted tails
-  for (const s of [-1, 1]) {
-    b.box(4.4, 0.16, 2.6, 0x767c81, { x: x + Math.cos(ry) * s * 2.4, y: DECK_Y + 0.75, z: z - Math.sin(ry) * s * 2.4, ry, mat: { metalness: 0.3 } });
-    b.box(0.14, 1.6, 1.5, 0x767c81, { x: x + Math.cos(ry) * s * 1.1, y: DECK_Y + 1.6, z: z - Math.sin(ry) * s * 1.1 - Math.cos(ry) * 2.6, ry, rz: s * 0.28 });
+/**
+ * Flat plate from a polygon, for wings and tails. Horizontal plates take
+ * [x, z] points and thicken in Y; vertical ones take [chord, height] and
+ * thicken in X, with `lean` canting the top outboard.
+ */
+function plateGeo(pts: [number, number][], thick: number, horizontal: boolean, off: [number, number, number] = [0, 0, 0], lean = 0): THREE.BufferGeometry {
+  const h = thick / 2;
+  const out: number[] = [];
+  const v = (p: [number, number], side: number): number[] => (horizontal ? [p[0], side * h, p[1]] : [side * h + p[1] * lean, p[1], p[0]]);
+  const tri = (a: number[], b2: number[], c: number[]) => out.push(...a, ...b2, ...c);
+  const n = pts.length;
+  for (let i = 1; i < n - 1; i++) {
+    tri(v(pts[0], 1), v(pts[i], 1), v(pts[i + 1], 1));
+    tri(v(pts[0], -1), v(pts[i + 1], -1), v(pts[i], -1));
   }
-  b.box(2.6, 0.14, 1.2, 0x767c81, { ...c, y: DECK_Y + 0.85, z: z - Math.cos(ry) * 3.0, x: x - Math.sin(ry) * 3.0 });
-  // Nose gear and mains
-  for (const [gx, gz] of [
-    [0, 2.4],
-    [1.0, -0.6],
-    [-1.0, -0.6],
-  ] as [number, number][]) {
-    b.cyl(0.22, 0.22, 0.3, 0x1c1f22, {
-      x: x + Math.cos(ry) * gx + Math.sin(ry) * gz,
-      y: DECK_Y + 0.2,
-      z: z - Math.sin(ry) * gx + Math.cos(ry) * gz,
-      rz: Math.PI / 2,
-      seg: 8,
-    });
+  for (let i = 0; i < n; i++) {
+    const a = pts[i];
+    const c = pts[(i + 1) % n];
+    tri(v(a, 1), v(a, -1), v(c, -1));
+    tri(v(a, 1), v(c, -1), v(c, 1));
   }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(new Float32Array((out.length / 3) * 2), 2));
+  geo.translate(off[0], off[1], off[2]);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+const JET = 0x8d9399;
+const JET_DARK = 0x6d747a;
+
+/** A parked strike fighter: swept tapered wings, canted twin fins, nose to +Z. */
+function parkedJet(b: Build, jx: number, jz: number, ry: number): void {
+  const cos = Math.cos(ry);
+  const sin = Math.sin(ry);
+  const mat = { flat: true, metalness: 0.3, roughness: 0.55, side: THREE.DoubleSide };
+  // Local offset to world. "YXZ" turns the part after laying it down, which the
+  // default order does not: it applies the heading first, so a lying cylinder
+  // would ignore it entirely.
+  const at = (lx: number, ly: number, lz: number, extra: Record<string, unknown> = {}) => ({
+    x: jx + lx * cos + lz * sin,
+    y: DECK_Y + ly,
+    z: jz - lx * sin + lz * cos,
+    ry,
+    order: "YXZ" as THREE.EulerOrder,
+    mat,
+    ...extra,
+  });
+  // Plate geometry already carries its offsets, so it only needs the heading.
+  const hull = (y: number) => ({ x: jx, y: DECK_Y + y, z: jz, ry, mat });
+
+  // Fuselage, radome nose, tail cone and canopy.
+  b.cyl(0.46, 0.5, 5.0, JET, at(0, 1.0, -0.4, { rx: Math.PI / 2, seg: 10 }));
+  b.cone(0.46, 1.9, JET, at(0, 1.0, 3.0, { rx: Math.PI / 2, seg: 10 }));
+  b.cyl(0.3, 0.46, 1.1, JET_DARK, at(0, 1.0, -3.15, { rx: Math.PI / 2, seg: 10 }));
+  b.sphere(0.42, 0x243038, at(0, 1.3, 1.3, { seg: 8, s: [0.7, 0.5, 1.5], mat: { roughness: 0.2, metalness: 0.4 } }));
+  for (const sx of [-1, 1]) b.box(0.4, 0.5, 2.1, JET_DARK, at(sx * 0.6, 0.85, 0.4));
+
+  for (const sx of [-1, 1]) {
+    // Swept tapered wing: root chord about three times the tip.
+    b.add(
+      plateGeo(
+        [
+          [sx * 0.5, 0.55],
+          [sx * 2.85, -1.35],
+          [sx * 3.0, -2.05],
+          [sx * 0.5, -2.35],
+        ],
+        0.14,
+        true,
+      ),
+      JET,
+      hull(0.95),
+    );
+    // Leading edge extension blending the wing root into the fuselage.
+    b.add(
+      plateGeo(
+        [
+          [sx * 0.42, 2.0],
+          [sx * 0.78, 0.55],
+          [sx * 0.42, 0.55],
+        ],
+        0.1,
+        true,
+      ),
+      JET,
+      hull(1.06),
+    );
+    // All-moving tailplane.
+    b.add(
+      plateGeo(
+        [
+          [sx * 0.45, -2.65],
+          [sx * 1.55, -3.1],
+          [sx * 1.55, -3.55],
+          [sx * 0.45, -3.5],
+        ],
+        0.11,
+        true,
+      ),
+      JET,
+      hull(0.95),
+    );
+    // Canted twin fin; the lean is baked into the geometry to keep it clear of
+    // the heading rotation.
+    b.add(
+      plateGeo(
+        [
+          [-1.85, 0],
+          [-2.3, 1.5],
+          [-2.8, 1.5],
+          [-3.1, 0],
+        ],
+        0.1,
+        false,
+        [sx * 0.5, 0, 0],
+        sx * 0.32,
+      ),
+      JET,
+      hull(1.2),
+    );
+    // Exhaust nozzle and main gear.
+    b.cyl(0.26, 0.3, 0.5, 0x3a3f44, at(sx * 0.28, 1.0, -3.7, { rx: Math.PI / 2, seg: 8 }));
+    b.cyl(0.05, 0.05, 0.7, JET_DARK, at(sx * 0.85, 0.62, -0.5));
+    b.cyl(0.2, 0.2, 0.16, 0x1c1f22, at(sx * 0.85, 0.2, -0.5, { rz: Math.PI / 2, seg: 8 }));
+  }
+  // Nose gear.
+  b.cyl(0.05, 0.05, 0.7, JET_DARK, at(0, 0.62, 2.3));
+  b.cyl(0.18, 0.18, 0.14, 0x1c1f22, at(0, 0.2, 2.3, { rz: Math.PI / 2, seg: 8 }));
 }
 
 /**

@@ -3,12 +3,17 @@ import { box, cylinder, sharedMat } from "../entities/Entity";
 import type { MissionData } from "../data/mission1";
 import type { Terrain } from "./Terrain";
 import { createCarrier } from "./Carrier";
+import type { Assets } from "../core/Assets";
+
+/** Length overall in world metres, and how far of its height sits below water. */
+const CARRIER_LENGTH = 125;
+const CARRIER_DRAFT = 0.18;
 
 /**
  * Non-interactive set dressing: the landing zone and the carrier offshore.
  * Objects pushed into `spinners` are rotated slowly by the world each frame.
  */
-export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE.Object3D[]): THREE.Group {
+export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE.Object3D[], assets: Assets): THREE.Group {
   const g = new THREE.Group();
   g.name = "decor";
 
@@ -58,14 +63,38 @@ export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE
   }
   g.add(lz);
 
-  // Carrier offshore
+  // Carrier offshore: the real model when it loaded, else a procedural stand-in.
   const carrierDef = data.spawns.find((s) => s.type === "carrier");
   if (carrierDef) {
-    const { group, spinner } = createCarrier();
-    group.position.set(carrierDef.x, 0, carrierDef.z);
-    group.rotation.y = carrierDef.heading ?? 0;
-    g.add(group);
-    spinners.push(spinner);
+    const model = assets.get("carrier");
+    const size = assets.size("carrier");
+    if (model && size) {
+      // Scale to a length that reads against the 18 m helicopter, then sink the
+      // hull so the waterline sits where it should rather than on the surface.
+      const long = Math.max(size.x, size.z);
+      model.scale.multiplyScalar(CARRIER_LENGTH / long);
+      if (size.x > size.z) model.rotation.y += Math.PI / 2;
+      model.position.y = -size.y * (CARRIER_LENGTH / long) * CARRIER_DRAFT;
+      model.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) {
+          m.castShadow = true;
+          m.receiveShadow = true;
+        }
+      });
+      const holder = new THREE.Group();
+      holder.add(model);
+      holder.position.set(carrierDef.x, 0, carrierDef.z);
+      holder.rotation.y = carrierDef.heading ?? 0;
+      holder.name = "carrier";
+      g.add(holder);
+    } else {
+      const { group, spinner } = createCarrier();
+      group.position.set(carrierDef.x, 0, carrierDef.z);
+      group.rotation.y = carrierDef.heading ?? 0;
+      g.add(group);
+      spinners.push(spinner);
+    }
   }
 
   return g;

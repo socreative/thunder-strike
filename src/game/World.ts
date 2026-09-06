@@ -102,7 +102,7 @@ export class World {
 
     this.props = new Props(this.terrain, data.flats, data.seed);
     this.scene.add(this.props.group);
-    this.decor = createDecor(data, this.terrain, this.decorSpinners);
+    this.decor = createDecor(data, this.terrain, this.decorSpinners, assets);
     this.scene.add(this.decor);
 
     this.particles = new Particles();

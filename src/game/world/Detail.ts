@@ -11,6 +11,11 @@ export interface Place {
   rz?: number;
   /** Uniform or per-axis scale applied before placement. */
   s?: number | [number, number, number];
+  /**
+   * Euler order. The default XYZ applies `ry` before `rx`, so a part laid down
+   * with `rx` ignores its heading; use "YXZ" to turn it after laying it down.
+   */
+  order?: THREE.EulerOrder;
   seg?: number;
   mat?: MatOpts;
 }
@@ -44,7 +49,7 @@ export class Build {
     }
     const s = p.s ?? 1;
     tmpPos.set(p.x ?? 0, p.y ?? 0, p.z ?? 0);
-    tmpEuler.set(p.rx ?? 0, p.ry ?? 0, p.rz ?? 0);
+    tmpEuler.set(p.rx ?? 0, p.ry ?? 0, p.rz ?? 0, p.order ?? "XYZ");
     tmpQuat.setFromEuler(tmpEuler);
     if (typeof s === "number") tmpScale.set(s, s, s);
     else tmpScale.set(s[0], s[1], s[2]);

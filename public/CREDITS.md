@@ -14,13 +14,14 @@ Models fetched by `scripts/fetch-assets.mjs`. Where a model is missing the game 
 - **Light Tank** by Zsky, CC-BY 4.0, https://poly.pizza/m/S1jUTRmAjD
 - **Military Boat** by Zsky, CC-BY 4.0, https://poly.pizza/m/wouBxOe3CD
 
+- **AH-64 Apache** by Thomas Koenders, CC-BY 4.0, https://sketchfab.com/3d-models/ah-64-apache-715f96dc3e484a4da943302142abe5d2
 - **Gerald Ford Aircraft Carrier** by Uxman, CC-BY 4.0, https://sketchfab.com/3d-models/gerald-ford-aircraft-carrier-324120997379466caad30917911bcd8b
 - **F-16 Fighter Jet** by iedalton, CC-BY 4.0, https://sketchfab.com/3d-models/f-16-fighter-jet-d84491f443384ee488593cc6f0f0839e
 - **Jungle Tent** by SyntheticMN, CC-BY 4.0, https://sketchfab.com/3d-models/jungle-tent-52332b0f55f24c739215342954e49f54
 
-Those three are downloaded manually from Sketchfab, then reduced for the web
+Those four are downloaded manually from Sketchfab, then reduced for the web
 with `@gltf-transform/cli optimize --texture-compress webp` and a texture size
-cap. Together they go from about 27 MB to 730 KB. Where any model is missing the
+cap. Together they go from about 70 MB to 2.6 MB. Where any model is missing the
 game builds a procedural stand-in instead.
 
 The models above are licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).

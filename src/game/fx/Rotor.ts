@@ -26,6 +26,68 @@ export function createRotorDisc(radius: number): THREE.Mesh {
   return disc;
 }
 
+/** A rotor found in a model, plus the pivot that spins it about its own axis. */
+export interface FoundRotor {
+  pivot: THREE.Object3D;
+  tail: boolean;
+}
+
+/**
+ * Find rotor meshes by shape rather than name. Exported models often carry no
+ * useful node names at all, and a rotor is unmistakable geometrically: a thin
+ * disc, far wider across than it is thick. Each one is wrapped in a pivot at
+ * its own centre, aligned so spinning it is always a rotation about the
+ * pivot's Y axis.
+ */
+export function findRotorsByShape(asset: THREE.Object3D): FoundRotor[] {
+  asset.updateMatrixWorld(true);
+  const meshes: THREE.Mesh[] = [];
+  asset.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh && m.geometry?.attributes.position) meshes.push(m);
+  });
+  // Work in the asset's own frame: the pivot is parented to the asset, so a
+  // world-space centre would be wrong by whatever scale the asset carries.
+  const toAsset = new THREE.Matrix4().copy(asset.matrixWorld).invert();
+  const local = new THREE.Matrix4();
+  const found: FoundRotor[] = [];
+  const size = new THREE.Vector3();
+  const centre = new THREE.Vector3();
+  for (const mesh of meshes) {
+    mesh.geometry.computeBoundingBox();
+    const geoBox = mesh.geometry.boundingBox;
+    if (!geoBox) continue;
+    const box = geoBox.clone().applyMatrix4(local.multiplyMatrices(toAsset, mesh.matrixWorld));
+    box.getSize(size);
+    box.getCenter(centre);
+    const ext = [size.x, size.y, size.z];
+    const order = [0, 1, 2].sort((a, b) => ext[b] - ext[a]);
+    const [wide, mid, thin] = order.map((i) => ext[i]);
+    // A disc: two comparable long axes and a much shorter third.
+    if (mid < wide * 0.6 || thin > wide * 0.35) continue;
+    const thinAxis = order[2];
+    const dir = new THREE.Vector3();
+    dir.setComponent(thinAxis, 1);
+    const pivot = new THREE.Group();
+    pivot.name = thinAxis === 1 ? "rotor-main" : "rotor-tail";
+    pivot.position.copy(centre);
+    pivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    asset.add(pivot);
+    // attach keeps the mesh exactly where it was while reparenting it.
+    pivot.attach(mesh);
+    const tail = thinAxis !== 1;
+    if (!tail) {
+      // Blur disc under the main rotor, in the asset's own units so it scales
+      // with the model.
+      const disc = createRotorDisc((wide / 2) * 0.96);
+      disc.position.y = -thin * 0.6;
+      pivot.add(disc);
+    }
+    found.push({ pivot, tail });
+  }
+  return found;
+}
+
 export interface RotorSplit {
   /** Pivot at the hub; rotate its Y to spin the blades. */
   pivot: THREE.Group;

@@ -5,7 +5,7 @@ import { clamp, damp } from "../core/MathUtil";
 import type { WeaponId } from "../core/Store";
 import type { Pickup } from "./Pickup";
 import type { Pow } from "./Pow";
-import { createRotorDisc, splitRotorFromModel } from "../fx/Rotor";
+import { createRotorDisc, findRotorsByShape, splitRotorFromModel } from "../fx/Rotor";
 import { Flare } from "./Flare";
 
 const H = balance.heli;
@@ -34,8 +34,7 @@ export class Helicopter extends Entity {
   private pitch = 0;
   private bob = 0;
   private washTimer = 0;
-  private rotors: THREE.Object3D[] = [];
-  private tailRotors: THREE.Object3D[] = [];
+  private spinners: { obj: THREE.Object3D; axis: "x" | "y"; mul: number }[] = [];
   private body = new THREE.Group();
   private gunSide = 1;
 
@@ -79,25 +78,31 @@ export class Helicopter extends Entity {
       asset.scale.multiplyScalar(s);
       // Long axis should be Z: rotate if the model is longer in X.
       if (size.x > size.z) asset.rotation.y += Math.PI / 2;
-      asset.position.y = -2.2;
+      // Assets rest models on y = 0; drop it so the origin sits at the fuselage
+      // rather than the skids, whatever the model's proportions.
+      asset.position.y = -size.y * s * 0.42;
       this.body.add(asset);
+      // Named parts first, then shape, then carving a single-mesh model apart.
       asset.traverse((o) => {
         const n = o.name.toLowerCase();
         if (n.includes("rotor") || n.includes("blade") || n.includes("prop")) {
-          if (n.includes("tail")) this.tailRotors.push(o);
-          else this.rotors.push(o);
+          this.spinners.push({ obj: o, axis: n.includes("tail") ? "x" : "y", mul: n.includes("tail") ? 2.4 : 1 });
         }
       });
-      if (this.rotors.length === 0) {
-        // Single-mesh model: carve the blades out so they can spin.
+      if (this.spinners.length === 0) {
+        for (const r of findRotorsByShape(asset)) {
+          this.spinners.push({ obj: r.pivot, axis: "y", mul: r.tail ? 2.4 : 1 });
+        }
+      }
+      if (this.spinners.length === 0) {
         const split = splitRotorFromModel(asset);
         if (split) {
-          this.rotors.push(split.pivot);
+          this.spinners.push({ obj: split.pivot, axis: "y", mul: 1 });
         } else {
           const rotor = this.buildRotor(7.5);
           rotor.position.y = 1.8;
           this.body.add(rotor);
-          this.rotors.push(rotor);
+          this.spinners.push({ obj: rotor, axis: "y", mul: 1 });
         }
       }
       return;
@@ -131,7 +136,7 @@ export class Helicopter extends Entity {
     const rotor = this.buildRotor(7.6);
     rotor.position.set(0, 2.3, 0.2);
     b.add(rotor);
-    this.rotors.push(rotor);
+    this.spinners.push({ obj: rotor, axis: "y", mul: 1 });
     const tail = new THREE.Group();
     tail.position.set(0.55, 1.4, -9.3);
     for (let i = 0; i < 2; i++) {
@@ -140,7 +145,7 @@ export class Helicopter extends Entity {
       tail.add(blade);
     }
     b.add(tail);
-    this.tailRotors.push(tail);
+    this.spinners.push({ obj: tail, axis: "x", mul: 2.4 });
   }
 
   private buildRotor(radius: number): THREE.Group {
@@ -239,8 +244,7 @@ export class Helicopter extends Entity {
     // Slow enough that the blades read as turning rather than strobing;
     // the streaked disc underneath carries the sense of speed.
     const rotorSpeed = 13 + this.speed * 0.06;
-    for (const r of this.rotors) r.rotation.y += rotorSpeed * dt;
-    for (const r of this.tailRotors) r.rotation.x += rotorSpeed * 2.4 * dt;
+    for (const s of this.spinners) s.obj.rotation[s.axis] += rotorSpeed * s.mul * dt;
 
     // Fuel
     this.fuel -= (H.fuelIdleDrain + (thrust || reverse ? H.fuelThrustDrain : 0)) * dt;

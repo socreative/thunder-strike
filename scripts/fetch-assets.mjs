@@ -7,12 +7,15 @@
  *   - Zsky, "Low Poly Military Vehicles" (CC-BY 4.0) via Poly Pizza
  *   - Quaternius, "Tank" (CC0) via Poly Pizza
  *
- * carrier.glb, jet.glb and tent.glb are not fetched here: Sketchfab needs a
- * signed-in download. They are "Gerald Ford Aircraft Carrier" by Uxman,
- * "F-16 Fighter Jet" by iedalton and "Jungle Tent" by SyntheticMN, all CC-BY
- * 4.0, each reduced with:
+ * helicopter.glb, carrier.glb, jet.glb and tent.glb are not fetched here:
+ * Sketchfab needs a signed-in download. They are "AH-64 Apache" by Thomas
+ * Koenders, "Gerald Ford Aircraft Carrier" by Uxman, "F-16 Fighter Jet" by
+ * iedalton and "Jungle Tent" by SyntheticMN, all CC-BY 4.0, each reduced with:
  *   npx @gltf-transform/cli optimize <in> public/models/<name>.glb \
- *     --texture-size <1024|512> --texture-compress webp --compress false --simplify false
+ *     --texture-size <1024|512> --texture-compress webp --compress false \\
+ *     --simplify false --join false
+ * Keep --join false: merging meshes that share a material fuses the rotors
+ * into the fuselage, and the game finds them by shape.
  *
  * Every model is optional: the game builds primitive placeholders for any
  * file that is missing, so a failed download never blocks development.
@@ -29,7 +32,8 @@ const OUT = path.resolve("public/models");
 
 // Poly Pizza model ids -> the file name the game expects.
 const POLY_MODELS = [
-  { id: "hG2Qr0A3zR", file: "helicopter.glb", title: "Helicopter", author: "Zsky", license: "CC-BY 4.0" },
+  // The player's aircraft now comes from Sketchfab; Zsky's helicopter is unused.
+  { id: "hG2Qr0A3zR", file: null, title: null, author: "Zsky", license: "CC-BY 4.0" },
   { id: "jWS1CLA0RO", file: "tank.glb", title: "Tank", author: "Quaternius", license: "CC0" },
   { id: "4JxDoxLnRd", file: null, title: null, author: "Zsky", license: "CC-BY 4.0" },
   { id: "7GG1xDtc8l", file: null, title: null, author: "Zsky", license: "CC-BY 4.0" },
@@ -43,7 +47,6 @@ const POLY_MODELS = [
 
 // Zsky bundle titles -> game file names (resolved from the page title).
 const TITLE_TO_FILE = {
-  Helicopter: "helicopter.glb",
   Tank: "zsky-tank.glb",
   "Light Tank": "light-tank.glb",
   Jeep: "jeep.glb",

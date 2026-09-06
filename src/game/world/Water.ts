@@ -1,5 +1,5 @@
 import * as THREE from "three/webgpu";
-import { color, float, mix, mx_noise_float, positionWorld, smoothstep, time, vec3 } from "three/tsl";
+import { color, float, mix, mx_noise_float, positionWorld, smoothstep, time, vec2 } from "three/tsl";
 
 /** Flat animated sea plane at y = 0 covering the whole map. */
 export function createWater(size: number): THREE.Mesh {
@@ -8,11 +8,14 @@ export function createWater(size: number): THREE.Mesh {
 
   const mat = new THREE.MeshStandardNodeMaterial();
   const xz = positionWorld.xz;
-  const t = time.mul(0.25);
-  const n1 = mx_noise_float(vec3(xz.mul(0.045), t)).mul(0.5).add(0.5);
-  const n2 = mx_noise_float(vec3(xz.mul(0.18).add(50), t.mul(1.7))).mul(0.5).add(0.5);
-  const deep = color(0x145066);
-  const shallow = color(0x2b8fa3);
+  // Two octaves of 2D noise with drifting coordinates. Feeding time in as a
+  // third dimension reads the same but costs 3D perlin per pixel, and the sea
+  // covers most of the screen whenever the coast is in view.
+  const t = time.mul(0.9);
+  const n1 = mx_noise_float(xz.mul(0.045).add(vec2(t.mul(0.5), t.mul(0.3)))).mul(0.5).add(0.5);
+  const n2 = mx_noise_float(xz.mul(0.18).add(50).add(vec2(t.mul(-0.9), t.mul(0.6)))).mul(0.5).add(0.5);
+  const deep = color(0x134a5f);
+  const shallow = color(0x28869a);
   const foam = color(0xcfe6ea);
   let col = mix(deep, shallow, n1);
   // Foam streaks where the second octave peaks.
@@ -21,8 +24,8 @@ export function createWater(size: number): THREE.Mesh {
   mat.colorNode = col;
   mat.roughnessNode = float(0.25);
   mat.metalnessNode = float(0.05);
-  mat.opacityNode = float(0.92);
-  mat.transparent = true;
+  // Opaque: at 0.92 the seabed was barely visible anyway, and blending a plane
+  // this large forced every pixel through the transparent pass.
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.y = 0;

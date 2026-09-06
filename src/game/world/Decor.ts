@@ -2,9 +2,13 @@ import * as THREE from "three/webgpu";
 import { box, cylinder, sharedMat } from "../entities/Entity";
 import type { MissionData } from "../data/mission1";
 import type { Terrain } from "./Terrain";
+import { createCarrier } from "./Carrier";
 
-/** Non-interactive set dressing: the landing zone and the carrier offshore. */
-export function createDecor(data: MissionData, terrain: Terrain): THREE.Group {
+/**
+ * Non-interactive set dressing: the landing zone and the carrier offshore.
+ * Objects pushed into `spinners` are rotated slowly by the world each frame.
+ */
+export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE.Object3D[]): THREE.Group {
   const g = new THREE.Group();
   g.name = "decor";
 
@@ -57,37 +61,11 @@ export function createDecor(data: MissionData, terrain: Terrain): THREE.Group {
   // Carrier offshore
   const carrierDef = data.spawns.find((s) => s.type === "carrier");
   if (carrierDef) {
-    const c = new THREE.Group();
-    c.position.set(carrierDef.x, 0, carrierDef.z);
-    c.rotation.y = carrierDef.heading ?? 0;
-    const hullMat = sharedMat(0x5b6068, { roughness: 0.7, metalness: 0.3 });
-    const hull = new THREE.Mesh(new THREE.BoxGeometry(22, 7, 95), hullMat);
-    hull.position.y = 2.5;
-    hull.castShadow = true;
-    hull.receiveShadow = true;
-    c.add(hull);
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(30, 0.8, 100), sharedMat(0x3e4147, { roughness: 1 }));
-    deck.position.y = 6.4;
-    deck.receiveShadow = true;
-    c.add(deck);
-    const island = new THREE.Mesh(new THREE.BoxGeometry(6, 9, 16), hullMat);
-    island.position.set(10, 11, -8);
-    island.castShadow = true;
-    c.add(island);
-    c.add(cylinder(0.3, 0.4, 10, 0x8a8f96, 10, 20, -10, 6));
-    c.add(box(1, 3, 6, 0x8a8f96, 10, 16.5, -12));
-    // deck markings
-    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1, 90), new THREE.MeshBasicNodeMaterial({ color: 0xf0e8c8 }));
-    stripe.rotation.x = -Math.PI / 2;
-    stripe.position.set(-4, 6.85, 0);
-    c.add(stripe);
-    for (let i = 0; i < 8; i++) {
-      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 6), new THREE.MeshBasicNodeMaterial({ color: 0xf0e8c8 }));
-      dash.rotation.x = -Math.PI / 2;
-      dash.position.set(4, 6.85, -42 + i * 12);
-      c.add(dash);
-    }
-    g.add(c);
+    const { group, spinner } = createCarrier();
+    group.position.set(carrierDef.x, 0, carrierDef.z);
+    group.rotation.y = carrierDef.heading ?? 0;
+    g.add(group);
+    spinners.push(spinner);
   }
 
   return g;

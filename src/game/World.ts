@@ -70,6 +70,7 @@ export class World {
   private water: THREE.Mesh;
   private sky: THREE.Mesh;
   private decor: THREE.Group;
+  private decorSpinners: THREE.Object3D[] = [];
   private hemi: THREE.HemisphereLight;
   private flashDecay = 0;
   private incoming = false;
@@ -101,7 +102,7 @@ export class World {
 
     this.props = new Props(this.terrain, data.flats, data.seed);
     this.scene.add(this.props.group);
-    this.decor = createDecor(data, this.terrain);
+    this.decor = createDecor(data, this.terrain, this.decorSpinners);
     this.scene.add(this.decor);
 
     this.particles = new Particles();
@@ -346,6 +347,7 @@ export class World {
       this.alertTimer = 0;
     }
 
+    for (const s of this.decorSpinners) s.rotation.y += 0.55 * dt;
     this.particles.update(dt);
     this.healthBars.update(this.entities, this.time);
     this.shakeAmount = Math.max(0, this.shakeAmount - dt * 4);

@@ -27,7 +27,14 @@ export class SamSite extends Entity {
     this.object.add(cylinder(5.2, 5.5, 0.9, sand, 0, 0.45, 0, 14));
     // Launcher: a truck-like base with four tubes.
     this.object.add(box(3.2, 1.2, 5.2, steel, 0, 1.5, 0));
-    for (const sx of [-1.4, 1.4]) for (const sz of [-1.6, 1.6]) this.object.add(cylinder(0.6, 0.6, 0.8, 0x1c1f1a, sx, 0.9, sz, 10)).rotation.z = Math.PI / 2;
+    // Object3D.add returns the parent, so build the wheel, lay it on its axle, then add it.
+    for (const sx of [-1.4, 1.4]) {
+      for (const sz of [-1.6, 1.6]) {
+        const wheel = cylinder(0.6, 0.6, 0.8, 0x1c1f1a, sx, 0.9, sz, 10);
+        wheel.rotation.z = Math.PI / 2;
+        this.object.add(wheel);
+      }
+    }
     this.launcher.position.set(0, 2.4, -0.5);
     const rack = box(2.6, 0.5, 1.4, steel, 0, 0, 0);
     this.launcher.add(rack);

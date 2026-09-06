@@ -21,7 +21,8 @@ export type Sfx =
   | "crash"
   | "victory"
   | "select"
-  | "flare";
+  | "flare"
+  | "missileAlert";
 
 /**
  * Fully synthesised sound: no audio files. Distant enemy sounds are attenuated
@@ -158,7 +159,7 @@ export class Audio {
     // Rate limit rapid repeats so bursts do not stack into clipping.
     const now = ctx.currentTime;
     const last = this.lastPlay.get(name) ?? -1;
-    const minGap = name === "gun" ? 0.04 : name === "aa" || name === "rifle" ? 0.05 : 0.03;
+    const minGap = name === "gun" ? 0.04 : name === "aa" || name === "rifle" ? 0.05 : name === "missileAlert" ? 0.2 : 0.03;
     if (now - last < minGap) return;
     this.lastPlay.set(name, now);
 
@@ -247,6 +248,11 @@ export class Audio {
       case "flare":
         this.noiseBurst(0.25, 2600, "highpass", 0.45, 0.003);
         this.tone("triangle", 900, 300, 0.2, 0.15);
+        break;
+      case "missileAlert":
+        // Radar warning receiver: an urgent two-tone chirp.
+        this.tone("square", 1150, 1150, 0.08, 0.14);
+        setTimeout(() => this.tone("square", 1520, 1520, 0.1, 0.14), 105);
         break;
     }
   }

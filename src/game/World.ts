@@ -70,6 +70,8 @@ export class World {
   private decor: THREE.Group;
   private hemi: THREE.HemisphereLight;
   private flashDecay = 0;
+  private incoming = false;
+  private alertTimer = 0;
 
   constructor(
     readonly data: MissionData,
@@ -328,6 +330,18 @@ export class World {
       }
     }
 
+    // Missile warning: chirps on a steady cadence while something is locked on.
+    this.incoming = this.scanIncoming();
+    if (this.incoming && this.heli.alive) {
+      this.alertTimer -= dt;
+      if (this.alertTimer <= 0) {
+        this.alertTimer = 0.55;
+        this.audio.play("missileAlert");
+      }
+    } else {
+      this.alertTimer = 0;
+    }
+
     this.particles.update(dt);
     this.shakeAmount = Math.max(0, this.shakeAmount - dt * 4);
     if (this.flashLight.intensity > 0) {
@@ -389,8 +403,12 @@ export class World {
     else this.message("Flares away. Nothing locked on.");
   }
 
-  /** Any enemy missile currently homing on the player. */
+  /** Any enemy missile currently homing on the player. Recomputed once per frame. */
   incomingMissile(): boolean {
+    return this.incoming;
+  }
+
+  private scanIncoming(): boolean {
     for (const e of this.entities) {
       if (e.kind === "projectile" && (e as Projectile).projKind === "sam" && e.alive && !(e as Projectile).decoyed) return true;
     }

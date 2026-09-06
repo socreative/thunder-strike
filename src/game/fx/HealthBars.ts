@@ -8,7 +8,9 @@ const HOLD = 3.0;
 const FADE = 0.7;
 
 const BAR_W = 11.5;
-const BAR_H = 1.6;
+const BAR_H = 0.8;
+/** Frame thickness as a fraction of bar height, applied evenly on all edges. */
+const BORDER = 0.15;
 
 /**
  * Damage bars over ground targets, drawn as one instanced sprite so the whole
@@ -35,9 +37,12 @@ export class HealthBars {
     const alpha = data.y;
 
     const u = uv();
-    // Distance to the nearest edge of the quad, used for the frame.
-    const edge = min(min(u.x, u.x.oneMinus()), min(u.y, u.y.oneMinus()));
-    const isFrame = step(edge, 0.1);
+    // UV space is stretched by the bar's aspect, so a plain edge distance makes
+    // the left and right strips far thicker than the top and bottom. Measuring
+    // the x distance in height units keeps the frame even all the way round.
+    const aspect = BAR_W / BAR_H;
+    const edge = min(min(u.x, u.x.oneMinus()).mul(aspect), min(u.y, u.y.oneMinus()));
+    const isFrame = step(edge, BORDER);
     const isFill = step(u.x, ratio);
 
     // Green when healthy, amber at half, red when nearly destroyed.

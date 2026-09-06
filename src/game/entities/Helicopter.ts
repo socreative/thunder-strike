@@ -425,9 +425,7 @@ export class Helicopter extends Entity {
   }
 
   protected onDeath(): void {
-    this.object.visible = false;
     this.rope.visible = false;
-    this.world.explode(this.pos, 6, 0, "player", 3.2, this);
     this.world.playerCrashed("destroyed");
   }
 

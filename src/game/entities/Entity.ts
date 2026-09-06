@@ -91,11 +91,16 @@ export abstract class Entity {
   protected tickFlash(dt: number): void {
     if (this.flashTimer <= 0 || !this.flashMats) return;
     this.flashTimer -= dt;
-    if (this.flashTimer <= 0) {
-      for (const m of this.flashMats) {
-        m.emissive.setHex(m.userData.baseEmissive ?? 0x000000);
-        m.emissiveIntensity = 1;
-      }
+    if (this.flashTimer <= 0) this.resetFlash();
+  }
+
+  /** Immediately clear any hit tint, for example before the model is reused as debris. */
+  resetFlash(): void {
+    this.flashTimer = 0;
+    if (!this.flashMats) return;
+    for (const m of this.flashMats) {
+      m.emissive.setHex(m.userData.baseEmissive ?? 0x000000);
+      m.emissiveIntensity = 1;
     }
   }
 

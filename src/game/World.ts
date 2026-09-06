@@ -18,6 +18,7 @@ import { Infantry } from "./entities/enemies/Infantry";
 import { SamSite } from "./entities/enemies/SamSite";
 import { Tank } from "./entities/enemies/Tank";
 import { Particles } from "./fx/Particles";
+import { HeliWreckage } from "./fx/Wreckage";
 import type { Audio } from "./systems/Audio";
 import { Mission } from "./systems/Mission";
 import { createDecor } from "./world/Decor";
@@ -60,6 +61,8 @@ export class World {
   private pendingRemove = new Set<Entity>();
   private timers: Timer[] = [];
   private deathTimer = 0;
+  private deathTotal = 0;
+  private wreckage: HeliWreckage | null = null;
   private props: Props;
   private water: THREE.Mesh;
   private sky: THREE.Mesh;
@@ -236,23 +239,42 @@ export class World {
     if (this.phase !== "playing") return;
     const heli = this.heli;
     heli.alive = false;
+    // Build the wreckage from the live model before hiding it.
+    heli.resetFlash();
+    const wreck = new HeliWreckage(heli.object, heli.vel, reason === "fuel");
+    this.add(wreck);
+    this.wreckage = wreck;
     heli.object.visible = false;
     if (reason === "fuel") {
-      this.explode(heli.pos, 6, 0, "player", 3.2, heli);
-      this.message("Out of fuel. Aircraft lost.");
+      this.message("Out of fuel. Engine flame-out, going down.");
+      this.audio.play("empty");
     } else {
+      this.explode(heli.pos, 6, 0, "player", 3.4, heli);
+      this.later(0.25, () => this.explode(wreck.focus, 3, 0, "player", 2.0, heli));
       this.message("Aircraft destroyed.");
+      this.audio.play("crash");
     }
     if (heli.passengers > 0) {
       this.message(`${heli.passengers} passenger${heli.passengers > 1 ? "s were" : " was"} lost with the aircraft.`);
     }
-    this.audio.play("crash");
     this.shake(3);
     this.lives--;
     this.stats.livesLost++;
     this.events.emit("playerDied", {});
     this.phase = "dead";
-    this.deathTimer = 3.2;
+    this.deathTimer = reason === "fuel" ? 6.0 : 5.2;
+    this.deathTotal = this.deathTimer;
+  }
+
+  /** Where the camera should look: the aircraft, or the falling hull after a crash. */
+  cameraFocus(): THREE.Vector3 {
+    if (this.phase === "dead" && this.wreckage && this.wreckage.alive) return this.wreckage.focus;
+    return this.heli.pos;
+  }
+
+  /** True once the crash has played out enough to show the lost banner. */
+  showLostBanner(): boolean {
+    return this.phase === "dead" && this.deathTotal - this.deathTimer > 1.6;
   }
 
   private respawn(): void {

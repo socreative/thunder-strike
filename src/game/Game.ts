@@ -11,6 +11,7 @@ import { CameraRig } from "./systems/CameraRig";
 import { World } from "./World";
 
 const STEP = 1 / 60;
+const zeroVel = new THREE.Vector3();
 const PUBLISH_HZ = 20;
 
 /** Owns the renderer, the loop and screen flow. Gameplay lives in World. */
@@ -291,7 +292,7 @@ export class Game {
         input.endFrame();
       }
       // Mirror world phase onto screens.
-      if (world.phase === "dead" && this.screen !== "dead") this.setScreen("dead");
+      if (world.phase === "dead" && this.screen !== "dead" && world.showLostBanner()) this.setScreen("dead");
       else if (world.phase === "playing" && this.screen === "dead") this.setScreen("playing");
       else if (world.phase === "won") {
         this.setScreen("won");
@@ -310,7 +311,8 @@ export class Game {
     }
     input.endFrame();
 
-    this.rig.update(dt, world.heli.pos, world.heli.vel, world.shakeAmount, world.time);
+    const focus = world.cameraFocus();
+    this.rig.update(dt, focus, focus === world.heli.pos ? world.heli.vel : zeroVel, world.shakeAmount, world.time);
 
     // FPS
     this.fpsAcc += dt;

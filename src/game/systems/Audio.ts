@@ -194,8 +194,9 @@ export class Audio {
         this.tone("sawtooth", 220, 90, 0.9, 0.12 * gain);
         break;
       case "samLaunch":
-        this.sweepNoise(1.4, 700, 2200, 0.45 * gain);
-        this.tone("sawtooth", 160, 420, 1.2, 0.1 * gain);
+        this.sweepNoise(1.4, 700, 2200, 0.6 * gain);
+        this.tone("sawtooth", 160, 420, 1.2, 0.14 * gain);
+        this.noiseBurst(0.5, 900, "lowpass", 0.5 * gain, 0.004, 200);
         break;
       case "explosion":
         this.noiseBurst(1.4, 1600, "lowpass", 0.9 * gain, 0.02, 90);
@@ -250,11 +251,89 @@ export class Audio {
         this.tone("triangle", 900, 300, 0.2, 0.15);
         break;
       case "missileAlert":
-        // Radar warning receiver: an urgent two-tone chirp.
-        this.tone("square", 1150, 1150, 0.08, 0.14);
-        setTimeout(() => this.tone("square", 1520, 1520, 0.1, 0.14), 105);
+        this.alarm(0.44, 0.62);
         break;
     }
+  }
+
+  /**
+   * Missile launch warning in the spirit of a radar warning receiver: three
+   * detuned square oscillators stacked as a harsh interval, hard-gated at
+   * around 19 Hz so it buzzes rather than beeps, focused through a bandpass
+   * where the ear is most sensitive and topped with a transient click.
+   */
+  private alarm(duration: number, gain: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(gain, t + 0.005);
+    out.gain.setValueAtTime(gain, t + duration - 0.06);
+    out.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    out.connect(this.sfx);
+
+    // Bandpass keeps it piercing without turning to mush on small speakers.
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 2100;
+    bp.Q.value = 0.65;
+    bp.connect(out);
+
+    // Hard gate: base and depth are equal so the tone is fully chopped.
+    const gate = ctx.createGain();
+    gate.gain.value = 0.5;
+    gate.connect(bp);
+    const lfo = ctx.createOscillator();
+    lfo.type = "square";
+    lfo.frequency.value = 19;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = 0.5;
+    lfo.connect(lfoDepth).connect(gate.gain);
+    lfo.start(t);
+    lfo.stop(t + duration + 0.05);
+
+    // A minor-second-ish stack beats against itself, which reads as an alarm.
+    for (const [freq, level] of [
+      [1180, 0.5],
+      [1772, 0.42],
+      [2380, 0.22],
+    ] as [number, number][]) {
+      const o = ctx.createOscillator();
+      o.type = "square";
+      o.frequency.setValueAtTime(freq, t);
+      o.frequency.linearRampToValueAtTime(freq - 55, t + duration);
+      const og = ctx.createGain();
+      og.gain.value = level;
+      o.connect(og).connect(gate);
+      o.start(t);
+      o.stop(t + duration + 0.05);
+    }
+
+    // Transient click on each pulse so it punches through rotor and gunfire.
+    const click = ctx.createBufferSource();
+    click.buffer = this.noiseBuffer;
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 2600;
+    const cg = ctx.createGain();
+    cg.gain.setValueAtTime(gain * 0.5, t);
+    cg.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    click.connect(hp).connect(cg).connect(this.sfx);
+    click.start(t, Math.random() * 1.4, 0.06);
+
+    // Low body so it is felt as well as heard.
+    const sub = ctx.createOscillator();
+    sub.type = "square";
+    sub.frequency.value = 118;
+    const sg = ctx.createGain();
+    sg.gain.setValueAtTime(0, t);
+    sg.gain.linearRampToValueAtTime(gain * 0.16, t + 0.01);
+    sg.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.8);
+    sub.connect(sg).connect(this.sfx);
+    sub.start(t);
+    sub.stop(t + duration);
   }
 
   private noiseBurst(duration: number, cutoff: number, type: BiquadFilterType, gain: number, attack: number, sweepTo?: number): void {

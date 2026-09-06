@@ -68,6 +68,8 @@ export class Structure extends Entity {
         this.buildFuelDepot();
         break;
     }
+    // Each build sets its own silhouette height; float the damage bar above it.
+    this.barHeight = this.height + 1.6;
   }
 
   /**

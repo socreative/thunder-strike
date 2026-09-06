@@ -147,6 +147,7 @@ export class HeliWreckage extends Entity {
     this.team = "neutral";
     this.targetable = false;
     this.blip = false;
+    this.showHealthBar = false;
     this.radius = 0.1;
     this.intact = intact;
     heliRoot.updateMatrixWorld(true);

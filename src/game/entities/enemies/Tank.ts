@@ -32,6 +32,7 @@ export class Tank extends Entity {
     this.spec = light ? balance.enemies.lightTank : balance.enemies.tank;
     this.hp = this.maxHp = this.spec.hp;
     this.radius = this.spec.radius;
+    this.barHeight = light ? 4.2 : 5.0;
     this.heading = heading;
     this.reload = this.spec.reload * Math.random();
     this.object.add(this.hull);

@@ -18,6 +18,7 @@ import { AAGun } from "./entities/enemies/AAGun";
 import { Infantry } from "./entities/enemies/Infantry";
 import { SamSite } from "./entities/enemies/SamSite";
 import { Tank } from "./entities/enemies/Tank";
+import { HealthBars } from "./fx/HealthBars";
 import { Particles } from "./fx/Particles";
 import { HeliWreckage } from "./fx/Wreckage";
 import type { Audio } from "./systems/Audio";
@@ -45,6 +46,7 @@ export class World {
   readonly rng: Random;
   readonly events = new Emitter();
   readonly particles: Particles;
+  readonly healthBars = new HealthBars();
   readonly heli: Helicopter;
   readonly mission: Mission;
   readonly entities: Entity[] = [];
@@ -104,6 +106,7 @@ export class World {
 
     this.particles = new Particles();
     this.scene.add(this.particles.group);
+    this.scene.add(this.healthBars.sprite);
 
     this.heli = new Helicopter();
     this.heli.pos.set(data.base.x, 0, data.base.z);
@@ -344,6 +347,7 @@ export class World {
     }
 
     this.particles.update(dt);
+    this.healthBars.update(this.entities, this.time);
     this.shakeAmount = Math.max(0, this.shakeAmount - dt * 4);
     if (this.flashLight.intensity > 0) {
       this.flashLight.intensity = Math.max(0, this.flashLight.intensity - this.flashLight.intensity * this.flashDecay * dt - 20 * dt);
@@ -443,6 +447,7 @@ export class World {
     this.terrain.dispose();
     this.props.dispose();
     this.particles.dispose();
+    this.healthBars.dispose();
     (this.water.material as THREE.Material).dispose();
     this.water.geometry.dispose();
     (this.sky.material as THREE.Material).dispose();

@@ -14,6 +14,7 @@ export class Wreck extends Entity {
     this.team = "neutral";
     this.targetable = false;
     this.blip = false;
+    this.showHealthBar = false;
     this.radius = 0.1;
     this.smokeLeft = 14 + size * 3;
     this.object.rotation.y = heading;

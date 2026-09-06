@@ -16,6 +16,7 @@ export class Pow extends Entity {
     this.kind = "pow";
     this.team = "neutral";
     this.targetable = false;
+    this.showHealthBar = false;
     this.radius = 1.2;
     const body = cylinder(0.45, 0.5, 1.4, 0xc9a86a, 0, 1.2, 0, 8);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 8, 6), sharedMat(0xe0b08a));

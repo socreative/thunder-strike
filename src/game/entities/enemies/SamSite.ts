@@ -22,6 +22,7 @@ export class SamSite extends Entity {
     this.kind = "sam";
     this.hp = this.maxHp = S.hp;
     this.radius = S.radius;
+    this.barHeight = 7.5;
 
     // Revetment: graded pad, sandbag horseshoe open to the front, cable ducts
     const g = new Build();

@@ -20,6 +20,7 @@ export class Infantry extends Entity {
     this.kind = "infantry";
     this.hp = this.maxHp = S.hp;
     this.radius = S.radius;
+    this.barHeight = 3.2;
     const uniform = 0x6a5f3f;
     const body = cylinder(0.42, 0.48, 1.3, uniform, 0, 1.25, 0, 8);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 6), sharedMat(0xd9a77c));

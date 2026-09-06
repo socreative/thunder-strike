@@ -16,6 +16,7 @@ export class Pickup extends Entity {
     this.kind = "pickup";
     this.team = "neutral";
     this.targetable = false;
+    this.showHealthBar = false;
     this.radius = 2;
     if (item === "fuel") {
       const drum = cylinder(1.1, 1.1, 2.2, 0xb8332a, 0, 1.1, 0, 12);

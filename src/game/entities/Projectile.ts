@@ -108,6 +108,7 @@ export class Projectile extends Entity {
     this.hp = this.maxHp = this.spec.hp ?? 1;
     this.targetable = this.spec.hp !== undefined;
     this.blip = false;
+    this.showHealthBar = false;
     const v = getVisuals()[kind];
     const mesh = new THREE.Mesh(v.geo, v.mat);
     mesh.castShadow = kind === "hellfire" || kind === "sam";

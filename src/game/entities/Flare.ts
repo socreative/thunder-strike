@@ -14,6 +14,7 @@ export class Flare extends Entity {
     this.team = "player";
     this.targetable = false;
     this.blip = false;
+    this.showHealthBar = false;
     this.radius = 2.5;
     this.pos.copy(pos);
     this.vel.copy(vel);

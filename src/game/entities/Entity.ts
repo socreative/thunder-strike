@@ -24,6 +24,12 @@ export abstract class Entity {
   kind = "entity";
   tag?: string;
   world!: World;
+  /** Ground targets show a damage bar; the player, pickups and rounds do not. */
+  showHealthBar = true;
+  /** Height above the entity origin at which that bar floats. */
+  barHeight = 5;
+  /** World time of the most recent hit, used to fade the bar out. */
+  lastHitAt = -999;
   private flashTimer = 0;
   private flashMats: THREE.MeshStandardNodeMaterial[] | null = null;
 
@@ -37,6 +43,7 @@ export abstract class Entity {
   damage(amount: number, source?: Entity): void {
     if (!this.alive) return;
     this.hp -= amount;
+    this.lastHitAt = this.world.time;
     this.onHit(amount, source);
     if (this.hp <= 0) {
       this.hp = 0;

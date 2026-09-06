@@ -25,6 +25,7 @@ export class AAGun extends Entity {
     this.kind = "aa";
     this.hp = this.maxHp = S.hp;
     this.radius = S.radius;
+    this.barHeight = 5.4;
 
     // Emplacement: dug-in floor, two courses of sandbags with a rear gap for
     // the crew, spare ammunition boxes and a jerrycan.

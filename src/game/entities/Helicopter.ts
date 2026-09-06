@@ -55,6 +55,7 @@ export class Helicopter extends Entity {
     this.radius = H.radius;
     this.hp = this.maxHp = H.armorMax;
     this.blip = false;
+    this.showHealthBar = false;
     this.object.add(this.body);
 
     this.ropeGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, -1, 0)]);

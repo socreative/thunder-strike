@@ -175,26 +175,32 @@ class Layer {
 export class Particles {
   readonly smoke: Layer;
   readonly fire: Layer;
+  /** Rotor downwash lives in its own pool so it cannot crowd out explosions. */
+  readonly dust: Layer;
   readonly group = new THREE.Group();
 
-  constructor(smokeMax = 2500, fireMax = 2500) {
+  constructor(smokeMax = 2500, fireMax = 2500, dustMax = 1800) {
     this.smoke = new Layer(smokeMax, false, 10);
+    this.dust = new Layer(dustMax, false, 9);
     this.fire = new Layer(fireMax, true, 11);
-    this.group.add(this.smoke.sprite, this.fire.sprite);
+    this.group.add(this.dust.sprite, this.smoke.sprite, this.fire.sprite);
   }
 
   update(dt: number): void {
     this.smoke.update(dt);
+    this.dust.update(dt);
     this.fire.update(dt);
   }
 
   clear(): void {
     this.smoke.clear();
+    this.dust.clear();
     this.fire.clear();
   }
 
   dispose(): void {
     this.smoke.dispose();
+    this.dust.dispose();
     this.fire.dispose();
   }
 
@@ -350,25 +356,38 @@ export class Particles {
     });
   }
 
-  /** Rotor wash ring under a low hovering helicopter. */
-  rotorWash(x: number, y: number, z: number, strength: number): void {
-    const a = Math.random() * Math.PI * 2;
-    const r = 4 + Math.random() * 4;
-    this.smoke.spawn({
-      x: x + Math.cos(a) * r,
-      y: y + 0.4,
-      z: z + Math.sin(a) * r,
-      vx: Math.cos(a) * 9 * strength,
-      vy: 1.2 + Math.random() * 1.5,
-      vz: Math.sin(a) * 9 * strength,
-      life: 0.9 + Math.random() * 0.6,
-      size: 2.2,
-      sizeEnd: 5.5,
-      color: 0xe0c48e,
-      colorEnd: 0xd5bb88,
-      alpha: 0.12 * strength,
-      drag: 2.2,
-    });
+  /**
+   * Rotor downwash. Real wash is a fast outward sheet that curls up into a
+   * ring, so grains leave the disc edge with outward and tangential speed,
+   * loft briefly, then settle. Many small short-lived grains read far better
+   * than a few large puffs.
+   */
+  rotorWash(x: number, groundY: number, z: number, strength: number, driftX: number, driftZ: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      // Bias spawns toward the disc edge, where the sheet actually strikes.
+      const r = 2.5 + Math.sqrt(Math.random()) * 6.5;
+      const out = (4.5 + Math.random() * 7) * strength;
+      const swirl = (2.5 + Math.random() * 4.5) * strength;
+      const tx = -Math.sin(a);
+      const tz = Math.cos(a);
+      this.dust.spawn({
+        x: x + Math.cos(a) * r,
+        y: groundY + 0.1 + Math.random() * 0.55,
+        z: z + Math.sin(a) * r,
+        vx: Math.cos(a) * out + tx * swirl + driftX * 0.4,
+        vy: 0.5 + Math.random() * 1.9,
+        vz: Math.sin(a) * out + tz * swirl + driftZ * 0.4,
+        life: 0.45 + Math.random() * 0.75,
+        size: 0.35 + Math.random() * 0.7,
+        sizeEnd: 1.6 + Math.random() * 1.7,
+        color: 0xe8d3a8,
+        colorEnd: 0xd2b98c,
+        alpha: (0.12 + Math.random() * 0.1) * strength,
+        drag: 2.4,
+        gravity: 1.1,
+      });
+    }
   }
 
   /** Persistent smoke column from a wreck or damaged unit. */

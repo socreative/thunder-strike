@@ -106,6 +106,7 @@ export class Game {
     this.world = world;
     this.audio.setListener(world.heli.pos);
     this.rig.snapTo(world.heli.pos);
+    world.enableCascadedShadows();
     this.overview ??= world.terrain.renderOverview(96);
     this.buildPost(world);
   }
@@ -314,9 +315,11 @@ export class Game {
 
     const focus = world.cameraFocus();
     this.rig.update(dt, focus, focus === world.heli.pos ? world.heli.vel : zeroVel, world.shakeAmount, world.time);
-    const groundY = Math.max(world.terrain.heightAt(focus.x, focus.z), 0);
-    const radius = this.rig.groundFootprint(groundY, shadowCentre);
-    world.setShadowVolume(shadowCentre, radius);
+    if (!world.usesCascades) {
+      const groundY = Math.max(world.terrain.heightAt(focus.x, focus.z), 0);
+      const radius = this.rig.groundFootprint(groundY, shadowCentre);
+      world.setShadowVolume(shadowCentre, radius);
+    }
 
     // FPS
     this.fpsAcc += dt;

@@ -25,6 +25,7 @@ import type { Audio } from "./systems/Audio";
 import { Mission } from "./systems/Mission";
 import { createDecor } from "./world/Decor";
 import { Props } from "./world/Props";
+import { CSMShadowNode } from "three/addons/csm/CSMShadowNode.js";
 import { createSky, createSun } from "./world/Sky";
 import { Terrain } from "./world/Terrain";
 import { createWater } from "./world/Water";
@@ -75,6 +76,9 @@ export class World {
   private flashDecay = 0;
   private incoming = false;
   private shadowRadius = 0;
+  private csm: CSMShadowNode | null = null;
+  /** True once cascades are running, so the single-volume path can be skipped. */
+  usesCascades = false;
   private alertTimer = 0;
 
   constructor(
@@ -389,11 +393,43 @@ export class World {
   }
 
   /**
-   * Aim the sun's shadow volume at the ground the camera can see. Centring it
-   * on the aircraft left the top of the screen unshadowed, so objects only
-   * grew shadows once they had scrolled well inside the frame.
+   * Split the view into cascaded shadow maps. One map stretched over the whole
+   * visible ground gives every object the same coarse texel, which reads as
+   * blocky up close; cascades give the near slice a full map of its own.
+   * Returns false if cascades are unavailable, leaving the single-map path.
+   */
+  enableCascadedShadows(): boolean {
+    try {
+      const csm = new CSMShadowNode(this.sun, { cascades: 3, maxFar: 320, mode: "practical", lightMargin: 160 });
+      // Leave `camera` null: the node only initialises its cascades and lights
+      // when it first builds, and it skips that entirely if a camera is already
+      // assigned. It picks up the render camera itself.
+      csm.fade = true;
+      (this.sun.shadow as unknown as { shadowNode: CSMShadowNode }).shadowNode = csm;
+      this.csm = csm;
+      this.usesCascades = true;
+      // Cascades derive their volumes from the light direction alone, so the
+      // sun stops chasing the camera and just holds its angle.
+      this.sun.position.set(-150, 120, 95);
+      this.sun.target.position.set(0, 0, 0);
+      this.sun.target.updateMatrixWorld();
+      return true;
+    } catch (err) {
+      console.warn("[thunder-strike] cascaded shadows unavailable", err);
+      this.csm = null;
+      this.usesCascades = false;
+      return false;
+    }
+  }
+
+  /**
+   * Aim the sun's single shadow volume at the ground the camera can see, used
+   * only when cascades are unavailable. Centring it on the aircraft left the
+   * top of the screen unshadowed, so objects only grew shadows once they had
+   * scrolled well inside the frame.
    */
   setShadowVolume(centre: THREE.Vector3, radius: number): void {
+    if (this.csm) return;
     this.sun.position.set(centre.x - 150, centre.y + 120, centre.z + 95);
     this.sun.target.position.copy(centre);
     this.sun.target.updateMatrixWorld();
@@ -442,6 +478,8 @@ export class World {
   }
 
   dispose(): void {
+    this.csm?.dispose();
+    this.csm = null;
     for (const e of this.entities) e.dispose();
     this.entities.length = 0;
     this.grid.clear();

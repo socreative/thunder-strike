@@ -27,9 +27,10 @@ export function createSky(radius: number): THREE.Mesh {
 export function createSun(): { sun: THREE.DirectionalLight; hemi: THREE.HemisphereLight } {
   const sun = new THREE.DirectionalLight(0xfff0d6, 3.0);
   sun.castShadow = true;
-  // The volume is resized each frame to the camera's ground footprint, so the
-  // map needs enough resolution for the widest zoom, not just the default one.
-  sun.shadow.mapSize.set(3072, 3072);
+  // With cascaded shadows this is the resolution of each cascade, so a slice
+  // near the aircraft gets the whole map to itself. It is also the fallback
+  // single-map size if cascades cannot be created.
+  sun.shadow.mapSize.set(1536, 1536);
   const cam = sun.shadow.camera;
   cam.left = -180;
   cam.right = 180;
@@ -37,8 +38,10 @@ export function createSun(): { sun: THREE.DirectionalLight; hemi: THREE.Hemisphe
   cam.bottom = -180;
   cam.near = 10;
   cam.far = 760;
-  sun.shadow.bias = -0.0006;
-  sun.shadow.normalBias = 0.6;
+  // Small offsets: at cascade resolution a large normal bias detaches contact
+  // shadows and coarsens every edge.
+  sun.shadow.bias = -0.00035;
+  sun.shadow.normalBias = 0.12;
   const hemi = new THREE.HemisphereLight(0x9fb9d6, 0x8a6b45, 0.7);
   return { sun, hemi };
 }

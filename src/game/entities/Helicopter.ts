@@ -33,7 +33,7 @@ export class Helicopter extends Entity {
   private bank = 0;
   private pitch = 0;
   private bob = 0;
-  private washTimer = 0;
+  private washCarry = 0;
   private spinners: { obj: THREE.Object3D; axis: "x" | "y"; mul: number }[] = [];
   private body = new THREE.Group();
   private gunSide = 1;
@@ -254,11 +254,20 @@ export class Helicopter extends Entity {
       return;
     }
 
-    // Rotor wash dust when low over ground.
-    this.washTimer -= dt;
-    if (this.washTimer <= 0 && ground > 0.5) {
-      this.washTimer = 0.05;
-      world.particles.rotorWash(this.pos.x, ground, this.pos.z, 0.6 + this.speed / H.maxSpeed);
+    // Rotor downwash. Emitted every step rather than on a timer so the ring is
+    // continuous, and it thins out as the aircraft climbs away from the sand.
+    if (ground > 0.5) {
+      const altitude = this.pos.y - ground;
+      // Full strength at the normal hover height, fading out as it climbs away.
+      const closeness = clamp(1 - (altitude - H.hoverHeight) / (H.hoverHeight * 0.8), 0, 1);
+      if (closeness > 0.02) {
+        const strength = (0.7 + (this.speed / H.maxSpeed) * 0.45) * closeness;
+        // Fractional counts still average out, so slow hovers stay lively.
+        this.washCarry += 11 * closeness * dt * 60;
+        const n = Math.floor(this.washCarry);
+        this.washCarry -= n;
+        if (n > 0) world.particles.rotorWash(this.pos.x, ground, this.pos.z, strength, this.vel.x, this.vel.z, n);
+      }
     }
 
     // Weapons

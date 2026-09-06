@@ -6,6 +6,8 @@ interface Chunk {
   vel: THREE.Vector3;
   angVel: THREE.Vector3;
   radius: number;
+  /** Local bounding box, used to seat the piece flush on the sand. */
+  box: THREE.Box3 | null;
   resting: boolean;
   bounces: number;
   trailTimer: number;
@@ -14,6 +16,24 @@ interface Chunk {
 }
 
 const GRAVITY = 30;
+const boxCorner = new THREE.Vector3();
+
+/**
+ * Signed offset from a chunk's origin down to its lowest point at its current
+ * orientation. A bounding sphere is far too generous for the flat plates the
+ * airframe breaks into: using it leaves blade sections hovering metres up.
+ */
+function lowestOffset(c: Chunk): number {
+  const b = c.box;
+  if (!b) return -c.radius * 0.6;
+  let min = Infinity;
+  for (let i = 0; i < 8; i++) {
+    boxCorner.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z);
+    boxCorner.applyQuaternion(c.mesh.quaternion);
+    if (boxCorner.y < min) min = boxCorner.y;
+  }
+  return min;
+}
 const tmpV = new THREE.Vector3();
 const tmpN = new THREE.Vector3();
 const tmpQ = new THREE.Quaternion();
@@ -231,7 +251,12 @@ export class HeliWreckage extends Entity {
     const angVel = new THREE.Vector3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9);
     if (this.intact) angVel.multiplyScalar(0.25);
     this.object.add(mesh);
-    this.chunks.push({ mesh, vel, angVel, radius, resting: false, bounces: 0, trailTimer: Math.random() * 0.05, burnTimer: Math.random() * 0.3, big });
+    let box: THREE.Box3 | null = null;
+    if (mesh.geometry) {
+      mesh.geometry.computeBoundingBox();
+      box = mesh.geometry.boundingBox?.clone() ?? null;
+    }
+    this.chunks.push({ mesh, vel, angVel, radius, box, resting: false, bounces: 0, trailTimer: Math.random() * 0.05, burnTimer: Math.random() * 0.3, big });
   }
 
   onSpawn(): void {
@@ -285,10 +310,11 @@ export class HeliWreckage extends Entity {
         }
       }
 
-      // Ground contact
+      // Ground contact, measured from the piece's actual lowest corner.
       const ground = Math.max(world.terrain.heightAt(c.mesh.position.x, c.mesh.position.z), 0);
-      if (c.mesh.position.y - c.radius * 0.6 <= ground) {
-        c.mesh.position.y = ground + c.radius * 0.6;
+      const low = lowestOffset(c);
+      if (c.mesh.position.y + low <= ground) {
+        c.mesh.position.y = ground - low;
         c.bounces++;
         const speed = c.vel.length();
         if (this.intact && !this.exploded) {
@@ -313,9 +339,7 @@ export class HeliWreckage extends Entity {
           }
         }
         if (speed < 4 || c.bounces > 3) {
-          c.resting = true;
-          c.vel.set(0, 0, 0);
-          c.angVel.set(0, 0, 0);
+          this.settle(c, ground);
         } else {
           c.vel.y = Math.abs(c.vel.y) * 0.3;
           c.vel.x *= 0.55;
@@ -327,6 +351,25 @@ export class HeliWreckage extends Entity {
     if (this.mainChunk) this.focus.copy(this.mainChunk.mesh.position);
     if (!anyAirborne && this.age > this.lifetime) this.kill();
     world.grid.update(this);
+  }
+
+  /**
+   * Bring a piece to rest lying on the sand. Debris keeps no shadow once it has
+   * landed: the sun is deliberately low, so a flat plate on the ground throws a
+   * long streak that reads as a detached smear rather than contact.
+   */
+  private settle(c: Chunk, ground: number): void {
+    c.resting = true;
+    c.vel.set(0, 0, 0);
+    c.angVel.set(0, 0, 0);
+    // Tip the piece onto its flattest face so it lies down rather than balancing.
+    c.mesh.rotation.set(c.mesh.rotation.x * 0.15, c.mesh.rotation.y, c.mesh.rotation.z * 0.15);
+    c.mesh.updateMatrix();
+    c.mesh.position.y = ground - lowestOffset(c) + 0.02;
+    c.mesh.castShadow = false;
+    c.mesh.traverse((o) => {
+      o.castShadow = false;
+    });
   }
 
   /** Intact airframe hit the ground: swap it for flying pieces. */
@@ -344,6 +387,7 @@ export class HeliWreckage extends Entity {
       p.position.copy(tmpV);
       p.quaternion.copy(tmpQ);
       p.geometry.computeBoundingSphere();
+      p.geometry.computeBoundingBox();
       const radius = Math.max(0.5, (p.geometry.boundingSphere?.radius ?? 1) * 0.7);
       const big = (p.geometry.attributes.position.count ?? 0) > 180;
       this.addChunk(p, radius, big, new THREE.Vector3(0, 6, 0));

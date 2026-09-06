@@ -232,6 +232,13 @@ button {
 .weapon-key {
   color: var(--amber);
 }
+.weapon.flares {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 2px;
+}
+.weapon.flares .weapon-key {
+  color: var(--cyan);
+}
 .weapon-ammo {
   font-size: 14px;
   color: var(--ink);

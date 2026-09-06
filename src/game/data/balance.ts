@@ -27,11 +27,16 @@ export const balance = {
     winchTime: 1.1,
     unloadTime: 0.6,
     lzRadius: 14,
+    flares: 6,
+    flareCooldown: 0.4,
+    flareLife: 2.8,
+    flareDecoyRange: 200, // covers the whole SAM envelope so a timely drop always counts
+    flareDecoyChance: 0.9,
     lzRefuelRate: 25,
     lzRepairRate: 80,
   },
   weapons: {
-    gun: { ammo: 1200, rate: 11, speed: 240, damage: 7, life: 1.1, spread: 0.035, splash: 0 },
+    gun: { ammo: 1200, rate: 11, speed: 240, damage: 7, life: 1.1, spread: 0.016, splash: 0 },
     hydra: { ammo: 38, rate: 3, speed: 130, damage: 70, life: 2.2, spread: 0.02, splash: 7 },
     hellfire: { ammo: 8, rate: 1, speed: 60, damage: 260, life: 6, spread: 0, splash: 9, turnRate: 2.4, lockRange: 160 },
   },
@@ -39,7 +44,7 @@ export const balance = {
     shell: { speed: 75, damage: 45, life: 3.5, splash: 4 },
     aa: { speed: 170, damage: 7, life: 1.4, splash: 0 },
     rifle: { speed: 120, damage: 3, life: 1.2, splash: 0 },
-    sam: { speed: 40, maxSpeed: 78, accel: 18, damage: 70, life: 7.5, splash: 6, turnRate: 1.25, hp: 10, proximity: 4 },
+    sam: { speed: 38, maxSpeed: 68, accel: 16, damage: 70, life: 6.5, splash: 6, turnRate: 0.95, hp: 10, proximity: 4 },
   },
   enemies: {
     tank: { hp: 150, range: 95, reload: 2.6, speed: 6, turretRate: 1.4, radius: 4 },
@@ -57,7 +62,7 @@ export const balance = {
   },
   pickups: {
     fuel: 60,
-    ammo: { gun: 400, hydra: 12, hellfire: 3 },
+    ammo: { gun: 400, hydra: 12, hellfire: 3, flares: 3 },
     armor: 200,
   },
   camera: {

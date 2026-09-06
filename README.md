@@ -21,6 +21,7 @@ Open http://localhost:3000. Add `?webgl=1` to force the WebGL 2 backend, `?nopos
 | Q / E | Strafe |
 | Space | Fire selected weapon |
 | 1 2 3 / Tab | Chain gun, Hydra rockets, Hellfire missiles |
+| F / Ctrl | Drop flares to decoy incoming missiles |
 | Mouse wheel | Zoom |
 | Esc / P | Pause |
 | M | Mute |

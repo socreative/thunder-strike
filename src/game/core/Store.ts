@@ -57,6 +57,8 @@ export interface Snapshot {
   ammo: Record<WeaponId, number>;
   ammoMax: Record<WeaponId, number>;
   weapon: WeaponId;
+  flares: number;
+  flaresMax: number;
   passengers: number;
   passengersMax: number;
   rescued: number;
@@ -92,6 +94,8 @@ export const initialSnapshot: Snapshot = {
   ammo: { gun: 1200, hydra: 38, hellfire: 8 },
   ammoMax: { gun: 1200, hydra: 38, hellfire: 8 },
   weapon: "gun",
+  flares: 6,
+  flaresMax: 6,
   passengers: 0,
   passengersMax: 6,
   rescued: 0,

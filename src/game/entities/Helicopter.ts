@@ -6,6 +6,7 @@ import type { WeaponId } from "../core/Store";
 import type { Pickup } from "./Pickup";
 import type { Pow } from "./Pow";
 import { createRotorDisc, splitRotorFromModel } from "../fx/Rotor";
+import { Flare } from "./Flare";
 
 const H = balance.heli;
 const W = balance.weapons;
@@ -25,6 +26,8 @@ export class Helicopter extends Entity {
   weapon: WeaponId = "gun";
   passengers = 0;
   speed = 0;
+  flares = H.flares;
+  private flareCooldown = 0;
 
   private cooldown = 0;
   private bank = 0;
@@ -167,6 +170,7 @@ export class Helicopter extends Entity {
     this.hp = this.maxHp;
     this.fuel = H.fuelMax;
     this.ammo = { gun: W.gun.ammo, hydra: W.hydra.ammo, hellfire: W.hellfire.ammo };
+    this.flares = H.flares;
     this.passengers = 0;
     this.vel.set(0, 0, 0);
     this.heading = heading;
@@ -262,6 +266,8 @@ export class Helicopter extends Entity {
     }
     this.cooldown -= dt;
     if (input.isDown("Space", "ShiftLeft", "ShiftRight") && this.cooldown <= 0) this.fire();
+    this.flareCooldown -= dt;
+    if (input.wasPressed("KeyF", "ControlLeft", "ControlRight") && this.flareCooldown <= 0) this.deployFlares();
 
     this.updateWinch(dt);
     world.grid.update(this);
@@ -285,7 +291,7 @@ export class Helicopter extends Entity {
       this.gunSide = -this.gunSide;
       tmpMuzzle.copy(this.pos).addScaledVector(tmpForward, 5.5).add(new THREE.Vector3(0, -1.4, 0));
       tmpDir.copy(tmpForward);
-      tmpDir.y = -0.22; // downward so rounds reach the ground from hover altitude
+      tmpDir.y = -0.12; // gentle drop; anything under the round's path is hit
       tmpDir.x += (Math.random() - 0.5) * spec.spread;
       tmpDir.z += (Math.random() - 0.5) * spec.spread;
       tmpDir.normalize();
@@ -296,7 +302,7 @@ export class Helicopter extends Entity {
       this.hydraSide = -this.hydraSide;
       tmpMuzzle.copy(this.pos).addScaledVector(tmpRight, this.hydraSide * 3).addScaledVector(tmpForward, 2).add(new THREE.Vector3(0, -1, 0));
       tmpDir.copy(tmpForward);
-      tmpDir.y = -0.2;
+      tmpDir.y = -0.12;
       tmpDir.x += (Math.random() - 0.5) * spec.spread;
       tmpDir.z += (Math.random() - 0.5) * spec.spread;
       tmpDir.normalize();
@@ -312,6 +318,34 @@ export class Helicopter extends Entity {
       world.fire("hellfire", tmpMuzzle, tmpDir, "player", this, target);
       world.audio.play("hellfire");
     }
+  }
+
+  /** Drop a spread of flares behind and below the aircraft and lure any locked missiles onto them. */
+  private deployFlares(): void {
+    const world = this.world;
+    if (this.flares <= 0) {
+      this.flareCooldown = 0.3;
+      world.audio.play("empty");
+      return;
+    }
+    this.flares--;
+    this.flareCooldown = H.flareCooldown;
+    this.forward(tmpForward);
+    tmpRight.set(-tmpForward.z, 0, tmpForward.x);
+    const flares: Flare[] = [];
+    for (let i = 0; i < 3; i++) {
+      const side = i - 1;
+      const vel = this.vel.clone().multiplyScalar(0.35);
+      vel.addScaledVector(tmpForward, -14 - Math.random() * 6);
+      vel.addScaledVector(tmpRight, side * (9 + Math.random() * 4));
+      vel.y = -4 - Math.random() * 3;
+      const pos = this.pos.clone().addScaledVector(tmpForward, -3).add(new THREE.Vector3(0, -1.5, 0));
+      const f = new Flare(pos, vel);
+      world.add(f);
+      flares.push(f);
+    }
+    world.decoyMissiles(flares);
+    world.audio.play("flare");
   }
 
   /** Nearest enemy inside a forward cone for Hellfire guidance. */

@@ -20,7 +20,8 @@ export type Sfx =
   | "message"
   | "crash"
   | "victory"
-  | "select";
+  | "select"
+  | "flare";
 
 /**
  * Fully synthesised sound: no audio files. Distant enemy sounds are attenuated
@@ -242,6 +243,10 @@ export class Audio {
         break;
       case "select":
         this.tone("square", 880, 880, 0.03, 0.08);
+        break;
+      case "flare":
+        this.noiseBurst(0.25, 2600, "highpass", 0.45, 0.003);
+        this.tone("triangle", 900, 300, 0.2, 0.15);
         break;
     }
   }

@@ -10,6 +10,7 @@ import type { MissionData, Spawn } from "./data/mission1";
 import { Entity, type Team } from "./entities/Entity";
 import { Helicopter } from "./entities/Helicopter";
 import { Pickup } from "./entities/Pickup";
+import type { Flare } from "./entities/Flare";
 import { Projectile, type ProjectileKind } from "./entities/Projectile";
 import { Structure, type StructureType } from "./entities/Structure";
 import { Wreck, type WreckStyle } from "./entities/Wreck";
@@ -369,10 +370,29 @@ export class World {
     }
   }
 
+  /** Missiles locked on the aircraft within range may switch to a flare. */
+  decoyMissiles(flares: Flare[]): void {
+    if (flares.length === 0) return;
+    const heli = this.heli;
+    let lured = 0;
+    for (const e of this.entities) {
+      if (e.kind !== "projectile" || !e.alive) continue;
+      const p = e as Projectile;
+      if (p.projKind !== "sam" || p.target !== heli) continue;
+      if (p.distanceXZ(heli) > balance.heli.flareDecoyRange) continue;
+      if (Math.random() > balance.heli.flareDecoyChance) continue;
+      p.target = flares[Math.floor(Math.random() * flares.length)];
+      p.decoyed = true;
+      lured++;
+    }
+    if (lured > 0) this.message(lured === 1 ? "Missile decoyed." : `${lured} missiles decoyed.`);
+    else this.message("Flares away. Nothing locked on.");
+  }
+
   /** Any enemy missile currently homing on the player. */
   incomingMissile(): boolean {
     for (const e of this.entities) {
-      if (e.kind === "projectile" && (e as Projectile).projKind === "sam" && e.alive) return true;
+      if (e.kind === "projectile" && (e as Projectile).projKind === "sam" && e.alive && !(e as Projectile).decoyed) return true;
     }
     return false;
   }

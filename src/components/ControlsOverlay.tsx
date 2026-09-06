@@ -60,6 +60,16 @@ const GROUPS: Group[] = [
     action: "1 chain gun, 2 Hydra rockets, 3 Hellfire missiles. Tab cycles. Hellfires lock the nearest target in a forward cone.",
   },
   {
+    title: "Flares",
+    keys: (
+      <div className="row">
+        <Key>F</Key>
+        <Key wide>Ctrl</Key>
+      </div>
+    ),
+    action: "Drop a spread of flares. Missiles locked on you chase them instead and burst harmlessly. Six per aircraft, ammo crates add three.",
+  },
+  {
     title: "Winch",
     keys: (
       <div className="row">

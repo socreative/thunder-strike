@@ -20,6 +20,9 @@ const GAME_KEYS = new Set([
   "Escape",
   "KeyP",
   "KeyM",
+  "KeyF",
+  "ControlLeft",
+  "ControlRight",
 ]);
 
 /** Keyboard state with per-frame edge detection plus wheel accumulation. */

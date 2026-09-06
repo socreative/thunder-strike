@@ -88,6 +88,8 @@ export class Projectile extends Entity {
   private trailTimer = 0;
   target: Entity | null = null;
   owner: Entity | null = null;
+  /** Lured onto a flare: it will burst harmlessly. */
+  decoyed = false;
   private speed: number;
 
   constructor(kind: ProjectileKind, pos: THREE.Vector3, dir: THREE.Vector3, team: Team, owner: Entity | null, target: Entity | null = null) {
@@ -160,6 +162,8 @@ export class Projectile extends Entity {
     this.pos.addScaledVector(this.vel, dt);
     this.orient();
     this.syncObject();
+    // Without this a projectile stays in its launch cell and can never be hit.
+    world.grid.update(this);
 
     if (this.spec.trail) {
       this.trailTimer -= dt;
@@ -186,12 +190,19 @@ export class Projectile extends Entity {
 
     // Target hits.
     const enemyTeam: Team = this.team === "player" ? "enemy" : "player";
-    world.grid.query(this.pos.x, this.pos.z, this.radius + 0.5, hits, (e) => e.team === enemyTeam && e.targetable && e !== this.owner);
+    const reach = this.team === "player" ? this.radius + 1.2 : this.radius + 0.5;
+    world.grid.query(this.pos.x, this.pos.z, reach, hits, (e) => e.team === enemyTeam && e.targetable && e !== this.owner);
     for (const h of hits) {
-      // Vertical check: projectiles fly at various heights, targets have a rough height.
-      const top = h.kind === "helicopter" ? h.pos.y + 3 : world.terrain.heightAt(h.pos.x, h.pos.z) + heightOf(h);
-      const bottom = h.kind === "helicopter" ? h.pos.y - 3 : -10;
-      if (this.pos.y > top + this.radius || this.pos.y < bottom) continue;
+      if (this.team === "player") {
+        // Arcade rule, as in the original: anything under the round's path is hit.
+        // Missiles in the air still need rough height agreement.
+        if (h.kind === "projectile" && Math.abs(h.pos.y - this.pos.y) > 10) continue;
+      } else {
+        // Enemy fire has to actually reach the aircraft's altitude.
+        const top = h.kind === "helicopter" ? h.pos.y + 3 : world.terrain.heightAt(h.pos.x, h.pos.z) + heightOf(h);
+        const bottom = h.kind === "helicopter" ? h.pos.y - 3 : -10;
+        if (this.pos.y > top + this.radius || this.pos.y < bottom) continue;
+      }
       this.detonate(h);
       return;
     }
@@ -211,6 +222,12 @@ export class Projectile extends Entity {
 
   private detonate(hit: Entity): void {
     const world = this.world;
+    if (this.decoyed) {
+      // Chasing a flare: burst without hurting anyone.
+      world.explode(this.pos, 2, 0, this.team, 1.8, this.owner);
+      this.kill();
+      return;
+    }
     if (this.spec.splash > 0) {
       world.explode(this.pos, this.spec.splash, this.spec.damage, this.team, this.projKind === "hellfire" || this.projKind === "sam" ? 2.2 : 1.4, this.owner);
     } else {

@@ -375,6 +375,8 @@ export class Game {
       fuelMax: balance.heli.fuelMax,
       ammo: { ...heli.ammo },
       weapon: heli.weapon,
+      flares: heli.flares,
+      flaresMax: balance.heli.flares,
       passengers: heli.passengers,
       passengersMax: balance.heli.passengersMax,
       rescued: world.stats.rescued,

@@ -52,6 +52,11 @@ export default function Hud({ snap, overview }: { snap: Snapshot; overview: Imag
             <span className="weapon-ammo">{snap.ammo[w.id]}</span>
           </div>
         ))}
+        <div className={`weapon flares ${snap.flares === 0 ? "empty" : ""}`}>
+          <span className="weapon-key">F</span>
+          <span className="weapon-name">FLARES</span>
+          <span className="weapon-ammo">{snap.flares}</span>
+        </div>
       </div>
 
       <div className="hud-bl panel">

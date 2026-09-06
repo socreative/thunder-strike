@@ -61,6 +61,7 @@ export class Pickup extends Entity {
       heli.ammo.gun = Math.min(W.gun.ammo, heli.ammo.gun + P.ammo.gun);
       heli.ammo.hydra = Math.min(W.hydra.ammo, heli.ammo.hydra + P.ammo.hydra);
       heli.ammo.hellfire = Math.min(W.hellfire.ammo, heli.ammo.hellfire + P.ammo.hellfire);
+      heli.flares = Math.min(balance.heli.flares, heli.flares + P.ammo.flares);
       world.message("Ammunition crate recovered.");
     } else {
       heli.hp = Math.min(heli.maxHp, heli.hp + P.armor);

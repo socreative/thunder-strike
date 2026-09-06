@@ -61,7 +61,13 @@ All sound is synthesised at runtime with the Web Audio API. There are no audio f
 
 ## Deploy
 
-The app is a static Next.js build with no server code. On Vercel, import the repository or run `vercel` in this directory; the framework is detected automatically.
+The app is a static Next.js build with no server code, deployed on Vercel from
+this repository. Pushing to `main` builds and promotes to production; every
+other branch gets its own preview URL.
+
+Production: https://thunder-strike-umber.vercel.app
+
+To build and serve it locally:
 
 ```
 npm run build

@@ -667,6 +667,11 @@ button {
   --sa-r: env(safe-area-inset-right, 0px);
   --sa-b: env(safe-area-inset-bottom, 0px);
   --sa-l: env(safe-area-inset-left, 0px);
+  /* One margin for every corner element so the strip, stick, map and cluster line up. */
+  --edge-l: calc(12px + var(--sa-l));
+  --edge-r: calc(12px + var(--sa-r));
+  --edge-t: calc(10px + var(--sa-t));
+  --edge-b: calc(12px + var(--sa-b));
   font-size: 11px;
 }
 @supports (height: 100dvh) {
@@ -674,12 +679,36 @@ button {
     height: 100dvh;
   }
 }
+/* Liquid glass: frosted fill, a bright rim that fades toward the bottom, and a
+   soft specular pool in the upper left. */
+.glass {
+  position: relative;
+  border-radius: 50%;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -10px 18px rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  backdrop-filter: blur(14px) saturate(170%);
+  overflow: hidden;
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 60% 40% at 30% 18%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+}
 .glass.rect {
   border-radius: 14px;
 }
 .touch .hud-tl.status-strip {
-  top: calc(8px + var(--sa-t));
-  left: calc(10px + var(--sa-l));
+  top: var(--edge-t);
+  left: var(--edge-l);
   width: 150px;
   padding: 7px 10px 6px;
   display: flex;
@@ -746,18 +775,6 @@ button {
   width: 13px;
   height: 13px;
 }
-.touch .hud-tr.weapon-chips {
-  top: calc(8px + var(--sa-t));
-  right: calc(10px + var(--sa-r));
-  width: auto;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  pointer-events: auto;
-  background: none;
-  border: none;
-  backdrop-filter: none;
-}
 .chip {
   width: 46px;
   height: 52px;
@@ -802,7 +819,7 @@ button {
 }
 .obj-pill {
   position: absolute;
-  top: calc(8px + var(--sa-t));
+  top: var(--edge-t);
   left: 50%;
   transform: translateX(-50%);
   max-width: 280px;
@@ -818,7 +835,7 @@ button {
   text-overflow: ellipsis;
 }
 .touch .hud-messages {
-  top: calc(44px + var(--sa-t));
+  top: calc(var(--edge-t) + 36px);
   bottom: auto;
   width: min(360px, 44vw);
   font-size: 11px;
@@ -837,9 +854,8 @@ button {
 }
 .touch .hud-br {
   right: auto;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(8px + var(--sa-b));
+  left: calc(var(--edge-l) + 136px + 14px);
+  bottom: var(--edge-b);
 }
 .touch .minimap {
   padding: 4px;
@@ -861,50 +877,25 @@ button {
 }
 .stick-zone {
   position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 42%;
-  height: calc(100% - 96px - var(--sa-t));
+  left: calc(var(--edge-l) - 24px);
+  bottom: calc(var(--edge-b) - 24px);
+  width: 184px;
+  height: 184px;
   touch-action: none;
-}
-/* Liquid glass: frosted fill, a bright rim that fades toward the bottom, and a
-   soft specular pool in the upper left. */
-.glass {
-  position: relative;
-  border-radius: 50%;
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.7),
-    inset 0 -10px 18px rgba(255, 255, 255, 0.07),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 8px 24px rgba(0, 0, 0, 0.28);
-  -webkit-backdrop-filter: blur(14px) saturate(170%);
-  backdrop-filter: blur(14px) saturate(170%);
-  overflow: hidden;
-}
-.glass::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(ellipse 60% 40% at 30% 18%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%);
-  pointer-events: none;
 }
 .stick-base {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: 136px;
-  height: 136px;
-  display: none;
+  inset: 24px;
+  display: grid;
   place-items: center;
   pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.12s;
   /* The knob overhangs the ring at full deflection, like a real stick. */
   overflow: visible;
 }
-.stick-base.on {
-  display: grid;
+.stick-base.active {
+  opacity: 1;
 }
 .stick-knob {
   width: 56px;
@@ -944,11 +935,26 @@ button {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   margin-top: -2px;
 }
+.touch-right {
+  position: absolute;
+  right: var(--edge-r);
+  bottom: var(--edge-b);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.touch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.touch-right .tbtn {
+  position: static;
+}
 .tbtn.fire {
   width: 92px;
   height: 92px;
-  right: calc(18px + var(--sa-r));
-  bottom: calc(18px + var(--sa-b));
   background: linear-gradient(150deg, rgba(255, 214, 140, 0.5) 0%, rgba(242, 182, 74, 0.22) 50%, rgba(242, 182, 74, 0.1) 100%);
   border-color: rgba(255, 228, 170, 0.75);
 }
@@ -957,10 +963,9 @@ button {
   height: 40%;
 }
 .tbtn.flare {
-  width: 58px;
-  height: 58px;
-  right: calc(36px + var(--sa-r));
-  bottom: calc(124px + var(--sa-b));
+  width: 54px;
+  height: 54px;
+  margin-right: 6px;
   background: linear-gradient(150deg, rgba(160, 225, 255, 0.45) 0%, rgba(106, 208, 255, 0.18) 50%, rgba(106, 208, 255, 0.08) 100%);
   border-color: rgba(190, 235, 255, 0.75);
 }
@@ -970,19 +975,15 @@ button {
 .tbtn.strafe {
   width: 54px;
   height: 54px;
-  bottom: calc(24px + var(--sa-b));
 }
 .tbtn.strafe.stbd {
-  right: calc(122px + var(--sa-r));
-}
-.tbtn.strafe.port {
-  right: calc(186px + var(--sa-r));
+  margin-right: 6px;
 }
 .tbtn.pause {
   width: 36px;
   height: 36px;
-  top: calc(8px + var(--sa-t));
-  left: calc(50% + 160px);
+  top: var(--edge-t);
+  right: var(--edge-r);
 }
 .tbtn.pressed {
   transform: scale(0.92);

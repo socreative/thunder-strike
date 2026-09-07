@@ -57,7 +57,7 @@ export class Input {
   /** Releases deferred until a sim step has seen the press. */
   private pendingRelease = new Set<string>();
   wheel = 0;
-  /** Set true on the first user interaction, used to unlock audio. */
+  /** Set true on the first keyboard interaction, used to unlock audio from the frame loop. */
   interacted = false;
 
   private onKeyDown = (e: KeyboardEvent) => {
@@ -81,19 +81,15 @@ export class Input {
     this.clearTouch();
   };
 
-  private onPointer = () => {
-    this.interacted = true;
-  };
-
   attach(): void {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("wheel", this.onWheel, { passive: true });
     window.addEventListener("blur", this.onBlur);
-    // On pointerup rather than pointerdown: the audio unlock this triggers
-    // re-renders the title menu, and if that happened while a finger was still
-    // down the tap's click would land on whichever button took the old spot.
-    window.addEventListener("pointerup", this.onPointer);
+    // Pointer input deliberately does not set `interacted`: the menu buttons
+    // unlock audio inside their own click handlers. Flipping the flag from a
+    // pointer event let the frame loop re-render the title menu between a
+    // tap's pointerup and its click, so the click landed on the wrong button.
   }
 
   detach(): void {
@@ -101,7 +97,6 @@ export class Input {
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("blur", this.onBlur);
-    window.removeEventListener("pointerup", this.onPointer);
   }
 
   isDown(...codes: string[]): boolean {

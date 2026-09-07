@@ -1,11 +1,8 @@
 "use client";
 
 import type { Snapshot, WeaponId } from "@/src/game/core/Store";
-import type { Game } from "@/src/game/Game";
 import Minimap from "./Minimap";
-import { FuelIcon, GunIcon, HeliIcon, MissileIcon, PersonIcon, RocketIcon, ShieldIcon } from "./HudIcons";
-
-const WEAPON_ICONS: Record<WeaponId, () => React.JSX.Element> = { gun: GunIcon, hydra: RocketIcon, hellfire: MissileIcon };
+import { FuelIcon, HeliIcon, PersonIcon, ShieldIcon } from "./HudIcons";
 
 /** Icon plus bar, no label: the phone strip has no room for words. */
 function MiniBar({ icon, value, max, warn }: { icon: React.ReactNode; value: number; max: number; warn: boolean }) {
@@ -20,8 +17,8 @@ function MiniBar({ icon, value, max, warn }: { icon: React.ReactNode; value: num
   );
 }
 
-/** Compact status strip and weapon chips for touch mode. */
-function CompactHud({ snap, game }: { snap: Snapshot; game: Game | null }) {
+/** Compact status strip for touch mode; the weapon chips live with the touch controls. */
+function CompactHud({ snap }: { snap: Snapshot }) {
   return (
     <>
       <div className="hud-tl status-strip glass rect">
@@ -40,22 +37,6 @@ function CompactHud({ snap, game }: { snap: Snapshot; game: Game | null }) {
             {snap.passengers}/{snap.passengersMax}
           </span>
         </div>
-      </div>
-      <div className="hud-tr weapon-chips">
-        {WEAPONS.map((w) => {
-          const Icon = WEAPON_ICONS[w.id];
-          return (
-            <button
-              key={w.id}
-              className={`chip glass rect ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`}
-              onPointerDown={() => game?.selectWeapon(w.id)}
-              aria-label={w.label}
-            >
-              <Icon />
-              <span className="chip-count">{snap.ammo[w.id]}</span>
-            </button>
-          );
-        })}
       </div>
     </>
   );
@@ -82,12 +63,12 @@ function Bar({ value, max, label, warn }: { value: number; max: number; label: s
   );
 }
 
-export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; overview: ImageData | null; touch: boolean; game: Game | null }) {
+export default function Hud({ snap, overview, touch }: { snap: Snapshot; overview: ImageData | null; touch: boolean }) {
   const current = snap.objectives.find((o) => !o.done && !o.locked) ?? snap.objectives.find((o) => !o.done);
   return (
     <div className="hud" aria-hidden>
       {touch ? (
-        <CompactHud snap={snap} game={game} />
+        <CompactHud snap={snap} />
       ) : (
         <>
           <div className="hud-tl panel">

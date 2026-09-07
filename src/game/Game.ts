@@ -319,6 +319,9 @@ export class Game {
         // Edge-triggered keys are consumed by the first simulation step.
         input.endFrame();
       }
+      // After a hitch, drop the backlog rather than fast-forwarding through it
+      // over the following frames; a held button would otherwise fire a burst.
+      if (this.acc >= STEP) this.acc = 0;
       // Mirror world phase onto screens.
       if (world.phase === "dead" && this.screen !== "dead" && world.showLostBanner()) this.setScreen("dead");
       else if (world.phase === "playing" && this.screen === "dead") this.setScreen("playing");

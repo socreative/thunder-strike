@@ -2,7 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import type { Game } from "@/src/game/Game";
-import type { Snapshot } from "@/src/game/core/Store";
+import type { Snapshot, WeaponId } from "@/src/game/core/Store";
+import { GunIcon, MissileIcon, RocketIcon } from "./HudIcons";
+
+const WEAPONS: { id: WeaponId; label: string; Icon: () => React.JSX.Element }[] = [
+  { id: "gun", label: "Chain gun", Icon: GunIcon },
+  { id: "hydra", label: "Hydra rockets", Icon: RocketIcon },
+  { id: "hellfire", label: "Hellfire missiles", Icon: MissileIcon },
+];
 
 /** Knob travel in CSS pixels, and the fraction of it treated as centre. */
 const STICK_RADIUS = 58;
@@ -45,9 +52,10 @@ const PauseBars = () => (
 );
 
 /**
- * On-screen controls for phones: a floating thumbstick on the left that
- * points where the aircraft should fly, FIRE, FLARES and two strafe buttons
- * under the right thumb, PAUSE at the top, pinch anywhere else to zoom. All
+ * On-screen controls for phones: a thumbstick in the bottom-left corner that
+ * points where the aircraft should fly, and a bottom-right cluster of FIRE,
+ * two strafe buttons, FLARES and the weapon chips. PAUSE sits top-right and a
+ * pinch anywhere else zooms. All
  * pointer handling is native and imperative so a 60 Hz drag never causes a
  * React render; React only draws the structure and the ammo labels.
  */
@@ -81,19 +89,12 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
       cleanups.push(() => el.removeEventListener(type, fn as EventListener));
     };
 
-    /* Stick */
+    /* Stick: fixed in the corner, deflection measured from the base centre. */
     let stickId: number | null = null;
-    let ox = 0;
-    let oy = 0;
-    const showStick = (x: number, y: number) => {
-      // Shown before measuring: a hidden element reports no size.
-      base.classList.add("on");
-      base.style.transform = `translate(${x - base.offsetWidth / 2}px, ${y - base.offsetHeight / 2}px)`;
-      knob.style.transform = "translate(0px, 0px)";
-    };
-    const moveStick = (x: number, y: number) => {
-      let dx = x - ox;
-      let dy = y - oy;
+    const moveStick = (clientX: number, clientY: number) => {
+      const r = base.getBoundingClientRect();
+      let dx = clientX - (r.left + r.width / 2);
+      let dy = clientY - (r.top + r.height / 2);
       const len = Math.hypot(dx, dy);
       if (len > STICK_RADIUS) {
         dx *= STICK_RADIUS / len;
@@ -105,7 +106,8 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
     };
     const endStick = () => {
       stickId = null;
-      base.classList.remove("on");
+      base.classList.remove("active");
+      knob.style.transform = "translate(0px, 0px)";
       input.setStick(0, 0);
     };
     on(zone, "pointerdown", (e) => {
@@ -114,16 +116,13 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
       game.unlockAudio();
       stickId = e.pointerId;
       zone.setPointerCapture(e.pointerId);
-      const r = zone.getBoundingClientRect();
-      ox = e.clientX - r.left;
-      oy = e.clientY - r.top;
-      showStick(ox, oy);
+      base.classList.add("active");
+      moveStick(e.clientX, e.clientY);
     });
     on(zone, "pointermove", (e) => {
       if (e.pointerId !== stickId) return;
       e.preventDefault();
-      const r = zone.getBoundingClientRect();
-      moveStick(e.clientX - r.left, e.clientY - r.top);
+      moveStick(e.clientX, e.clientY);
     });
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const) {
       on(zone, type, (e) => {
@@ -226,20 +225,37 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
       <button ref={pauseRef} className="tbtn glass pause" aria-label="Pause">
         <PauseBars />
       </button>
-      <button ref={flareRef} className={`tbtn glass flare ${snap.flares === 0 ? "empty" : ""}`} aria-label="Flares">
-        <Burst />
-        <span className="tbtn-count">{snap.flares}</span>
-      </button>
-      <button ref={portRef} className="tbtn glass strafe port" aria-label="Strafe left">
-        <Chevrons dir={-1} />
-      </button>
-      <button ref={stbdRef} className="tbtn glass strafe stbd" aria-label="Strafe right">
-        <Chevrons dir={1} />
-      </button>
-      <button ref={fireRef} className={`tbtn glass fire ${snap.ammo[snap.weapon] === 0 ? "empty" : ""}`} aria-label="Fire">
-        <Crosshair />
-        <span className="tbtn-count">{snap.ammo[snap.weapon]}</span>
-      </button>
+      <div className="touch-right">
+        <div className="touch-row">
+          <button ref={flareRef} className={`tbtn glass flare ${snap.flares === 0 ? "empty" : ""}`} aria-label="Flares">
+            <Burst />
+            <span className="tbtn-count">{snap.flares}</span>
+          </button>
+          {WEAPONS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              className={`chip glass rect ${snap.weapon === id ? "active" : ""} ${snap.ammo[id] === 0 ? "empty" : ""}`}
+              onPointerDown={() => game.selectWeapon(id)}
+              aria-label={label}
+            >
+              <Icon />
+              <span className="chip-count">{snap.ammo[id]}</span>
+            </button>
+          ))}
+        </div>
+        <div className="touch-row">
+          <button ref={portRef} className="tbtn glass strafe port" aria-label="Strafe left">
+            <Chevrons dir={-1} />
+          </button>
+          <button ref={stbdRef} className="tbtn glass strafe stbd" aria-label="Strafe right">
+            <Chevrons dir={1} />
+          </button>
+          <button ref={fireRef} className={`tbtn glass fire ${snap.ammo[snap.weapon] === 0 ? "empty" : ""}`} aria-label="Fire">
+            <Crosshair />
+            <span className="tbtn-count">{snap.ammo[snap.weapon]}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

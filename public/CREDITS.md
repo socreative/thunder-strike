@@ -37,4 +37,4 @@ All sound effects are synthesised at runtime with the Web Audio API.
 
 ## Artwork
 
-Title artwork and logo generated with Nano Banana Pro.
+Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.

@@ -54,9 +54,9 @@ const PauseBars = () => (
 /**
  * On-screen controls for phones: a thumbstick in the bottom-left corner that
  * points where the aircraft should fly, FIRE, two strafe buttons and FLARES
- * in the bottom-right corner, weapon chips and PAUSE in the top-right, and a
- * pinch anywhere else zooms. Text alerts are off here; the FLARES button
- * pulses when a missile is inbound instead. All
+ * in one row in the bottom-right corner, weapon chips and PAUSE in the
+ * top-right, and a pinch anywhere else zooms. The FLARES button pulses while a
+ * missile is inbound. All
  * pointer handling is native and imperative so a 60 Hz drag never causes a
  * React render; React only draws the structure and the ammo labels.
  */
@@ -240,11 +240,11 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
         </button>
       </div>
       <div className="touch-right">
-        <button ref={flareRef} className={`tbtn glass flare ${snap.flares === 0 ? "empty" : ""} ${snap.incoming ? "incoming" : ""}`} aria-label="Flares">
-          <Burst />
-          <span className="tbtn-count">{snap.flares}</span>
-        </button>
         <div className="touch-row">
+          <button ref={flareRef} className={`tbtn glass flare ${snap.flares === 0 ? "empty" : ""} ${snap.incoming ? "incoming" : ""}`} aria-label="Flares">
+            <Burst />
+            <span className="tbtn-count">{snap.flares}</span>
+          </button>
           <button ref={portRef} className="tbtn glass strafe port" aria-label="Strafe left">
             <Chevrons dir={-1} />
           </button>

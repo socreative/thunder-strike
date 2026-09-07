@@ -837,24 +837,15 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* No radio chatter on a phone; the objective pill carries the mission state. */
 .touch .hud-messages {
-  top: calc(var(--edge-t) + 36px);
-  bottom: auto;
-  width: min(360px, 44vw);
-  font-size: 11px;
-}
-.touch .msg {
-  padding: 3px 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: none;
 }
 .touch .hud-center {
   top: 26%;
 }
-/* No text alerts on a phone: the fuel bar blinks and the FLARES button pulses instead. */
 .touch .alert {
-  display: none;
+  font-size: 18px;
 }
 .touch .hud-br {
   right: auto;
@@ -969,6 +960,7 @@ button {
 .tbtn.flare {
   width: 54px;
   height: 54px;
+  margin-right: 6px;
   background: linear-gradient(150deg, rgba(160, 225, 255, 0.45) 0%, rgba(106, 208, 255, 0.18) 50%, rgba(106, 208, 255, 0.08) 100%);
   border-color: rgba(190, 235, 255, 0.75);
 }

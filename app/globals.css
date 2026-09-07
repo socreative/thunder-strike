@@ -667,11 +667,14 @@ button {
   --sa-r: env(safe-area-inset-right, 0px);
   --sa-b: env(safe-area-inset-bottom, 0px);
   --sa-l: env(safe-area-inset-left, 0px);
-  /* One margin for every corner element so the strip, stick, map and cluster line up. */
-  --edge-l: calc(12px + var(--sa-l));
-  --edge-r: calc(12px + var(--sa-r));
-  --edge-t: calc(10px + var(--sa-t));
-  --edge-b: calc(12px + var(--sa-b));
+  /* One margin for every corner element so the strip, stick, map and cluster
+     line up. The horizontal safe-area insets are ignored on purpose: in
+     landscape they reserve the whole notch column, which left a wide empty
+     band down one side, while the corners themselves are clear of the notch. */
+  --edge-l: 8px;
+  --edge-r: 8px;
+  --edge-t: calc(8px + var(--sa-t));
+  --edge-b: calc(10px + var(--sa-b));
   font-size: 11px;
 }
 @supports (height: 100dvh) {

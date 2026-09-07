@@ -852,8 +852,9 @@ button {
 .touch .hud-center {
   top: 26%;
 }
+/* No text alerts on a phone: the fuel bar blinks and the FLARES button pulses instead. */
 .touch .alert {
-  font-size: 18px;
+  display: none;
 }
 .touch .hud-br {
   right: auto;
@@ -968,7 +969,6 @@ button {
 .tbtn.flare {
   width: 54px;
   height: 54px;
-  margin-right: 6px;
   background: linear-gradient(150deg, rgba(160, 225, 255, 0.45) 0%, rgba(106, 208, 255, 0.18) 50%, rgba(106, 208, 255, 0.08) 100%);
   border-color: rgba(190, 235, 255, 0.75);
 }
@@ -982,11 +982,27 @@ button {
 .tbtn.strafe.stbd {
   margin-right: 6px;
 }
-.tbtn.pause {
-  width: 36px;
-  height: 36px;
+.touch-top {
+  position: absolute;
   top: var(--edge-t);
   right: var(--edge-r);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.touch-top .tbtn {
+  position: static;
+}
+.tbtn.pause {
+  width: 40px;
+  height: 40px;
+  margin-left: 6px;
+}
+.tbtn.flare.incoming {
+  border-color: var(--red);
+  color: #ffd2c8;
+  background: linear-gradient(150deg, rgba(255, 120, 90, 0.6), rgba(255, 90, 60, 0.3) 60%, rgba(255, 90, 60, 0.15));
+  animation: blink 0.5s steps(2) infinite;
 }
 .tbtn.pressed {
   transform: scale(0.92);

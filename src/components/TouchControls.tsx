@@ -53,9 +53,10 @@ const PauseBars = () => (
 
 /**
  * On-screen controls for phones: a thumbstick in the bottom-left corner that
- * points where the aircraft should fly, and a bottom-right cluster of FIRE,
- * two strafe buttons, FLARES and the weapon chips. PAUSE sits top-right and a
- * pinch anywhere else zooms. All
+ * points where the aircraft should fly, FIRE, two strafe buttons and FLARES
+ * in the bottom-right corner, weapon chips and PAUSE in the top-right, and a
+ * pinch anywhere else zooms. Text alerts are off here; the FLARES button
+ * pulses when a missile is inbound instead. All
  * pointer handling is native and imperative so a 60 Hz drag never causes a
  * React render; React only draws the structure and the ammo labels.
  */
@@ -222,27 +223,27 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
           <div ref={knobRef} className="stick-knob glass" />
         </div>
       </div>
-      <button ref={pauseRef} className="tbtn glass pause" aria-label="Pause">
-        <PauseBars />
-      </button>
-      <div className="touch-right">
-        <div className="touch-row">
-          <button ref={flareRef} className={`tbtn glass flare ${snap.flares === 0 ? "empty" : ""}`} aria-label="Flares">
-            <Burst />
-            <span className="tbtn-count">{snap.flares}</span>
+      <div className="touch-top">
+        {WEAPONS.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            className={`chip glass rect ${snap.weapon === id ? "active" : ""} ${snap.ammo[id] === 0 ? "empty" : ""}`}
+            onPointerDown={() => game.selectWeapon(id)}
+            aria-label={label}
+          >
+            <Icon />
+            <span className="chip-count">{snap.ammo[id]}</span>
           </button>
-          {WEAPONS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              className={`chip glass rect ${snap.weapon === id ? "active" : ""} ${snap.ammo[id] === 0 ? "empty" : ""}`}
-              onPointerDown={() => game.selectWeapon(id)}
-              aria-label={label}
-            >
-              <Icon />
-              <span className="chip-count">{snap.ammo[id]}</span>
-            </button>
-          ))}
-        </div>
+        ))}
+        <button ref={pauseRef} className="tbtn glass pause" aria-label="Pause">
+          <PauseBars />
+        </button>
+      </div>
+      <div className="touch-right">
+        <button ref={flareRef} className={`tbtn glass flare ${snap.flares === 0 ? "empty" : ""} ${snap.incoming ? "incoming" : ""}`} aria-label="Flares">
+          <Burst />
+          <span className="tbtn-count">{snap.flares}</span>
+        </button>
         <div className="touch-row">
           <button ref={portRef} className="tbtn glass strafe port" aria-label="Strafe left">
             <Chevrons dir={-1} />

@@ -38,14 +38,18 @@ const clamp1 = (v: number) => (v > 1 ? 1 : v < -1 ? -1 : v);
 
 /**
  * Keyboard state with per-frame edge detection plus wheel accumulation, and a
- * touch layer on top: analog axes for the stick and virtual keys for the
+ * touch layer on top: a screen-space stick vector and virtual keys for the
  * buttons. Virtual keys reuse the keyboard codes so every consumer reads one
  * source regardless of where the press came from.
  */
 export class Input {
   private down = new Set<string>();
   private pressed = new Set<string>();
-  private touchAxes: Record<Axis, number> = { move: 0, turn: 0, strafe: 0 };
+  /**
+   * Touch stick in screen space, x right and y up, magnitude at most 1. The
+   * helicopter turns it into a heading, so it lives here as a raw vector.
+   */
+  readonly stick = { x: 0, y: 0 };
   /** Codes currently held by touch, so they can be released together. */
   private touchHeld = new Set<string>();
   /** Codes that went down since the last frame ended. */
@@ -121,15 +125,15 @@ export class Input {
     return hit;
   }
 
-  /** Keyboard contribution plus the touch stick, clamped to [-1, 1]. */
+  /** Keyboard axis: -1, 0 or 1. */
   axis(name: Axis): number {
     const k = AXIS_KEYS[name];
-    const key = (this.isDown(...k.pos) ? 1 : 0) - (this.isDown(...k.neg) ? 1 : 0);
-    return clamp1(key + this.touchAxes[name]);
+    return (this.isDown(...k.pos) ? 1 : 0) - (this.isDown(...k.neg) ? 1 : 0);
   }
 
-  setAxis(name: Axis, v: number): void {
-    this.touchAxes[name] = clamp1(v);
+  setStick(x: number, y: number): void {
+    this.stick.x = clamp1(x);
+    this.stick.y = clamp1(y);
     this.interacted = true;
   }
 
@@ -160,9 +164,8 @@ export class Input {
     this.touchHeld.clear();
     this.pendingRelease.clear();
     this.freshDown.clear();
-    this.touchAxes.move = 0;
-    this.touchAxes.turn = 0;
-    this.touchAxes.strafe = 0;
+    this.stick.x = 0;
+    this.stick.y = 0;
   }
 
   /** Clear edge-triggered state. Call once after each simulated frame. */

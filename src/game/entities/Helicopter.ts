@@ -198,12 +198,26 @@ export class Helicopter extends Entity {
     this.tickFlash(dt);
 
     // Controls
-    // Axes are analog: the keyboard gives 0 or 1, the touch stick anything between.
-    const move = input.axis("move");
+    // Keyboard gives whole steps; the touch stick blends in analog values.
+    let move = input.axis("move");
+    let turn = input.axis("turn");
+    const strafe = input.axis("strafe");
+    const stick = input.stick;
+    const stickMag = Math.hypot(stick.x, stick.y);
+    if (stickMag > 0) {
+      // The stick points where the aircraft should go on screen. Screen up is
+      // away from the camera, so rotate by the fixed camera yaw into the world,
+      // then turn toward that heading and only thrust once roughly aligned.
+      const yaw = balance.camera.yaw;
+      const dx = Math.cos(yaw) * stick.x - Math.sin(yaw) * stick.y;
+      const dz = -Math.sin(yaw) * stick.x - Math.cos(yaw) * stick.y;
+      let diff = Math.atan2(dx, dz) - this.heading;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      turn = clamp(turn + clamp(diff / 0.45, -1, 1), -1, 1);
+      move = clamp(move + stickMag * Math.max(0, Math.cos(diff)), -1, 1);
+    }
     const thrust = Math.max(0, move);
     const reverse = Math.max(0, -move);
-    const turn = input.axis("turn");
-    const strafe = input.axis("strafe");
 
     this.heading += turn * H.turnRate * dt;
     this.forward(tmpForward);

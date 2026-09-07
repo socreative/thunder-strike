@@ -10,35 +10,46 @@ const DEAD_ZONE = 0.12;
 /** Pinch distance to camera zoom, in the units the mouse wheel uses. */
 const PINCH_GAIN = 0.9;
 
-/**
- * Map a stick deflection to the three flight axes. Forward is thrust with
- * sideways as turn. Pulled back, the angle decides: straight back reverses,
- * 45 degrees slides, 90 degrees turns, blended smoothly between.
- */
-function mapStick(nx: number, ny: number): { move: number; turn: number; strafe: number } {
+/** Deflection with a dead zone and a squared response for fine control near centre. */
+function shapeStick(nx: number, ny: number): { x: number; y: number } {
   const mag = Math.min(1, Math.hypot(nx, ny));
-  if (mag < DEAD_ZONE) return { move: 0, turn: 0, strafe: 0 };
+  if (mag < DEAD_ZONE) return { x: 0, y: 0 };
   const lin = (mag - DEAD_ZONE) / (1 - DEAD_ZONE);
-  // Squared response leaves fine control near centre for lining up the winch.
   const m = lin * lin;
-  const ux = nx / mag;
-  const uy = ny / mag;
-  if (uy >= 0) return { move: uy * m, turn: -ux * m, strafe: 0 };
-  const ang = Math.atan2(Math.abs(ux), -uy); // 0 straight back, pi/2 pure sideways
-  const s = Math.sin(2 * ang);
-  const strafeW = s * s; // peaks at 45 degrees, zero at 0 and 90
-  return {
-    move: uy * m * (1 - 0.6 * strafeW),
-    turn: -ux * m * (1 - strafeW),
-    strafe: Math.sign(ux) * m * strafeW,
-  };
+  return { x: (nx / mag) * m, y: (ny / mag) * m };
 }
 
+/* Glyphs, drawn inline so they pick up the glass styling with no asset load. */
+const Crosshair = () => (
+  <svg viewBox="0 0 48 48" className="glyph-svg">
+    <circle cx="24" cy="24" r="13" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <circle cx="24" cy="24" r="3" fill="currentColor" />
+    <path d="M24 4v9M24 35v9M4 24h9M35 24h9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+const Burst = () => (
+  <svg viewBox="0 0 48 48" className="glyph-svg">
+    <path d="M24 6v10M24 32v10M6 24h10M32 24h10M11 11l7 7M30 30l7 7M37 11l-7 7M18 30l-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <circle cx="24" cy="24" r="4" fill="currentColor" />
+  </svg>
+);
+const Chevrons = ({ dir }: { dir: -1 | 1 }) => (
+  <svg viewBox="0 0 48 48" className="glyph-svg" style={{ transform: dir < 0 ? "scaleX(-1)" : undefined }}>
+    <path d="M14 12l12 12-12 12M26 12l12 12-12 12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const PauseBars = () => (
+  <svg viewBox="0 0 48 48" className="glyph-svg">
+    <path d="M17 12v24M31 12v24" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+  </svg>
+);
+
 /**
- * On-screen controls for phones: a floating thumbstick on the left, FIRE and
- * FLARES under the right thumb, PAUSE at the top, pinch anywhere else to zoom.
- * All pointer handling is native and imperative so a 60 Hz drag never causes
- * a React render; React only draws the structure and the ammo labels.
+ * On-screen controls for phones: a floating thumbstick on the left that
+ * points where the aircraft should fly, FIRE, FLARES and two strafe buttons
+ * under the right thumb, PAUSE at the top, pinch anywhere else to zoom. All
+ * pointer handling is native and imperative so a 60 Hz drag never causes a
+ * React render; React only draws the structure and the ammo labels.
  */
 export default function TouchControls({ game, snap }: { game: Game; snap: Snapshot }) {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -47,6 +58,8 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
   const knobRef = useRef<HTMLDivElement>(null);
   const fireRef = useRef<HTMLButtonElement>(null);
   const flareRef = useRef<HTMLButtonElement>(null);
+  const portRef = useRef<HTMLButtonElement>(null);
+  const stbdRef = useRef<HTMLButtonElement>(null);
   const pauseRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -56,8 +69,10 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
     const knob = knobRef.current;
     const fire = fireRef.current;
     const flare = flareRef.current;
+    const port = portRef.current;
+    const stbd = stbdRef.current;
     const pause = pauseRef.current;
-    if (!layer || !zone || !base || !knob || !fire || !flare || !pause) return;
+    if (!layer || !zone || !base || !knob || !fire || !flare || !port || !stbd || !pause) return;
     const input = game.input;
     const opts: AddEventListenerOptions = { passive: false };
     const cleanups: (() => void)[] = [];
@@ -85,17 +100,13 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
         dy *= STICK_RADIUS / len;
       }
       knob.style.transform = `translate(${dx}px, ${dy}px)`;
-      const axes = mapStick(dx / STICK_RADIUS, -dy / STICK_RADIUS);
-      input.setAxis("move", axes.move);
-      input.setAxis("turn", axes.turn);
-      input.setAxis("strafe", axes.strafe);
+      const v = shapeStick(dx / STICK_RADIUS, -dy / STICK_RADIUS);
+      input.setStick(v.x, v.y);
     };
     const endStick = () => {
       stickId = null;
       base.classList.remove("on");
-      input.setAxis("move", 0);
-      input.setAxis("turn", 0);
-      input.setAxis("strafe", 0);
+      input.setStick(0, 0);
     };
     on(zone, "pointerdown", (e) => {
       if (stickId !== null) return;
@@ -147,6 +158,8 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
     };
     button(fire, "Space");
     button(flare, "KeyF");
+    button(port, "KeyQ");
+    button(stbd, "KeyE");
     button(pause, "Escape");
 
     /* Pinch zoom on the bare layer. Single touches there do nothing. */
@@ -206,19 +219,25 @@ export default function TouchControls({ game, snap }: { game: Game; snap: Snapsh
   return (
     <div ref={layerRef} className="touch-layer">
       <div ref={zoneRef} className="stick-zone">
-        <div ref={baseRef} className="stick-base">
-          <div ref={knobRef} className="stick-knob" />
+        <div ref={baseRef} className="stick-base glass">
+          <div ref={knobRef} className="stick-knob glass" />
         </div>
       </div>
-      <button ref={pauseRef} className="tbtn pause" aria-label="Pause">
-        <span className="pause-glyph" />
+      <button ref={pauseRef} className="tbtn glass pause" aria-label="Pause">
+        <PauseBars />
       </button>
-      <button ref={flareRef} className={`tbtn flare ${snap.flares === 0 ? "empty" : ""}`}>
-        <span className="tbtn-label">FLARES</span>
+      <button ref={flareRef} className={`tbtn glass flare ${snap.flares === 0 ? "empty" : ""}`} aria-label="Flares">
+        <Burst />
         <span className="tbtn-count">{snap.flares}</span>
       </button>
-      <button ref={fireRef} className={`tbtn fire ${snap.ammo[snap.weapon] === 0 ? "empty" : ""}`}>
-        <span className="tbtn-label">FIRE</span>
+      <button ref={portRef} className="tbtn glass strafe port" aria-label="Strafe left">
+        <Chevrons dir={-1} />
+      </button>
+      <button ref={stbdRef} className="tbtn glass strafe stbd" aria-label="Strafe right">
+        <Chevrons dir={1} />
+      </button>
+      <button ref={fireRef} className={`tbtn glass fire ${snap.ammo[snap.weapon] === 0 ? "empty" : ""}`} aria-label="Fire">
+        <Crosshair />
         <span className="tbtn-count">{snap.ammo[snap.weapon]}</span>
       </button>
     </div>

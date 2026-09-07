@@ -109,12 +109,12 @@ const TOUCH_GROUPS: Group[] = [
   {
     title: "Fly",
     keys: <Glyph kind="stick">✥</Glyph>,
-    action: "Touch anywhere on the left and a stick appears under your thumb. Push forward to fly, sideways to turn, pull back to brake.",
+    action: "Touch anywhere on the left and a stick appears under your thumb. The aircraft turns and flies toward wherever the stick points on screen. Let go to slow down.",
   },
   {
     title: "Strafe",
-    keys: <Glyph kind="stick">↙ ↘</Glyph>,
-    action: "Pull the stick back and to the side to slide left or right without turning. Useful for dodging shells and lining up a gun run.",
+    keys: <Glyph kind="round">« »</Glyph>,
+    action: "Hold one of the two chevron buttons beside FIRE to slide left or right without turning. Useful for dodging shells and lining up a gun run.",
   },
   {
     title: "Fire",

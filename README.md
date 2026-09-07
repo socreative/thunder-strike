@@ -15,7 +15,7 @@ Open http://localhost:3000. Add `?webgl=1` to force the WebGL 2 backend, `?nopos
 
 ### On a phone
 
-Open the deployed site in Safari, then Share, Add to Home Screen. Launched from the icon it runs without browser chrome; hold the phone in landscape. A stick appears wherever your left thumb lands: push forward to fly, sideways to turn, pull back to brake, and pull back and to the side to slide. FIRE and FLARES sit under the right thumb, tapping a weapon in the list selects it, pinching zooms the camera, and the pause button is at the top. Touch controls switch on automatically for coarse pointers; `?touch=1` forces them on a desktop for layout work and `?touch=0` forces them off.
+Open the deployed site in Safari, then Share, Add to Home Screen. Launched from the icon it runs without browser chrome; hold the phone in landscape. A stick appears wherever your left thumb lands and the aircraft flies toward wherever it points; let go to slow down. FIRE, FLARES and two strafe buttons sit under the right thumb, tapping a weapon in the list selects it, pinching zooms the camera, and the pause button is at the top. Touch controls switch on automatically for coarse pointers; `?touch=1` forces them on a desktop for layout work and `?touch=0` forces them off.
 
 | Key | Action |
 | --- | --- |

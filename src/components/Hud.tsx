@@ -3,6 +3,63 @@
 import type { Snapshot, WeaponId } from "@/src/game/core/Store";
 import type { Game } from "@/src/game/Game";
 import Minimap from "./Minimap";
+import { FuelIcon, GunIcon, HeliIcon, MissileIcon, PersonIcon, RocketIcon, ShieldIcon } from "./HudIcons";
+
+const WEAPON_ICONS: Record<WeaponId, () => React.JSX.Element> = { gun: GunIcon, hydra: RocketIcon, hellfire: MissileIcon };
+
+/** Icon plus bar, no label: the phone strip has no room for words. */
+function MiniBar({ icon, value, max, warn }: { icon: React.ReactNode; value: number; max: number; warn: boolean }) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  return (
+    <div className={`mini-bar ${warn ? "bar-warn" : ""}`}>
+      {icon}
+      <div className="bar-track">
+        <div className="bar-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** Compact status strip and weapon chips for touch mode. */
+function CompactHud({ snap, game }: { snap: Snapshot; game: Game | null }) {
+  return (
+    <>
+      <div className="hud-tl status-strip glass rect">
+        <MiniBar icon={<ShieldIcon />} value={snap.armor} max={snap.armorMax} warn={snap.lowArmor} />
+        <MiniBar icon={<FuelIcon />} value={snap.fuel} max={snap.fuelMax} warn={snap.lowFuel} />
+        <div className="mini-row">
+          <span className="lives">
+            {Array.from({ length: 3 }, (_, i) => (
+              <span key={i} className={i < snap.lives ? "life-heli on" : "life-heli"}>
+                <HeliIcon />
+              </span>
+            ))}
+          </span>
+          <span className="pax-chip">
+            <PersonIcon />
+            {snap.passengers}/{snap.passengersMax}
+          </span>
+        </div>
+      </div>
+      <div className="hud-tr weapon-chips">
+        {WEAPONS.map((w) => {
+          const Icon = WEAPON_ICONS[w.id];
+          return (
+            <button
+              key={w.id}
+              className={`chip glass rect ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`}
+              onPointerDown={() => game?.selectWeapon(w.id)}
+              aria-label={w.label}
+            >
+              <Icon />
+              <span className="chip-count">{snap.ammo[w.id]}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
 
 const WEAPONS: { id: WeaponId; label: string; key: string }[] = [
   { id: "gun", label: "CHAIN GUN", key: "1" },
@@ -29,58 +86,63 @@ export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; o
   const current = snap.objectives.find((o) => !o.done && !o.locked) ?? snap.objectives.find((o) => !o.done);
   return (
     <div className="hud" aria-hidden>
-      <div className="hud-tl panel">
-        <Bar value={snap.armor} max={snap.armorMax} label="ARMOUR" warn={snap.lowArmor} />
-        <Bar value={snap.fuel} max={snap.fuelMax} label="FUEL" warn={snap.lowFuel} />
-        <div className="hud-row">
-          <span>LIVES</span>
-          <span className="lives">
-            {Array.from({ length: 3 }, (_, i) => (
-              <span key={i} className={i < snap.lives ? "life on" : "life"} />
-            ))}
-          </span>
-          <span>PAX</span>
-          <span className="pax">
-            {snap.passengers}/{snap.passengersMax}
-          </span>
-        </div>
-      </div>
-
-      <div className="hud-tr panel">
-        {WEAPONS.map((w) => (
-          <div
-            key={w.id}
-            className={`weapon ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`}
-            onPointerDown={touch ? () => game?.selectWeapon(w.id) : undefined}
-          >
-            <span className="weapon-key">{w.key}</span>
-            <span className="weapon-name">{w.label}</span>
-            <span className="weapon-ammo">{snap.ammo[w.id]}</span>
+      {touch ? (
+        <CompactHud snap={snap} game={game} />
+      ) : (
+        <>
+          <div className="hud-tl panel">
+            <Bar value={snap.armor} max={snap.armorMax} label="ARMOUR" warn={snap.lowArmor} />
+            <Bar value={snap.fuel} max={snap.fuelMax} label="FUEL" warn={snap.lowFuel} />
+            <div className="hud-row">
+              <span>LIVES</span>
+              <span className="lives">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <span key={i} className={i < snap.lives ? "life on" : "life"} />
+                ))}
+              </span>
+              <span>PAX</span>
+              <span className="pax">
+                {snap.passengers}/{snap.passengersMax}
+              </span>
+            </div>
           </div>
-        ))}
-        <div className={`weapon flares ${snap.flares === 0 ? "empty" : ""}`}>
-          <span className="weapon-key">F</span>
-          <span className="weapon-name">FLARES</span>
-          <span className="weapon-ammo">{snap.flares}</span>
-        </div>
-      </div>
 
-      <div className="hud-bl panel">
-        <div className="obj-title">OBJECTIVES</div>
-        <ol className="objectives">
-          {snap.objectives.map((o) => (
-            <li key={o.id} className={o.done ? "done" : o.locked ? "locked" : ""}>
-              <span className="obj-mark">{o.done ? "■" : "□"}</span>
-              <span className="obj-text">{o.text}</span>
-              {o.total && o.total > 1 && !o.done && (
-                <span className="obj-prog">
-                  {o.progress ?? 0}/{o.total}
-                </span>
-              )}
-            </li>
-          ))}
-        </ol>
-      </div>
+          <div className="hud-tr panel">
+            {WEAPONS.map((w) => (
+              <div
+                key={w.id}
+                className={`weapon ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`}
+                  >
+                <span className="weapon-key">{w.key}</span>
+                <span className="weapon-name">{w.label}</span>
+                <span className="weapon-ammo">{snap.ammo[w.id]}</span>
+              </div>
+            ))}
+            <div className={`weapon flares ${snap.flares === 0 ? "empty" : ""}`}>
+              <span className="weapon-key">F</span>
+              <span className="weapon-name">FLARES</span>
+              <span className="weapon-ammo">{snap.flares}</span>
+            </div>
+          </div>
+
+          <div className="hud-bl panel">
+            <div className="obj-title">OBJECTIVES</div>
+            <ol className="objectives">
+              {snap.objectives.map((o) => (
+                <li key={o.id} className={o.done ? "done" : o.locked ? "locked" : ""}>
+                  <span className="obj-mark">{o.done ? "■" : "□"}</span>
+                  <span className="obj-text">{o.text}</span>
+                  {o.total && o.total > 1 && !o.done && (
+                    <span className="obj-prog">
+                      {o.progress ?? 0}/{o.total}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </>
+      )}
 
       {touch && current && (
         <div className="obj-pill panel">

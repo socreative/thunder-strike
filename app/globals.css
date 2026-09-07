@@ -674,37 +674,127 @@ button {
     height: 100dvh;
   }
 }
-.touch .hud-tl {
+.glass.rect {
+  border-radius: 14px;
+}
+.touch .hud-tl.status-strip {
   top: calc(8px + var(--sa-t));
   left: calc(10px + var(--sa-l));
-  width: 165px;
-  padding: 6px 9px;
+  width: 150px;
+  padding: 7px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: rgba(255, 250, 240, 0.95);
 }
-.touch .bar {
-  margin-bottom: 5px;
+.hicon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
 }
-.touch .bar-track {
+.mini-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mini-bar .bar-track {
+  flex: 1;
   height: 6px;
+  margin: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.18);
 }
-.touch .hud-tr {
+.mini-bar .bar-fill {
+  border-radius: 3px;
+}
+.mini-bar.bar-warn {
+  color: var(--red);
+}
+.mini-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1px;
+}
+.mini-row .lives {
+  gap: 2px;
+  margin: 0;
+}
+.life-heli {
+  display: inline-flex;
+  color: rgba(255, 255, 255, 0.25);
+}
+.life-heli.on {
+  color: var(--amber);
+}
+.life-heli .hicon {
+  width: 15px;
+  height: 15px;
+}
+.pax-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(255, 250, 240, 0.95);
+}
+.pax-chip .hicon {
+  width: 13px;
+  height: 13px;
+}
+.touch .hud-tr.weapon-chips {
   top: calc(8px + var(--sa-t));
   right: calc(10px + var(--sa-r));
-  width: 150px;
-  padding: 4px;
+  width: auto;
+  padding: 0;
+  display: flex;
+  gap: 8px;
   pointer-events: auto;
+  background: none;
+  border: none;
+  backdrop-filter: none;
 }
-.touch .weapon {
-  min-height: 32px;
-  padding: 4px 6px;
-  grid-template-columns: 12px 1fr auto;
-  gap: 6px;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
+.chip {
+  width: 46px;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: rgba(255, 250, 240, 0.7);
+  padding: 0;
   cursor: pointer;
+  touch-action: none;
+  border-radius: 14px;
 }
-.touch .weapon-ammo {
-  font-size: 13px;
+.chip .hicon {
+  width: 20px;
+  height: 20px;
+}
+.chip-count {
+  font-size: 11px;
+  letter-spacing: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.chip.active {
+  color: #1b1408;
+  background: linear-gradient(150deg, rgba(255, 220, 150, 0.95), rgba(242, 182, 74, 0.85) 60%, rgba(225, 160, 60, 0.85));
+  border-color: rgba(255, 240, 210, 0.95);
+}
+.chip.active .chip-count {
+  text-shadow: none;
+  font-weight: 700;
+}
+.chip.empty .chip-count {
+  color: #ff8a70;
+}
+.chip.active.empty .chip-count {
+  color: #7a1a08;
 }
 .touch .hud-bl,
 .touch .hud-fps {

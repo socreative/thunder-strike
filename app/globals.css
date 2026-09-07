@@ -805,11 +805,13 @@ button {
   position: absolute;
   left: 0;
   top: 0;
-  width: 128px;
-  height: 128px;
+  width: 136px;
+  height: 136px;
   display: none;
   place-items: center;
   pointer-events: none;
+  /* The knob overhangs the ring at full deflection, like a real stick. */
+  overflow: visible;
 }
 .stick-base.on {
   display: grid;

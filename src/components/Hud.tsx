@@ -1,6 +1,7 @@
 "use client";
 
 import type { Snapshot, WeaponId } from "@/src/game/core/Store";
+import type { Game } from "@/src/game/Game";
 import Minimap from "./Minimap";
 
 const WEAPONS: { id: WeaponId; label: string; key: string }[] = [
@@ -24,7 +25,8 @@ function Bar({ value, max, label, warn }: { value: number; max: number; label: s
   );
 }
 
-export default function Hud({ snap, overview }: { snap: Snapshot; overview: ImageData | null }) {
+export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; overview: ImageData | null; touch: boolean; game: Game | null }) {
+  const current = snap.objectives.find((o) => !o.done && !o.locked) ?? snap.objectives.find((o) => !o.done);
   return (
     <div className="hud" aria-hidden>
       <div className="hud-tl panel">
@@ -46,7 +48,11 @@ export default function Hud({ snap, overview }: { snap: Snapshot; overview: Imag
 
       <div className="hud-tr panel">
         {WEAPONS.map((w) => (
-          <div key={w.id} className={`weapon ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`}>
+          <div
+            key={w.id}
+            className={`weapon ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`}
+            onPointerDown={touch ? () => game?.selectWeapon(w.id) : undefined}
+          >
             <span className="weapon-key">{w.key}</span>
             <span className="weapon-name">{w.label}</span>
             <span className="weapon-ammo">{snap.ammo[w.id]}</span>
@@ -76,8 +82,20 @@ export default function Hud({ snap, overview }: { snap: Snapshot; overview: Imag
         </ol>
       </div>
 
+      {touch && current && (
+        <div className="obj-pill panel">
+          <span className="obj-mark">□</span>
+          <span className="obj-text">{current.text}</span>
+          {current.total && current.total > 1 && (
+            <span className="obj-prog">
+              {current.progress ?? 0}/{current.total}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="hud-br">
-        <Minimap snap={snap} overview={overview} />
+        <Minimap snap={snap} overview={overview} size={touch ? 104 : 184} />
       </div>
 
       <div className="hud-center">
@@ -96,7 +114,7 @@ export default function Hud({ snap, overview }: { snap: Snapshot; overview: Imag
       </div>
 
       <div className="hud-messages">
-        {snap.messages.slice(-4).map((m) => (
+        {snap.messages.slice(touch ? -2 : -4).map((m) => (
           <div key={m.id} className="msg">
             <span className="msg-prefix">HQ</span> {m.text}
           </div>

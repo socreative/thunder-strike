@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { Snapshot } from "@/src/game/core/Store";
 
-const SIZE = 184;
-
 const COLORS: Record<string, string> = {
   enemy: "#ff5a3c",
   sam: "#ff3cc8",
@@ -15,7 +13,7 @@ const COLORS: Record<string, string> = {
   missile: "#ff2a2a",
 };
 
-export default function Minimap({ snap, overview }: { snap: Snapshot; overview: ImageData | null }) {
+export default function Minimap({ snap, overview, size = 184 }: { snap: Snapshot; overview: ImageData | null; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const bgRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -34,7 +32,7 @@ export default function Minimap({ snap, overview }: { snap: Snapshot; overview: 
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const s = SIZE;
+    const s = size;
     const half = snap.mapSize / 2;
     const toPx = (x: number) => ((x + half) / snap.mapSize) * s;
     ctx.clearRect(0, 0, s, s);
@@ -105,11 +103,11 @@ export default function Minimap({ snap, overview }: { snap: Snapshot; overview: 
     ctx.strokeStyle = "rgba(240,230,200,0.5)";
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, s - 1, s - 1);
-  }, [snap]);
+  }, [snap, size]);
 
   return (
     <div className="minimap panel">
-      <canvas ref={ref} width={SIZE} height={SIZE} />
+      <canvas ref={ref} width={size} height={size} />
       <div className="minimap-caption">{snap.radarDown ? "FULL RADAR PICTURE" : "LOCAL RADAR ONLY"}</div>
     </div>
   );

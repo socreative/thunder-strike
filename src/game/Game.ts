@@ -3,7 +3,7 @@ import { pass } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { Assets } from "./core/Assets";
 import { Input } from "./core/Input";
-import type { Blip, Screen, Store } from "./core/Store";
+import type { Blip, Screen, Store, WeaponId } from "./core/Store";
 import { balance } from "./data/balance";
 import { mission1 } from "./data/mission1";
 import { Audio } from "./systems/Audio";
@@ -18,7 +18,7 @@ const PUBLISH_HZ = 20;
 /** Owns the renderer, the loop and screen flow. Gameplay lives in World. */
 export class Game {
   private renderer!: THREE.WebGPURenderer;
-  private readonly input = new Input();
+  readonly input = new Input();
   private readonly audio = new Audio();
   private readonly assets = new Assets();
   private world: World | null = null;
@@ -35,6 +35,12 @@ export class Game {
   private overview: ImageData | null = null;
   private disposed = false;
   private onResize = () => this.resize();
+  /** Phone locked or app switched mid-flight: freeze rather than fly on unseen. */
+  private onVisibility = () => {
+    if (document.visibilityState !== "hidden") return;
+    this.input.clearTouch();
+    if (this.screen === "playing") this.togglePause();
+  };
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -72,6 +78,7 @@ export class Game {
     this.createWorld();
     this.input.attach();
     window.addEventListener("resize", this.onResize);
+    document.addEventListener("visibilitychange", this.onVisibility);
     this.setScreen("title");
     this.store.set({ loadProgress: 1, mapSize: balance.map.size });
     this.last = performance.now();
@@ -140,10 +147,15 @@ export class Game {
     if (this.audio.ready && !this.store.get().audioReady) this.store.set({ audioReady: true });
   }
 
-  start(): void {
+  /**
+   * Advance from the title or briefing. A keypress that also unlocks audio is
+   * swallowed so the menu is heard first; a tap on the START button is its own
+   * gesture, so the UI passes `fromUi` and proceeds in the same call.
+   */
+  start(fromUi = false): void {
     if (!this.store.get().audioReady) {
       this.unlockAudio();
-      return;
+      if (!fromUi) return;
     }
     this.audio.ensure();
     if (this.screen === "title") this.setScreen("briefing");
@@ -232,6 +244,19 @@ export class Game {
     this.audio.updateMusic();
   }
 
+  /** Weapon rows on the HUD are tappable in touch mode. */
+  selectWeapon(id: WeaponId): void {
+    const world = this.world;
+    if (!world || this.screen !== "playing") return;
+    world.heli.weapon = id;
+    this.audio.play("select");
+  }
+
+  /** Camera distance change from a pinch, in the same units as wheel deltaY. */
+  zoomBy(delta: number): void {
+    this.rig.zoom(delta);
+  }
+
   toggleMute(): void {
     this.audio.setMuted(!this.audio.muted);
     this.store.set({ muted: this.audio.muted });
@@ -251,7 +276,7 @@ export class Game {
     // frame so the unlocking keypress is not also treated as a menu choice.
     const wasReady = this.store.get().audioReady;
     if (input.interacted) this.unlockAudio();
-    if (input.wasPressed("KeyM")) this.toggleMute();
+    if (input.take("KeyM")) this.toggleMute();
     this.updateMusic();
     switch (this.screen) {
       case "title":
@@ -282,10 +307,11 @@ export class Game {
         break;
     }
 
-    if (this.screen === "playing" || this.screen === "dead") {
+    const simulating = this.screen === "playing" || this.screen === "dead";
+    let steps = 0;
+    if (simulating) {
       if (input.wheel !== 0) this.rig.zoom(input.wheel);
       this.acc += dt;
-      let steps = 0;
       while (this.acc >= STEP && steps < 5) {
         world.update(STEP);
         this.acc -= STEP;
@@ -311,7 +337,10 @@ export class Game {
       world.particles.update(dt);
       this.audio.setRotor(false, 0);
     }
-    input.endFrame();
+    // On displays above 60 Hz many frames run no sim step. Clearing edges on
+    // those frames lost roughly every other tap, so only clear once a step
+    // (or a menu) has had the chance to read them.
+    if (!simulating || steps > 0) input.endFrame();
 
     const focus = world.cameraFocus();
     this.rig.update(dt, focus, focus === world.heli.pos ? world.heli.vel : zeroVel, world.shakeAmount, world.time);
@@ -418,6 +447,7 @@ export class Game {
   dispose(): void {
     this.disposed = true;
     window.removeEventListener("resize", this.onResize);
+    document.removeEventListener("visibilitychange", this.onVisibility);
     this.input.detach();
     this.audio.dispose();
     if (this.renderer) {

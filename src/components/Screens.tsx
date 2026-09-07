@@ -12,7 +12,7 @@ function formatTime(s: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
-export default function Screens({ snap, game, error }: { snap: Snapshot; game: Game | null; error: string | null }) {
+export default function Screens({ snap, game, error, touch }: { snap: Snapshot; game: Game | null; error: string | null; touch: boolean }) {
   const backendBadge = snap.backend && (
     <div className={`backend ${snap.backend}`}>{snap.backend === "webgpu" ? "WebGPU" : "WebGL 2 fallback: WebGPU is not available in this browser"}</div>
   );
@@ -50,7 +50,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
 
     case "title":
       return (
-        <div className="screen splash" onPointerDown={() => game?.unlockAudio()}>
+        <div className="screen splash" onClick={() => game?.unlockAudio()}>
           {backendBadge}
           <div className="card title-card menu-card">
             <h1 className="logo">
@@ -60,7 +60,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
             <p className="tagline">One aircraft. One province. Bring the pilots home.</p>
             {snap.audioReady ? (
               <>
-                <button className="btn primary" onClick={() => game?.start()}>
+                <button className="btn primary" onClick={() => game?.start(true)}>
                   START MISSION
                 </button>
                 <button className="btn" onClick={() => game?.showControls()}>
@@ -72,7 +72,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
               </>
             ) : (
               <button className="btn primary press-any" onClick={() => game?.unlockAudio()}>
-                PRESS ANY KEY
+                {touch ? "TAP TO START" : "PRESS ANY KEY"}
               </button>
             )}
           </div>
@@ -85,17 +85,24 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
           <div className="card briefing">
             <div className="eyebrow">MISSION BRIEFING</div>
             <h2 className="subtitle">{mission1.name}</h2>
-            {mission1.briefing.map((p, i) => (
-              <p key={i}>{p}</p>
-            ))}
-            <ol className="brief-objectives">
-              {mission1.objectives.map((o) => (
-                <li key={o.id}>{o.text}</li>
-              ))}
-            </ol>
-            <button className="btn primary" onClick={() => game?.start()}>
-              TAKE OFF
-            </button>
+            {/* Two columns on a phone held sideways so the button stays in view. */}
+            <div className="brief-cols">
+              <div className="brief-text">
+                {mission1.briefing.map((p, i) => (
+                  <p key={i}>{p}</p>
+                ))}
+              </div>
+              <div className="brief-side">
+                <ol className="brief-objectives">
+                  {mission1.objectives.map((o) => (
+                    <li key={o.id}>{o.text}</li>
+                  ))}
+                </ol>
+                <button className="btn primary" onClick={() => game?.start(true)}>
+                  TAKE OFF
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -188,7 +195,7 @@ export default function Screens({ snap, game, error }: { snap: Snapshot; game: G
     }
 
     case "controls":
-      return <ControlsOverlay onClose={() => game?.hideControls()} />;
+      return <ControlsOverlay onClose={() => game?.hideControls()} touch={touch} />;
 
     case "credits":
       return (

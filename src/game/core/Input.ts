@@ -25,10 +25,33 @@ const GAME_KEYS = new Set([
   "ControlRight",
 ]);
 
-/** Keyboard state with per-frame edge detection plus wheel accumulation. */
+/** Analog flight axes. Positive move is forward, positive turn is port, positive strafe is starboard. */
+export type Axis = "move" | "turn" | "strafe";
+
+const AXIS_KEYS: Record<Axis, { pos: string[]; neg: string[] }> = {
+  move: { pos: ["KeyW", "ArrowUp"], neg: ["KeyS", "ArrowDown"] },
+  turn: { pos: ["KeyA", "ArrowLeft"], neg: ["KeyD", "ArrowRight"] },
+  strafe: { pos: ["KeyE"], neg: ["KeyQ"] },
+};
+
+const clamp1 = (v: number) => (v > 1 ? 1 : v < -1 ? -1 : v);
+
+/**
+ * Keyboard state with per-frame edge detection plus wheel accumulation, and a
+ * touch layer on top: analog axes for the stick and virtual keys for the
+ * buttons. Virtual keys reuse the keyboard codes so every consumer reads one
+ * source regardless of where the press came from.
+ */
 export class Input {
   private down = new Set<string>();
   private pressed = new Set<string>();
+  private touchAxes: Record<Axis, number> = { move: 0, turn: 0, strafe: 0 };
+  /** Codes currently held by touch, so they can be released together. */
+  private touchHeld = new Set<string>();
+  /** Codes that went down since the last frame ended. */
+  private freshDown = new Set<string>();
+  /** Releases deferred until a sim step has seen the press. */
+  private pendingRelease = new Set<string>();
   wheel = 0;
   /** Set true on the first user interaction, used to unlock audio. */
   interacted = false;
@@ -51,6 +74,7 @@ export class Input {
 
   private onBlur = () => {
     this.down.clear();
+    this.clearTouch();
   };
 
   private onPointer = () => {
@@ -62,7 +86,10 @@ export class Input {
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("wheel", this.onWheel, { passive: true });
     window.addEventListener("blur", this.onBlur);
-    window.addEventListener("pointerdown", this.onPointer);
+    // On pointerup rather than pointerdown: the audio unlock this triggers
+    // re-renders the title menu, and if that happened while a finger was still
+    // down the tap's click would land on whichever button took the old spot.
+    window.addEventListener("pointerup", this.onPointer);
   }
 
   detach(): void {
@@ -70,7 +97,7 @@ export class Input {
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("blur", this.onBlur);
-    window.removeEventListener("pointerdown", this.onPointer);
+    window.removeEventListener("pointerup", this.onPointer);
   }
 
   isDown(...codes: string[]): boolean {
@@ -87,9 +114,66 @@ export class Input {
     return false;
   }
 
-  /** Clear edge-triggered state. Call once at the end of each frame. */
+  /** Like wasPressed, but consumes the edge so a per-frame handler cannot see it twice. */
+  take(...codes: string[]): boolean {
+    let hit = false;
+    for (const c of codes) if (this.pressed.delete(c)) hit = true;
+    return hit;
+  }
+
+  /** Keyboard contribution plus the touch stick, clamped to [-1, 1]. */
+  axis(name: Axis): number {
+    const k = AXIS_KEYS[name];
+    const key = (this.isDown(...k.pos) ? 1 : 0) - (this.isDown(...k.neg) ? 1 : 0);
+    return clamp1(key + this.touchAxes[name]);
+  }
+
+  setAxis(name: Axis, v: number): void {
+    this.touchAxes[name] = clamp1(v);
+    this.interacted = true;
+  }
+
+  /**
+   * Virtual key from a touch button. A press and release inside one frame is
+   * still held for the next sim step, so a quick tap on FIRE launches a rocket.
+   */
+  setVirtual(code: string, held: boolean): void {
+    if (held) {
+      if (!this.down.has(code)) {
+        this.pressed.add(code);
+        this.freshDown.add(code);
+      }
+      this.down.add(code);
+      this.touchHeld.add(code);
+      this.interacted = true;
+    } else if (this.freshDown.has(code)) {
+      this.pendingRelease.add(code);
+    } else {
+      this.down.delete(code);
+      this.touchHeld.delete(code);
+    }
+  }
+
+  /** Release everything touch put in: on pointer cancel, tab hide and layer unmount. */
+  clearTouch(): void {
+    for (const c of this.touchHeld) this.down.delete(c);
+    this.touchHeld.clear();
+    this.pendingRelease.clear();
+    this.freshDown.clear();
+    this.touchAxes.move = 0;
+    this.touchAxes.turn = 0;
+    this.touchAxes.strafe = 0;
+  }
+
+  /** Clear edge-triggered state. Call once after each simulated frame. */
   endFrame(): void {
     this.pressed.clear();
     this.wheel = 0;
+    for (const c of this.pendingRelease) {
+      this.down.delete(c);
+      this.touchHeld.delete(c);
+    }
+    this.pendingRelease.clear();
+    this.freshDown.clear();
   }
 }

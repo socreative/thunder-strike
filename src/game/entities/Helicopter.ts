@@ -198,10 +198,12 @@ export class Helicopter extends Entity {
     this.tickFlash(dt);
 
     // Controls
-    const thrust = input.isDown("KeyW", "ArrowUp") ? 1 : 0;
-    const reverse = input.isDown("KeyS", "ArrowDown") ? 1 : 0;
-    const turn = (input.isDown("KeyA", "ArrowLeft") ? 1 : 0) - (input.isDown("KeyD", "ArrowRight") ? 1 : 0);
-    const strafe = (input.isDown("KeyE") ? 1 : 0) - (input.isDown("KeyQ") ? 1 : 0);
+    // Axes are analog: the keyboard gives 0 or 1, the touch stick anything between.
+    const move = input.axis("move");
+    const thrust = Math.max(0, move);
+    const reverse = Math.max(0, -move);
+    const turn = input.axis("turn");
+    const strafe = input.axis("strafe");
 
     this.heading += turn * H.turnRate * dt;
     this.forward(tmpForward);
@@ -247,7 +249,7 @@ export class Helicopter extends Entity {
     for (const s of this.spinners) s.obj.rotation[s.axis] += rotorSpeed * s.mul * dt;
 
     // Fuel
-    this.fuel -= (H.fuelIdleDrain + (thrust || reverse ? H.fuelThrustDrain : 0)) * dt;
+    this.fuel -= (H.fuelIdleDrain + Math.max(thrust, reverse) * H.fuelThrustDrain) * dt;
     if (this.fuel <= 0) {
       this.fuel = 0;
       world.playerCrashed("fuel");

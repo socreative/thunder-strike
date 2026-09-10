@@ -585,6 +585,6 @@ export class Particles {
   }
 
   tracer(p: THREE.Vector3): void {
-    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.08, size: 1.1, sizeEnd: 0.3, color: 0xffe9a0, alpha: 0.7 });
+    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.07, size: 0.4, sizeEnd: 0.12, color: 0xffe9a0, alpha: 0.45 });
   }
 }

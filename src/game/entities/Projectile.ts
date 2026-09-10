@@ -65,9 +65,10 @@ function getVisuals() {
     return g;
   };
   visuals = {
-    gun: { geo: new THREE.BoxGeometry(0.28, 0.28, 2.6), mat: glow(0xffe090) },
-    aa: { geo: new THREE.BoxGeometry(0.35, 0.35, 3.0), mat: glow(0xff8050) },
-    rifle: { geo: new THREE.BoxGeometry(0.18, 0.18, 1.6), mat: glow(0xfff0c0) },
+    // Tracers are long and thin: the streak reads, the thickness does not.
+    gun: { geo: new THREE.BoxGeometry(0.09, 0.09, 3.4), mat: glow(0xffe090) },
+    aa: { geo: new THREE.BoxGeometry(0.12, 0.12, 3.6), mat: glow(0xff8050) },
+    rifle: { geo: new THREE.BoxGeometry(0.07, 0.07, 2.0), mat: glow(0xfff0c0) },
     hydra: { geo: rocket(0.28, 2.4), mat: metal(0x6d7a6a) },
     hellfire: { geo: rocket(0.42, 3.6), mat: metal(0x3d4a44) },
     shell: { geo: new THREE.SphereGeometry(0.55, 8, 6), mat: metal(0x2a2a2a) },

@@ -81,6 +81,7 @@ export class World {
   private wreckage: HeliWreckage | null = null;
   readonly props: Props;
   private water: THREE.Mesh;
+  private heightTex: THREE.DataTexture;
   private sky: THREE.Mesh;
   private decor: THREE.Group;
   private decorSpinners: THREE.Object3D[] = [];
@@ -109,7 +110,8 @@ export class World {
     this.terrain = new Terrain(data.seed, data.flats, data.terrain, theme.ground, theme.overview);
     this.grid = new SpatialGrid(this.terrain.size + 200, balance.map.cellSize);
     this.scene.add(this.terrain.mesh);
-    this.water = createWater(this.terrain.size, theme.water);
+    this.heightTex = this.terrain.heightTexture(256);
+    this.water = createWater(this.terrain.size, theme.water, this.heightTex, this.terrain.size, theme.sky.horizon);
     this.scene.add(this.water);
     this.sky = createSky(1800, theme.sky);
     this.scene.add(this.sky);
@@ -648,6 +650,7 @@ export class World {
     this.healthBars.dispose();
     (this.water.material as THREE.Material).dispose();
     this.water.geometry.dispose();
+    this.heightTex.dispose();
     (this.sky.material as THREE.Material).dispose();
     this.sky.geometry.dispose();
     this.decor.traverse((o) => {

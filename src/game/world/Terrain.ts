@@ -285,6 +285,36 @@ export class Terrain {
     return img;
   }
 
+  /**
+   * Height baked to an 8-bit texture for shaders: r = (h + 20) / 40. Water
+   * reads it to colour by depth and to foam along the shore.
+   */
+  heightTexture(resolution: number): THREE.DataTexture {
+    const data = new Uint8Array(resolution * resolution * 4);
+    const half = this.size / 2;
+    for (let py = 0; py < resolution; py++) {
+      for (let px = 0; px < resolution; px++) {
+        const x = -half + (px / (resolution - 1)) * this.size;
+        const z = -half + (py / (resolution - 1)) * this.size;
+        const h = this.heightAt(x, z);
+        const i = (py * resolution + px) * 4;
+        const v = Math.round(clamp((h + 20) / 40, 0, 1) * 255);
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+        data[i + 3] = 255;
+      }
+    }
+    const tex = new THREE.DataTexture(data, resolution, resolution, THREE.RGBAFormat, THREE.UnsignedByteType);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.colorSpace = THREE.NoColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
   dispose(): void {
     this.mesh.geometry.dispose();
     (this.mesh.material as THREE.Material).dispose();

@@ -55,21 +55,6 @@ export class Gunboat extends Entity {
       asset.scale.multiplyScalar(s);
       if (size.x > size.z) asset.rotation.y += Math.PI / 2;
       asset.position.y = -size.y * s * 0.22;
-      // The stock model is a red pleasure boat; a drab tint makes it a patrol craft.
-      asset.traverse((o) => {
-        const mesh = o as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        const m = (mesh.material as THREE.MeshStandardMaterial).clone();
-        // The model is painted through vertex colours, so a tint alone would only darken the red.
-        m.vertexColors = false;
-        m.map = null;
-        m.color.set(0x6f7d5c);
-        m.needsUpdate = true;
-        // Marked as our own clone so the hit flash reuses it and dispose frees it.
-        m.userData.flashClone = true;
-        m.userData.baseEmissive = m.emissive?.getHex() ?? 0;
-        mesh.material = m;
-      });
       this.hull.add(asset);
       this.footprint = { hx: (Math.min(size.x, size.z) * s) / 2, hz: S.length / 2 };
       this.radius = Math.hypot(this.footprint.hx, this.footprint.hz);

@@ -51,7 +51,8 @@ const TITLE_TO_FILE = {
   "Light Tank": "light-tank.glb",
   Jeep: "jeep.glb",
   Truck: "truck.glb",
-  "Military Boat": "boat.glb",
+  // "Military Boat" is superseded by the Sketchfab patrol boat (see the header); its file would overwrite it.
+  "Military Boat": null,
 };
 
 async function fetchText(url) {

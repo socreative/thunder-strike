@@ -236,7 +236,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
             <p>A tribute to Desert Strike (Electronic Arts, 1992). Built with Three.js on the WebGPU renderer, TSL node materials and Next.js.</p>
             <p>
               Vehicle models: &ldquo;Low Poly Military Vehicles&rdquo; by Zsky, licensed CC-BY 4.0 via Poly Pizza, and a tank by Quaternius (CC0). Via Sketchfab, all CC-BY 4.0: &ldquo;AH-64 Apache&rdquo; by
-              Thomas Koenders, &ldquo;Gerald Ford Aircraft Carrier&rdquo; by Uxman, &ldquo;F-16 Fighter Jet&rdquo; by iedalton and &ldquo;Jungle Tent&rdquo; by SyntheticMN. Where a model is
+              Thomas Koenders, &ldquo;Gerald Ford Aircraft Carrier&rdquo; by Uxman, &ldquo;F-16 Fighter Jet&rdquo; by iedalton, &ldquo;Jungle Tent&rdquo; by SyntheticMN and &ldquo;Patrol Boat PBR MK2&rdquo; by Savy. Where a model is
               missing the game builds a procedural placeholder instead.
             </p>
             <p>Music: &ldquo;Iron Sector Run&rdquo; and &ldquo;Jungle Advance&rdquo;, generated with Suno. Sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.</p>

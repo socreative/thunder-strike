@@ -19,6 +19,7 @@ Models fetched by `scripts/fetch-assets.mjs`. Where a model is missing the game 
 - **F-16 Fighter Jet** by iedalton, CC-BY 4.0, https://sketchfab.com/3d-models/f-16-fighter-jet-d84491f443384ee488593cc6f0f0839e
 - **Jungle Tent** by SyntheticMN, CC-BY 4.0, https://sketchfab.com/3d-models/jungle-tent-52332b0f55f24c739215342954e49f54
 - **Patrol Boat PBR MK2** by Savy, CC-BY 4.0, https://sketchfab.com/3d-models/patrol-boat-pbr-mk2-dbd87172b2934063aa93ffd0c6f85750
+- **Hellfire Missile** by xephoney, CC-BY 4.0, https://sketchfab.com/3d-models/hellfire-missile-208e1de6721e439cbb1666ec9a6517e5
 
 Those four are downloaded manually from Sketchfab, then reduced for the web
 with `@gltf-transform/cli optimize --texture-compress webp` and a texture size

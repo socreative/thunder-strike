@@ -77,6 +77,10 @@ function getVisuals() {
 }
 
 const Z = new THREE.Vector3(0, 0, 1);
+/** Length of the Hellfire model in metres, matching the primitive it replaces. */
+const HELLFIRE_LENGTH = 3.6;
+/** Which end of the model's long axis is the nose: +1 for the positive end. */
+const HELLFIRE_NOSE = 1;
 const tmpDir = new THREE.Vector3();
 const tmpTarget = new THREE.Vector3();
 const hits: Entity[] = [];
@@ -118,6 +122,31 @@ export class Projectile extends Entity {
     this.object.add(mesh);
     this.orient();
     this.syncObject();
+  }
+
+  onSpawn(): void {
+    if (this.projKind !== "hellfire") return;
+    // Swap the primitive for the modelled missile when it loaded. The model's
+    // longest axis becomes the direction of flight, whichever axis that is.
+    const asset = this.world.assets.get("hellfire");
+    const size = this.world.assets.size("hellfire");
+    if (!asset || !size) return;
+    const longest = Math.max(size.x, size.y, size.z);
+    const s = HELLFIRE_LENGTH / longest;
+    const holder = new THREE.Group();
+    asset.scale.multiplyScalar(s);
+    // Assets rest on y = 0, so recentre vertically before rotating the long axis onto +Z.
+    asset.position.y = (-size.y * s) / 2;
+    if (longest === size.x) holder.rotation.y = HELLFIRE_NOSE > 0 ? Math.PI / 2 : -Math.PI / 2;
+    else if (longest === size.y) holder.rotation.x = HELLFIRE_NOSE > 0 ? Math.PI / 2 : -Math.PI / 2;
+    else if (HELLFIRE_NOSE < 0) holder.rotation.y = Math.PI;
+    holder.add(asset);
+    asset.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) m.castShadow = true;
+    });
+    this.object.clear();
+    this.object.add(holder);
   }
 
   private orient(): void {

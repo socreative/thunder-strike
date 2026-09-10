@@ -24,6 +24,7 @@ export const MODEL_SPECS: ModelSpec[] = [
   { name: "carrier", url: "/models/carrier.glb", scale: 1, yaw: 0 },
   { name: "jet", url: "/models/jet.glb", scale: 1, yaw: 0 },
   { name: "tent", url: "/models/tent.glb", scale: 1, yaw: 0 },
+  { name: "hellfire", url: "/models/hellfire.glb", scale: 1, yaw: 0 },
 ];
 
 /**

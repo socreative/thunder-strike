@@ -5,7 +5,7 @@ import type { SpawnType } from "../data/mission";
 import { Build, PALETTE as P } from "../world/Detail";
 import { Pow } from "./Pow";
 
-export type StructureType = Extract<SpawnType, "radar" | "hq" | "prison" | "building" | "wall" | "tower" | "fuelDepot" | "generator">;
+export type StructureType = Extract<SpawnType, "radar" | "hq" | "prison" | "building" | "wall" | "tower" | "fuelDepot" | "generator" | "radome" | "silo">;
 
 const E = balance.enemies;
 
@@ -74,6 +74,16 @@ export class Structure extends Entity {
         this.radius = E.generator.radius;
         this.buildGenerator();
         break;
+      case "radome":
+        this.hp = this.maxHp = E.radome.hp;
+        this.radius = E.radome.radius;
+        this.buildRadome();
+        break;
+      case "silo":
+        this.hp = this.maxHp = E.silo.hp;
+        this.radius = E.silo.radius;
+        this.buildSilo();
+        break;
     }
     // Each build sets its own silhouette height; float the damage bar above it.
     this.barHeight = this.height + 1.6;
@@ -116,6 +126,14 @@ export class Structure extends Entity {
       case "generator":
         hx = 7.8;
         hz = 6.0;
+        break;
+      case "radome":
+        hx = 6.5;
+        hz = 6.0;
+        break;
+      case "silo":
+        hx = 9.0;
+        hz = 9.0;
         break;
       default:
         // Warehouse is broad, barracks is deep, the house is square.
@@ -495,6 +513,78 @@ export class Structure extends Entity {
     this.height = 11;
   }
 
+  /** Early-warning radome: a geodesic dome on a squat concrete tower, with its generator shed and a dish. */
+  private buildRadome(): void {
+    const b = new Build();
+    b.box(13, 0.3, 12, P.concreteShadow, { y: 0.15, mat: { roughness: 1 } });
+    // Tower with a wider plant floor at the base
+    b.box(7.4, 2.4, 7.4, P.concreteDark, { y: 1.2 });
+    b.box(5.6, 6.0, 5.6, P.concrete, { y: 5.2 });
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      b.box(0.5, 6.0, 0.5, P.concreteDark, { x: Math.cos(a) * 2.9, y: 5.2, z: Math.sin(a) * 2.9 });
+    }
+    b.box(6.6, 0.5, 6.6, P.concreteDark, { y: 8.35 });
+    b.railing(6.2, 0.9, P.metal, { y: 8.6, z: 3.2 });
+    b.railing(6.2, 0.9, P.metal, { y: 8.6, z: -3.2 });
+    // The dome itself: a faceted sphere, ribbed at the base
+    b.add(new THREE.IcosahedronGeometry(3.7, 1), P.white, { y: 11.2, mat: { roughness: 0.55, flat: true } });
+    b.cyl(3.75, 3.75, 0.5, P.metal, { y: 8.85, seg: 12, mat: { metalness: 0.4 } });
+    // Generator shed, exhaust and cable trays to the tower
+    b.box(4.2, 2.4, 3.2, P.olive, { x: 6.0, y: 1.2, z: -3.4 });
+    b.corrugatedRoof(4.6, 3.6, P.roof, { x: 6.0, y: 2.45, z: -3.4 });
+    b.cyl(0.18, 0.18, 1.6, P.metalDark, { x: 7.4, y: 3.2, z: -4.4, seg: 6 });
+    b.box(3.0, 0.2, 0.5, P.metalDark, { x: 4.6, y: 2.3, z: -2.4 });
+    // Small tracking dish on a mast beside the tower
+    b.latticeMast(4.5, 1.0, P.steel, { x: -5.2, y: 0.3, z: 3.4 });
+    b.bowl(1.3, P.white, Math.PI / 3, { x: -5.2, y: 5.4, z: 3.4, rx: Math.PI - 0.6, seg: 12, mat: { roughness: 0.45 } });
+    // Door, floodlight and a sandbag blast wall
+    b.box(1.4, 2.2, 0.25, P.metalDark, { y: 1.1, z: 3.8 });
+    b.sandbagWall(4.0, 2, P.sandbag, { x: 0, y: 0.6, z: 5.4, seed: 21 });
+    b.cyl(0.12, 0.14, 6, P.metalDark, { x: 5.5, y: 3.2, z: 4.6, seg: 6 });
+    b.box(0.7, 0.4, 0.5, P.white, { x: 5.5, y: 6.3, z: 4.4, rx: 0.5, mat: { emissive: 0x554c33 } });
+    this.object.add(b.finish());
+    this.height = 15;
+  }
+
+  /** Missile silo: blast pad, doors swung open on a tube with the missile nose showing, and a control shack. */
+  private buildSilo(): void {
+    const b = new Build();
+    b.cyl(9.5, 9.7, 0.5, P.concreteShadow, { y: 0.25, seg: 24, mat: { roughness: 1 } });
+    b.cyl(5.6, 5.6, 0.9, P.concreteDark, { y: 0.7, seg: 20 });
+    // Tube liner and the missile inside it: body, nose and four fins
+    b.cyl(3.0, 3.0, 0.6, 0x1c1f22, { y: 1.15, seg: 20, mat: { roughness: 1 } });
+    b.cyl(1.25, 1.25, 4.0, P.white, { y: 1.6, seg: 14, mat: { roughness: 0.4, metalness: 0.2 } });
+    b.cone(1.25, 2.6, P.white, { y: 4.9, seg: 14, mat: { roughness: 0.4, metalness: 0.2 } });
+    b.box(2.5, 0.28, 0.3, P.hazard, { y: 3.4 });
+    b.box(0.3, 0.28, 2.5, P.hazard, { y: 3.4 });
+    // Two blast doors hinged open either side of the tube
+    for (const side of [-1, 1]) {
+      b.box(3.4, 0.7, 7.2, P.concrete, { x: side * 5.4, y: 2.2, rz: side * -1.05 });
+      b.box(0.8, 0.8, 7.0, P.metalDark, { x: side * 3.9, y: 1.35, mat: { metalness: 0.4 } });
+    }
+    // Launch control shack with antenna, and floodlights round the pad
+    b.box(5.0, 2.6, 3.6, P.concrete, { x: 0, y: 1.3, z: -9.6 });
+    b.box(5.2, 0.4, 3.8, P.concreteDark, { y: 2.8, z: -9.6 });
+    b.box(1.6, 0.9, 0.16, P.glass, { x: -1.0, y: 1.7, z: -7.72, mat: { roughness: 0.25, metalness: 0.35 } });
+    b.box(1.2, 2.0, 0.2, P.metalDark, { x: 1.5, y: 1.0, z: -7.7 });
+    b.cyl(0.06, 0.06, 3.2, P.steel, { x: 2.0, y: 4.4, z: -10.4, seg: 5 });
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const x = Math.cos(a) * 11.5;
+      const z = Math.sin(a) * 11.5;
+      b.cyl(0.12, 0.14, 6, P.metalDark, { x, y: 3.2, z, seg: 6 });
+      b.box(0.7, 0.4, 0.5, P.white, { x, y: 6.3, z, ry: -a + Math.PI / 2, rx: 0.5, mat: { emissive: 0x554c33 } });
+    }
+    // Perimeter fence
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      b.railing(26, 2.2, P.steel, { x: Math.cos(a) * 13, y: 0.3, z: Math.sin(a) * 13, ry: -a + Math.PI / 2 });
+    }
+    this.object.add(b.finish());
+    this.height = 8;
+  }
+
   private buildFuelDepot(): void {
     const b = new Build();
     const tankR = 1.75;
@@ -596,6 +686,26 @@ export class Structure extends Entity {
       case "radar": {
         world.explode(this.pos, 8, 50, "neutral", 3.6, this);
         world.spawnWreck(this.pos, 0, 5, "rubble");
+        break;
+      }
+      case "radome": {
+        world.explode(this.pos, 8, 50, "neutral", 3.6, this);
+        // The dome comes down as a second, higher burst.
+        const top = this.pos.clone();
+        top.y += 11;
+        world.later(0.3, () => world.explode(top, 5, 20, "neutral", 2.6, this));
+        world.spawnWreck(this.pos, this.object.rotation.y, 5, "rubble");
+        break;
+      }
+      case "silo": {
+        // The fuel in the tube goes up: a deep blast, then a fire that keeps burning.
+        world.explode(this.pos, 10, 90, "neutral", 4.6, this);
+        const tube = this.pos.clone();
+        tube.y += 3;
+        for (let i = 1; i <= 3; i++) world.later(0.2 * i, () => world.explode(tube, 5, 30, "neutral", 3.0, this));
+        for (let i = 0; i < 40; i++) world.later(0.8 + i * 0.25, () => world.particles.burningSmoke(tube, 2.6));
+        world.spawnWreck(this.pos, 0, 7, "rubble");
+        world.shake(3);
         break;
       }
       case "generator": {

@@ -8,7 +8,11 @@ export type SpawnType =
   | "sam"
   | "infantry"
   | "gunboat"
+  | "jeep"
+  | "truck"
   | "radar"
+  | "radome"
+  | "silo"
   | "hq"
   | "prison"
   | "building"
@@ -62,17 +66,25 @@ export interface ObjectiveDef {
   final?: boolean;
   /** World-level consequence of completing it. */
   effect?: "radarDown" | "blackout";
+  /**
+   * Timed objective: the first progress starts a countdown, and the mission is
+   * lost if it lapses before completion. `cancelledBy` names an objective that,
+   * once done, stops the countdown from ever starting.
+   */
+  deadline?: { seconds: number; label: string; failMessage: string; cancelledBy?: string };
   doneMessage: string;
 }
 
 /** Non-interactive set dressing placed by the mission. */
 export interface DecorItem {
-  kind: "runway" | "dam" | "ruin";
+  kind: "runway" | "dam" | "ruin" | "floes" | "crash";
   x: number;
   z: number;
   heading: number;
   length?: number;
   width?: number;
+  /** Scatter size for floes. */
+  count?: number;
 }
 
 export interface MissionData {

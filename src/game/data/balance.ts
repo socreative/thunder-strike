@@ -61,6 +61,10 @@ export const balance = {
     fuelDepot: { hp: 50, radius: 4, blastRadius: 16, blastDamage: 220 },
     generator: { hp: 260, radius: 7 },
     gunboat: { hp: 120, range: 85, burst: 5, burstGap: 0.1, reload: 2.2, spread: 0.09, speed: 7, turnRate: 0.9, length: 14 },
+    jeep: { hp: 60, range: 70, burst: 4, burstGap: 0.1, reload: 2.0, spread: 0.1, speed: 14, turnRate: 1.6, length: 5 },
+    truck: { hp: 90, speed: 9, turnRate: 1.0, length: 8 },
+    radome: { hp: 260, radius: 6 },
+    silo: { hp: 320, radius: 8 },
   },
   pickups: {
     fuel: 60,

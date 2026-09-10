@@ -142,6 +142,11 @@ export default function Hud({ snap, overview, touch }: { snap: Snapshot; overvie
       </div>
 
       <div className="hud-center">
+        {snap.countdown && (
+          <div className={`alert countdown ${snap.countdown.remaining < 15 ? "urgent" : ""}`}>
+            {snap.countdown.label} {Math.floor(snap.countdown.remaining / 60)}:{String(Math.floor(snap.countdown.remaining % 60)).padStart(2, "0")}
+          </div>
+        )}
         {snap.incoming && <div className="alert incoming">MISSILE INCOMING</div>}
         {snap.banner && (
           <div className="alert objective" key={snap.banner.text}>

@@ -16,7 +16,7 @@ export interface RiverDef {
 }
 
 export interface TerrainConfig {
-  shape: "desert" | "jungle";
+  shape: "desert" | "jungle" | "arctic";
   /** Land falls into the sea west of this X, down to `floor`. */
   coast?: { edgeX: number; floor: number };
   river?: RiverDef;
@@ -73,7 +73,7 @@ export class Terrain {
     private readonly overview: OverviewPalette,
   ) {
     this.noise = new SimplexNoise(seed);
-    this.base = cfg.shape === "jungle" ? this.jungleHeight : this.desertHeight;
+    this.base = cfg.shape === "jungle" ? this.jungleHeight : cfg.shape === "arctic" ? this.arcticHeight : this.desertHeight;
     if (cfg.river) {
       this.riverBed = cfg.river.bed ?? -5;
       this.riverBank = cfg.river.bank ?? 14;
@@ -144,6 +144,19 @@ export class Terrain {
     // Rolling hills: lower frequency, no dune ridge, a little fine roughness.
     const h = 6 + 9 * n.fbm(x * 0.0045, z * 0.0045, 4) + 1.8 * n.fbm(x * 0.025 + 7, z * 0.025 - 3, 2);
     return Math.max(h, 1.5);
+  };
+
+  private arcticHeight = (x: number, z: number): number => {
+    const n = this.noise;
+    // Snowfields with hard pressure ridges: a folded noise term gives sharp crests.
+    let h = 4 + 12 * n.fbm(x * 0.0035, z * 0.0035, 4) + 3 * Math.abs(n.noise2(x * 0.012 + 3, z * 0.012 - 5));
+    h = Math.max(h, 1.2);
+    const coast = this.cfg.coast;
+    if (coast) {
+      const c = smoothstep(coast.edgeX + 70, coast.edgeX - 50, x);
+      h = h * (1 - c) + coast.floor * c;
+    }
+    return h;
   };
 
   heightAt(x: number, z: number): number {

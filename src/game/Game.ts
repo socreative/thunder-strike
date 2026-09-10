@@ -118,7 +118,7 @@ export class Game {
     this.rig.snapTo(world.heli.pos);
     world.enableCascadedShadows();
     // Rendered per world: each mission has its own map.
-    this.overview = world.terrain.renderOverview(this.mission.theme.id === "jungle" ? 128 : 96);
+    this.overview = world.terrain.renderOverview(this.mission.theme.id === "desert" ? 96 : 128);
     this.buildPost(world);
     this.publishMission();
   }
@@ -170,7 +170,8 @@ export class Game {
       return;
     }
     this.mission = data;
-    this.store.set({ loadLabel: `building ${data.theme.id === "jungle" ? "the valley" : "the province"}`, loadProgress: 0.85 });
+    const place = data.theme.id === "jungle" ? "the valley" : data.theme.id === "arctic" ? "the ice" : "the province";
+    this.store.set({ loadLabel: `building ${place}`, loadProgress: 0.85 });
     this.setScreen("loading");
     setTimeout(() => {
       if (this.disposed) return;
@@ -348,6 +349,7 @@ export class Game {
         if (input.wasPressed("ArrowUp", "ArrowLeft", "KeyW", "KeyA")) this.moveMissionCursor(-1);
         if (input.wasPressed("Digit1")) this.selectMission(MISSIONS[0].id);
         if (input.wasPressed("Digit2") && MISSIONS[1]) this.selectMission(MISSIONS[1].id);
+        if (input.wasPressed("Digit3") && MISSIONS[2]) this.selectMission(MISSIONS[2].id);
         if (input.wasPressed("Enter", "Space")) this.start();
         if (input.wasPressed("Escape")) this.setScreen("title");
         break;
@@ -492,6 +494,8 @@ export class Game {
       winchLabel: world.winchLabel,
       incoming: world.incomingMissile(),
       banner: world.banner && world.time < world.banner.until ? { title: world.banner.title, text: world.banner.text } : null,
+      countdown: world.countdown ? { label: world.countdown.label, remaining: Math.max(0, world.countdown.remaining) } : null,
+      lostReason: world.lostReason,
       lowFuel: heli.fuel < 22,
       lowArmor: heli.hp < heli.maxHp * 0.25,
       heli: { x: heli.pos.x, z: heli.pos.z, heading: heli.heading },

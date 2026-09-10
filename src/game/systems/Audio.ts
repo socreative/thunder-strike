@@ -22,7 +22,8 @@ export type Sfx =
   | "victory"
   | "select"
   | "flare"
-  | "missileAlert";
+  | "missileAlert"
+  | "tick";
 
 /**
  * Fully synthesised sound: no audio files. Distant enemy sounds are attenuated
@@ -294,6 +295,11 @@ export class Audio {
         break;
       case "missileAlert":
         this.alarm(0.5, 0.5);
+        break;
+      case "tick":
+        // Countdown pulse: a short, low, slightly detuned pair so it cuts through the rotor.
+        this.tone("square", 620, 600, 0.07, 0.22);
+        this.tone("sine", 310, 300, 0.09, 0.2);
         break;
     }
   }

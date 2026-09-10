@@ -41,8 +41,19 @@ export class Mission {
   private advance(id: string): void {
     const o = this.get(id);
     if (!o || o.done || o.locked) return;
+    const first = (o.progress ?? 0) === 0;
     o.progress = (o.progress ?? 0) + 1;
-    if (o.progress >= (o.total ?? 1)) this.complete(id);
+    if (o.progress >= (o.total ?? 1)) {
+      this.complete(id);
+      return;
+    }
+    // A timed objective arms on its first hit unless the cancelling objective already fell.
+    const def = this.def(id);
+    if (first && def?.deadline) {
+      const cancelled = def.deadline.cancelledBy ? this.get(def.deadline.cancelledBy)?.done : false;
+      if (!cancelled) this.world.startCountdown(def.deadline.seconds, def.deadline.label, def.deadline.failMessage);
+      else this.world.message("Their launch control is gone. Nothing can order a launch now.");
+    }
   }
 
   private complete(id: string): void {
@@ -54,6 +65,7 @@ export class Mission {
     if (def) {
       this.world.message(def.doneMessage);
       this.world.showBanner(def.kind === "returnToLZ" ? "MISSION COMPLETE" : "OBJECTIVE COMPLETE", def.text);
+      if (def.deadline) this.world.stopCountdown();
       if (def.effect === "radarDown") this.radarDown = true;
       if (def.effect === "blackout") this.world.blackout();
     }

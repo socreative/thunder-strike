@@ -87,6 +87,10 @@ export interface Snapshot {
   incoming: boolean;
   /** Objective banner in the middle of the screen, or null. */
   banner: { title: string; text: string } | null;
+  /** Timed objective countdown, or null. */
+  countdown: { label: string; remaining: number } | null;
+  /** Why the mission was lost, when not simply running out of aircraft. */
+  lostReason: string;
   lowFuel: boolean;
   lowArmor: boolean;
   heli: { x: number; z: number; heading: number };
@@ -131,6 +135,8 @@ export const initialSnapshot: Snapshot = {
   winchLabel: "",
   incoming: false,
   banner: null,
+  countdown: null,
+  lostReason: "",
   lowFuel: false,
   lowArmor: false,
   heli: { x: 0, z: 0, heading: 0 },

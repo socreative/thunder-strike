@@ -177,7 +177,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
         <div className="screen dim">
           <div className="card">
             <div className="eyebrow">{won ? "MISSION COMPLETE" : "MISSION FAILED"}</div>
-            <h2 className={`subtitle ${won ? "good" : "bad"}`}>{won ? "Welcome home, pilot." : "All airframes lost."}</h2>
+            <h2 className={`subtitle ${won ? "good" : "bad"}`}>{won ? "Welcome home, pilot." : snap.lostReason || "All airframes lost."}</h2>
             <table className="stats">
               <tbody>
                 <tr>

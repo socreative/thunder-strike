@@ -63,6 +63,7 @@ export class Props {
 
     for (const set of theme.sets) {
       const { geo, mat } = buildKind(set.kind);
+      if (set.color !== undefined) (mat as THREE.MeshStandardNodeMaterial).color.setHex(set.color);
       const mesh = new THREE.InstancedMesh(geo, mat, set.count);
       const bankMargin = set.bankMargin ?? theme.bankMargin;
       let placed = 0;
@@ -156,7 +157,7 @@ export class Props {
           }
         }
       }
-      for (const [i, tilt] of leaning) if (!targets.has(i)) targets.set(i, 0);
+      for (const i of leaning.keys()) if (!targets.has(i)) targets.set(i, 0);
       for (const [i, target] of targets) {
         const cur = leaning.get(i) ?? 0;
         const next = cur + (target - cur) * (target > cur ? ease : relax);
@@ -229,7 +230,26 @@ function buildKind(kind: PropKind): { geo: THREE.BufferGeometry; mat: THREE.Mate
       return { geo: palmGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.95, flatShading: true }) };
     case "broadleaf":
       return { geo: broadleafGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, flatShading: true }) };
+    case "spruce":
+      return { geo: spruceGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, flatShading: true }) };
   }
+}
+
+/** Spruce: a bare trunk with three stacked cones, snow on the upper tiers. About 9 m tall. */
+function spruceGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  parts.push(tint(new THREE.CylinderGeometry(0.16, 0.34, 3.2, 6, 1, true).translate(0, 1.6, 0), 0x4a3a2a));
+  const tiers: [number, number, number, number][] = [
+    [2.6, 3.4, 2.4, 0x2f4d34],
+    [2.0, 3.0, 4.6, 0x35563a],
+    [1.3, 2.6, 6.6, 0x3a5c3e],
+  ];
+  for (const [r, h, y, c] of tiers) {
+    parts.push(tint(new THREE.ConeGeometry(r, h, 7, 1, true).translate(0, y + h / 2, 0), c));
+    // A cap of snow sitting on each tier's shoulder.
+    parts.push(tint(new THREE.ConeGeometry(r * 0.8, h * 0.28, 7, 1, true).translate(0, y + h * 0.86, 0), 0xf1f5f7));
+  }
+  return mergeColored(parts);
 }
 
 function cactusGeometry(): THREE.BufferGeometry {

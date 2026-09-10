@@ -45,7 +45,7 @@ export interface OverviewPalette {
   bank?: RGB;
 }
 
-export type PropKind = "rock" | "shrub" | "cactus" | "palm" | "broadleaf" | "fern";
+export type PropKind = "rock" | "shrub" | "cactus" | "palm" | "broadleaf" | "fern" | "spruce";
 
 export interface PropSet {
   kind: PropKind;
@@ -56,6 +56,8 @@ export interface PropSet {
   sink: number;
   /** Per-instance tints chosen at random; omit for the material colour alone. */
   tints?: number[];
+  /** Override the kind's material colour, for a grey arctic boulder or a dead shrub. */
+  color?: number;
   /** Skip ground whose normal y is below this, so trees do not lean off banks. */
   maxSlope?: number;
   /** Metres of clear ground kept between this kind and the water. */
@@ -74,7 +76,7 @@ export interface PropTheme {
 }
 
 export interface Theme {
-  id: "desert" | "jungle";
+  id: "desert" | "jungle" | "arctic";
   /** Colour used for the mission picker swatch. */
   swatch: number;
   ground: GroundPalette;
@@ -130,6 +132,28 @@ export const jungleTheme: Theme = {
       { kind: "fern", count: 1600, scale: [0.7, 1.5], castShadow: false, sink: 0.2, bankMargin: 3, sway: 0.4 },
       { kind: "rock", count: 250, scale: [0.6, 3.0], castShadow: true, sink: 0.35 },
       { kind: "shrub", count: 400, scale: [0.7, 1.6], castShadow: false, sink: 0.3, sway: 0.25 },
+    ],
+  },
+};
+
+export const arcticTheme: Theme = {
+  id: "arctic",
+  swatch: 0xdfe8ef,
+  ground: { light: 0xeef2f5, dark: 0xd6dee6, rockA: 0x6b6f76, rockB: 0x3f434a, wet: 0xb9c6cf, underwater: 0x556b7a, ripple: 0.4 },
+  fog: { color: 0xdfe6ec, near: 200, far: 720 },
+  sky: { horizon: 0xe8eef2, zenith: 0x8fb0cc, haze: 0xf2f5f7, sun: 0xfff8ec, hemiSky: 0xbcd0e0, hemiGround: 0xd8dde2 },
+  water: { deep: 0x1c3340, shallow: 0x2f5566, foam: 0xe6f0f4, foamAmount: 0.45, scale: 1.2 },
+  overview: { water: [24, 48, 64], shallow: [40, 80, 96], landLow: [205, 212, 220], landHigh: [245, 248, 250] },
+  dust: { start: 0xf0f4f6, end: 0xd8e0e6 },
+  wash: "dust",
+  props: {
+    minHeight: 1.2,
+    bankMargin: 0,
+    clearSpawns: true,
+    sets: [
+      { kind: "spruce", count: 700, scale: [0.8, 1.4], castShadow: true, sink: 0.1, maxSlope: 0.75, tints: [0xffffff, 0xe8f0f4, 0xd8e4ea], sway: 0.06 },
+      { kind: "rock", count: 300, scale: [0.6, 3.4], castShadow: true, sink: 0.35, color: 0x7a7e84 },
+      { kind: "shrub", count: 250, scale: [0.6, 1.3], castShadow: false, sink: 0.3, color: 0x6e6a5e, sway: 0.2 },
     ],
   },
 };

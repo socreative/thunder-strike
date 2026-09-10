@@ -19,6 +19,7 @@ import { Infantry } from "./entities/enemies/Infantry";
 import { SamSite } from "./entities/enemies/SamSite";
 import { Tank } from "./entities/enemies/Tank";
 import { Gunboat } from "./entities/enemies/Gunboat";
+import { Vehicle } from "./entities/enemies/Vehicle";
 import { Pow } from "./entities/Pow";
 import type { SpawnType } from "./data/mission";
 import { HealthBars } from "./fx/HealthBars";
@@ -64,6 +65,11 @@ export class World {
   winchLabel = "";
   /** Centre-screen notice, shown until `until` in world time. */
   banner: { title: string; text: string; until: number } | null = null;
+  /** Timed objective in progress. */
+  countdown: { label: string; remaining: number; failMessage: string } | null = null;
+  private countdownTick = 0;
+  /** Set when the mission is lost for a reason other than running out of aircraft. */
+  lostReason = "";
   messages: { id: number; text: string; time: number }[] = [];
   private messageId = 0;
   private pendingAdd: Entity[] = [];
@@ -187,6 +193,10 @@ export class World {
       prison: 14,
       radar: 12,
       generator: 12,
+      radome: 12,
+      silo: 16,
+      jeep: 8,
+      truck: 9,
       tower: 4,
       fuelDepot: 7,
     };
@@ -204,7 +214,10 @@ export class World {
         }
       }
     }
-    for (const d of data.decor ?? []) ex.push({ x: d.x, z: d.z, r: d.kind === "runway" ? (d.length ?? 120) / 2 + 12 : d.kind === "dam" ? (d.length ?? 60) / 2 + 10 : 26 });
+    for (const d of data.decor ?? []) {
+      if (d.kind === "floes") continue;
+      ex.push({ x: d.x, z: d.z, r: d.kind === "runway" ? (d.length ?? 120) / 2 + 12 : d.kind === "dam" ? (d.length ?? 60) / 2 + 10 : d.kind === "crash" ? 34 : 26 });
+    }
     return ex;
   }
 
@@ -234,6 +247,12 @@ export class World {
         break;
       case "infantry":
         e = new Infantry();
+        break;
+      case "jeep":
+        e = new Vehicle("jeep", s.heading ?? this.rng.range(0, Math.PI * 2), s.waypoints);
+        break;
+      case "truck":
+        e = new Vehicle("truck", s.heading ?? this.rng.range(0, Math.PI * 2), s.waypoints);
         break;
       case "gunboat":
         e = new Gunboat(s.heading ?? 0, s.waypoints);
@@ -380,6 +399,29 @@ export class World {
     this.audio.play("message");
   }
 
+  startCountdown(seconds: number, label: string, failMessage: string): void {
+    if (this.countdown) return;
+    this.countdown = { label, remaining: seconds, failMessage };
+    this.countdownTick = 0;
+    this.message(`${label}: ${Math.round(seconds)} seconds.`);
+    this.audio.play("missileAlert");
+  }
+
+  stopCountdown(): void {
+    if (!this.countdown) return;
+    this.countdown = null;
+    this.message("Launch sequence aborted.");
+  }
+
+  /** Lose the mission outright, whatever the state of the aircraft. */
+  failMission(reason: string): void {
+    if (this.phase === "won" || this.phase === "lost") return;
+    this.lostReason = reason;
+    this.message(reason);
+    this.phase = "lost";
+    this.events.emit("missionLost", {});
+  }
+
   showBanner(title: string, text: string, seconds = 4): void {
     this.banner = { title, text, until: this.time + seconds };
   }
@@ -427,6 +469,21 @@ export class World {
       }
     } else {
       this.alertTimer = 0;
+    }
+
+    // Launch countdown: ticks every second, twice a second in the last fifteen.
+    if (this.countdown && this.phase === "playing") {
+      this.countdown.remaining -= dt;
+      this.countdownTick -= dt;
+      if (this.countdownTick <= 0) {
+        this.countdownTick = this.countdown.remaining < 15 ? 0.5 : 1;
+        this.audio.play("tick");
+      }
+      if (this.countdown.remaining <= 0) {
+        const msg = this.countdown.failMessage;
+        this.countdown = null;
+        this.failMission(msg);
+      }
     }
 
     for (const s of this.decorSpinners) s.rotation.y += 0.55 * dt;

@@ -40,6 +40,8 @@ START MISSION opens a picker; both missions are always available, and the win sc
 
 **Operation Green Fang.** Jungle river valley. Sink the three patrol gunboats, destroy the generator at the dam so every gun and missile battery wired to the grid goes quiet, rescue a downed recon crew from a temple ruin, level both hangars and the fuel dump at a hidden airstrip, then return to the landing zone.
 
+**Operation White Silence.** Arctic missile field beside a frozen sea. Blind two early-warning radomes, destroy the launch control bunker, cut the fuel convoy, recover a transport crew from a wreck on the ice, then destroy three missile silos. Hitting a silo while the bunker still stands starts a two and a half minute launch countdown; if it lapses, the missiles launch and the mission is lost.
+
 Missions are data: `src/game/data/mission*.ts` holds the layout, spawns, objectives and a theme (`src/game/world/Theme.ts`) covering ground, sky, water, fog, dust and vegetation. Terrain shape, coast and river come from a per-mission terrain config in `src/game/world/Terrain.ts`.
 
 ## Project layout

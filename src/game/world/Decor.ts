@@ -5,6 +5,7 @@ import { Build, PALETTE as P } from "./Detail";
 import type { Terrain } from "./Terrain";
 import { createCarrier } from "./Carrier";
 import type { Assets } from "../core/Assets";
+import { Random } from "../core/Random";
 
 /** Length overall in world metres, and how far of its height sits below water. */
 const CARRIER_LENGTH = 125;
@@ -215,8 +216,8 @@ const MOSS = 0x5f7a45;
  */
 function buildDecorItem(item: DecorItem, terrain: Terrain): THREE.Group {
   const b = new Build();
-  // A dam stands in the channel, so it is placed at the water line rather than the bed.
-  const y = item.kind === "dam" ? 0 : terrain.heightAt(item.x, item.z);
+  // A dam stands in the channel and floes float, so those sit at the water line rather than the bed.
+  const y = item.kind === "dam" || item.kind === "floes" ? 0 : terrain.heightAt(item.x, item.z);
   switch (item.kind) {
     case "runway": {
       const len = item.length ?? 130;
@@ -251,6 +252,60 @@ function buildDecorItem(item: DecorItem, terrain: Terrain): THREE.Group {
       b.railing(len - 2, 1.1, P.steel, { y: 5.0, z: -2.8 });
       // Foam skirt at the toe
       b.box(len * 0.9, 0.2, 4, 0xd8e2d6, { y: 0.05, z: 6.0, mat: { roughness: 1 } });
+      break;
+    }
+    case "floes": {
+      // Slabs of sea ice scattered over open water inside the item's rectangle.
+      const rng = new Random((item.x * 73856093) ^ (item.z * 19349663));
+      const w = item.width ?? 120;
+      const len = item.length ?? 400;
+      const cosH = Math.cos(item.heading);
+      const sinH = Math.sin(item.heading);
+      let placed = 0;
+      for (let tries = 0; tries < (item.count ?? 60) * 12 && placed < (item.count ?? 60); tries++) {
+        const lx = rng.range(-w / 2, w / 2);
+        const lz = rng.range(-len / 2, len / 2);
+        const wx = item.x + lx * cosH + lz * sinH;
+        const wz = item.z - lx * sinH + lz * cosH;
+        if (terrain.heightAt(wx, wz) > -1.5) continue;
+        const r = rng.range(3, 13);
+        b.cyl(r, r * 1.04, 0.4, rng.chance(0.6) ? 0xe9f0f4 : 0xd6e1e8, { x: lx, y: 0.1, z: lz, ry: rng.range(0, Math.PI), rx: rng.range(-0.02, 0.02), seg: rng.int(5, 7), mat: { roughness: 0.9, flat: true } });
+        if (r > 8 && rng.chance(0.5)) b.cyl(r * 0.35, r * 0.4, 0.5, 0xf4f8fa, { x: lx + rng.range(-r, r) * 0.3, y: 0.5, z: lz + rng.range(-r, r) * 0.3, seg: 6, mat: { roughness: 0.9, flat: true } });
+        placed++;
+      }
+      break;
+    }
+    case "crash": {
+      // A transport that came down hard: fuselage broken in two, one wing torn off, a skid trench behind it.
+      const grey = 0x9aa3a8;
+      const dark = 0x3a3d3c;
+      const drab = 0x4a5a48;
+      b.box(6, 0.15, 46, 0x5d6266, { y: 0.02, z: -18, ry: 0.06, mat: { roughness: 1 } });
+      // Forward fuselage with nose and cockpit, rolled a little onto one side
+      b.cyl(2.2, 2.2, 13, grey, { y: 2.0, z: 6.5, rx: Math.PI / 2, rz: 0.18, seg: 14, mat: { roughness: 0.6, metalness: 0.3 } });
+      b.cone(2.2, 3.5, grey, { y: 2.0, z: 14.7, rx: Math.PI / 2, seg: 14, mat: { roughness: 0.6, metalness: 0.3 } });
+      b.box(2.6, 0.9, 2.2, P.glass, { y: 3.4, z: 12.2, rx: -0.3, mat: { roughness: 0.25, metalness: 0.4 } });
+      b.box(4.6, 0.4, 13, drab, { y: 3.9, z: 6.5, rz: 0.18 });
+      // Aft fuselage, separated and lying at an angle, with the tail fin
+      b.cyl(2.2, 1.6, 12, grey, { x: 1.6, y: 1.8, z: -7.5, rx: Math.PI / 2, ry: 0.22, rz: -0.35, seg: 14, mat: { roughness: 0.6, metalness: 0.3 } });
+      b.box(0.4, 4.2, 4.0, grey, { x: 0.4, y: 4.6, z: -12.4, rz: -0.35, ry: 0.22, mat: { roughness: 0.6, metalness: 0.3 } });
+      b.box(6, 0.3, 2.4, grey, { x: 1.2, y: 3.0, z: -12.6, ry: 0.22, mat: { roughness: 0.6, metalness: 0.3 } });
+      // Torn edges
+      b.cyl(2.25, 2.25, 0.6, dark, { y: 2.0, z: -0.2, rx: Math.PI / 2, rz: 0.18, seg: 14, mat: { roughness: 1 } });
+      b.cyl(2.25, 2.25, 0.6, dark, { x: 1.3, y: 1.9, z: -1.7, rx: Math.PI / 2, ry: 0.22, seg: 14, mat: { roughness: 1 } });
+      // Attached wing with two engines, and the other wing torn off nearby
+      b.box(17, 0.5, 4.2, grey, { x: -9.5, y: 2.6, z: 5.5, rz: 0.1, ry: 0.15, mat: { roughness: 0.6, metalness: 0.3 } });
+      for (const ex of [-6, -12]) b.cyl(1.0, 1.0, 3.6, dark, { x: ex, y: 1.6, z: 6.8, rx: Math.PI / 2, seg: 10, mat: { roughness: 0.7, metalness: 0.3 } });
+      b.box(14, 0.5, 4.0, grey, { x: 13, y: 0.6, z: -3, ry: 0.9, rz: 0.08, mat: { roughness: 0.6, metalness: 0.3 } });
+      b.cyl(1.0, 1.0, 3.6, dark, { x: 9, y: 0.9, z: 9, rx: Math.PI / 2 + 0.4, seg: 10, mat: { roughness: 0.7, metalness: 0.3 } });
+      // Spilled cargo and debris
+      for (let i = 0; i < 8; i++) {
+        const a = i * 1.3;
+        b.box(1.4, 1.2, 1.2, i % 2 ? P.olive : P.oliveDark, { x: -4 + Math.cos(a) * 6 + i, y: 0.6, z: -8 + Math.sin(a) * 5 - i * 0.8, ry: a });
+      }
+      for (let i = 0; i < 6; i++) b.box(1.5 + (i % 3) * 0.6, 0.15, 0.9, dark, { x: 2 + Math.cos(i * 2.1) * 9, y: 0.08, z: -14 - i * 2.2, ry: i * 0.7 });
+      // A scorched patch where an engine burned
+      b.cyl(3.5, 3.5, 0.06, 0x24241f, { x: -12, y: 0.05, z: 6.5, seg: 12, mat: { roughness: 1 } });
       break;
     }
     case "ruin": {

@@ -8,6 +8,8 @@ export type SpawnType =
   | "sam"
   | "infantry"
   | "gunboat"
+  | "tanker"
+  | "minelayer"
   | "jeep"
   | "truck"
   | "radar"
@@ -52,7 +54,7 @@ export interface FlatSpot {
   h?: number;
 }
 
-export type ObjectiveKind = "destroyTag" | "rescue" | "returnToLZ";
+export type ObjectiveKind = "destroyTag" | "rescue" | "returnToLZ" | "escort";
 
 export interface ObjectiveDef {
   id: string;
@@ -72,12 +74,14 @@ export interface ObjectiveDef {
    * once done, stops the countdown from ever starting.
    */
   deadline?: { seconds: number; label: string; failMessage: string; cancelledBy?: string };
+  /** Escort objectives: said when the last escorted ship is lost and the mission fails. */
+  failMessage?: string;
   doneMessage: string;
 }
 
 /** Non-interactive set dressing placed by the mission. */
 export interface DecorItem {
-  kind: "runway" | "dam" | "ruin" | "floes" | "crash";
+  kind: "runway" | "dam" | "ruin" | "floes" | "crash" | "rig" | "buoys" | "quay";
   x: number;
   z: number;
   heading: number;
@@ -85,6 +89,8 @@ export interface DecorItem {
   width?: number;
   /** Scatter size for floes. */
   count?: number;
+  /** Polyline for lane markers. */
+  points?: [number, number][];
 }
 
 export interface MissionData {

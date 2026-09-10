@@ -28,6 +28,24 @@ export class Mission {
     world.events.on("powRescued", () => {
       for (const d of data.objectives) if (d.kind === "rescue") this.advance(d.id);
     });
+    world.events.on("arrived", () => {
+      for (const d of data.objectives) if (d.kind === "escort") this.advance(d.id);
+    });
+    world.events.on("escortLost", () => {
+      // The bar lowers to the ships still afloat; with none left the mission is over.
+      const alive = world.entities.filter((e) => e.kind === "tanker" && e.alive).length;
+      for (const d of data.objectives) {
+        if (d.kind !== "escort") continue;
+        const o = this.get(d.id);
+        if (!o || o.done) continue;
+        if (alive === 0 && (o.progress ?? 0) === 0) {
+          world.failMission(d.failMessage ?? "The convoy was lost.");
+          return;
+        }
+        o.total = Math.max(1, alive + (o.progress ?? 0));
+        if ((o.progress ?? 0) >= o.total) this.complete(d.id);
+      }
+    });
   }
 
   private get(id: string): ObjectiveState | undefined {

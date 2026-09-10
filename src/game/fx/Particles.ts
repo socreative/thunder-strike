@@ -760,6 +760,72 @@ export class Particles {
     }
   }
 
+  /** A gas flare burning off a stack: a licking orange flame with a thin dark plume. */
+  flareStack(p: THREE.Vector3): void {
+    this.fire.spawn({
+      x: p.x + (Math.random() - 0.5) * 0.6,
+      y: p.y,
+      z: p.z + (Math.random() - 0.5) * 0.6,
+      vx: (Math.random() - 0.5) * 2,
+      vy: 5 + Math.random() * 4,
+      vz: (Math.random() - 0.5) * 2,
+      life: 0.35 + Math.random() * 0.25,
+      size: 1.6 + Math.random() * 0.8,
+      sizeEnd: 0.4,
+      color: 0xffd070,
+      colorEnd: 0xff5010,
+      alpha: 0.9,
+    });
+    if (Math.random() < 0.5) {
+      this.smoke.spawn({ x: p.x, y: p.y + 2, z: p.z, vx: 1.5, vy: 3, vz: 0.5, life: 2.5, size: 1.0, sizeEnd: 4, color: 0x2a2624, colorEnd: 0x6a6664, alpha: 0.35, drag: 1 });
+    }
+  }
+
+  /** Water thrown up by a blast or a dropped mine: a white column that falls back and a spreading ring of spray. */
+  splash(p: THREE.Vector3, size: number): void {
+    const n = Math.round(10 + size * 8);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * size * 0.8;
+      this.dust.spawn({
+        x: p.x + Math.cos(a) * r,
+        y: 0.2,
+        z: p.z + Math.sin(a) * r,
+        vx: Math.cos(a) * (2 + Math.random() * 4) * size * 0.5,
+        vy: (6 + Math.random() * 10) * size * 0.6,
+        vz: Math.sin(a) * (2 + Math.random() * 4) * size * 0.5,
+        life: 0.9 + Math.random() * 0.7,
+        size: size * 0.5,
+        sizeEnd: size * 1.6,
+        color: 0xeaf6f8,
+        colorEnd: 0x9fcbd0,
+        alpha: 0.75,
+        drag: 1.2,
+        gravity: 14,
+      });
+    }
+    const ringN = Math.round(8 + size * 6);
+    for (let i = 0; i < ringN; i++) {
+      const a = (i / ringN) * Math.PI * 2;
+      this.dust.spawn({
+        x: p.x + Math.cos(a) * size,
+        y: 0.3,
+        z: p.z + Math.sin(a) * size,
+        vx: Math.cos(a) * 9 * size * 0.5,
+        vy: 1.5,
+        vz: Math.sin(a) * 9 * size * 0.5,
+        life: 0.8,
+        size: size * 0.6,
+        sizeEnd: size * 2.2,
+        color: 0xf2fafa,
+        colorEnd: 0xb9dde0,
+        alpha: 0.5,
+        drag: 3,
+        gravity: 3,
+      });
+    }
+  }
+
   /** Foam churned up behind a boat: white puffs spreading from the stern at the water line. */
   wake(x: number, z: number, fx: number, fz: number, stern: number, count: number): void {
     for (let i = 0; i < count; i++) {

@@ -44,6 +44,8 @@ START MISSION opens a picker; both missions are always available, and the win sc
 
 **Operation White Silence.** Arctic missile field beside a frozen sea. Blind two early-warning radomes, destroy the launch control bunker, cut the fuel convoy, recover a transport crew from a wreck on the ice, then destroy three missile silos. Hitting a silo while the bunker still stands starts a two and a half minute launch countdown; if it lapses, the missiles launch and the mission is lost.
 
+**Operation Narrow Water.** Strait of Hormuz. Two tankers steam north up a marked lane while minelayers seed it, gunboats sortie from a naval base and anti-ship batteries fire from the cliffs. Take the island radar, sink the minelayers, sweep the mines, keep at least one tanker alive to the northern exit (both, for full marks), silence the batteries and destroy the base.
+
 Missions are data: `src/game/data/mission*.ts` holds the layout, spawns, objectives and a theme (`src/game/world/Theme.ts`) covering ground, sky, water, fog, dust and vegetation. Terrain shape, coast and river come from a per-mission terrain config in `src/game/world/Terrain.ts`.
 
 ## Project layout

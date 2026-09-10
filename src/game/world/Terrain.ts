@@ -16,10 +16,12 @@ export interface RiverDef {
 }
 
 export interface TerrainConfig {
-  shape: "desert" | "jungle" | "arctic";
+  shape: "desert" | "jungle" | "arctic" | "gulf";
   /** Land falls into the sea west of this X, down to `floor`. */
   coast?: { edgeX: number; floor: number };
   river?: RiverDef;
+  /** Land raised out of the water after the channel is cut. */
+  islands?: { x: number; z: number; r: number; h: number }[];
 }
 
 export const DESERT_TERRAIN: TerrainConfig = { shape: "desert", coast: { edgeX: balance.map.seaEdgeX, floor: -9 } };
@@ -73,7 +75,7 @@ export class Terrain {
     private readonly overview: OverviewPalette,
   ) {
     this.noise = new SimplexNoise(seed);
-    this.base = cfg.shape === "jungle" ? this.jungleHeight : cfg.shape === "arctic" ? this.arcticHeight : this.desertHeight;
+    this.base = cfg.shape === "jungle" ? this.jungleHeight : cfg.shape === "arctic" ? this.arcticHeight : cfg.shape === "gulf" ? this.gulfHeight : this.desertHeight;
     if (cfg.river) {
       this.riverBed = cfg.river.bed ?? -5;
       this.riverBank = cfg.river.bank ?? 14;
@@ -102,7 +104,8 @@ export class Terrain {
     this.flats = flats.map((f) => ({ ...f, h: f.h ?? this.base(f.x, f.z) }));
     if (process.env.NODE_ENV !== "production") {
       for (const f of this.flats) {
-        if (this.riverDistance(f.x, f.z) < f.r) console.warn(`[thunder-strike] flat at ${f.x},${f.z} overlaps the river`);
+        const onIsland = cfg.islands?.some((i) => Math.hypot(f.x - i.x, f.z - i.z) < i.r);
+        if (!onIsland && this.riverDistance(f.x, f.z) < f.r) console.warn(`[thunder-strike] flat at ${f.x},${f.z} overlaps the river`);
       }
     }
 
@@ -159,6 +162,13 @@ export class Terrain {
     return h;
   };
 
+  private gulfHeight = (x: number, z: number): number => {
+    const n = this.noise;
+    // Steep arid coast: big folded ridges rising fast away from the water.
+    const h = 5 + 16 * n.fbm(x * 0.003, z * 0.003, 4) + 4 * Math.abs(n.noise2(x * 0.011 - 2, z * 0.011 + 4));
+    return Math.max(h, 1.5);
+  };
+
   heightAt(x: number, z: number): number {
     let h = this.base(x, z);
     for (const f of this.flats) {
@@ -170,6 +180,17 @@ export class Terrain {
       h = h * (1 - w) + f.h * w;
     }
     if (this.segs.length) h = this.carve(h, x, z);
+    const islands = this.cfg.islands;
+    if (islands) {
+      for (const isl of islands) {
+        const d = Math.hypot(x - isl.x, z - isl.z);
+        if (d > isl.r) continue;
+        // A rounded hump with a little noise so it is not a perfect cone.
+        const k = 1 - smoothstep(isl.r * 0.45, isl.r, d);
+        const bump = isl.h * k * (0.85 + 0.3 * this.noise.noise2(x * 0.05, z * 0.05));
+        h = Math.max(h, bump);
+      }
+    }
     return h;
   }
 

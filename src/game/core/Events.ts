@@ -13,6 +13,10 @@ export interface GameEvents {
   objectiveDone: { id: string };
   missionWon: Record<string, never>;
   missionLost: Record<string, never>;
+  /** An escorted ship reached the end of its lane. */
+  arrived: { entity: Entity };
+  /** An escorted ship was sunk. */
+  escortLost: { entity: Entity };
   samLaunch: Record<string, never>;
   shot: { kind: string; pos: THREE.Vector3 };
 }

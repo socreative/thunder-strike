@@ -20,6 +20,7 @@ import { SamSite } from "./entities/enemies/SamSite";
 import { Tank } from "./entities/enemies/Tank";
 import { Gunboat } from "./entities/enemies/Gunboat";
 import { Vehicle } from "./entities/enemies/Vehicle";
+import { Ship } from "./entities/enemies/Ship";
 import { Pow } from "./entities/Pow";
 import type { SpawnType } from "./data/mission";
 import { HealthBars } from "./fx/HealthBars";
@@ -83,6 +84,9 @@ export class World {
   private sky: THREE.Mesh;
   private decor: THREE.Group;
   private decorSpinners: THREE.Object3D[] = [];
+  /** Points that burn steadily, such as a rig's flare stack. */
+  readonly decorFlames: THREE.Vector3[] = [];
+  private flameTimer = 0;
   private hemi: THREE.HemisphereLight;
   private flashDecay = 0;
   private incoming = false;
@@ -119,7 +123,7 @@ export class World {
 
     this.props = new Props(this.terrain, this.propExclusions(), data.seed, theme.props);
     this.scene.add(this.props.group);
-    this.decor = createDecor(data, this.terrain, this.decorSpinners, assets);
+    this.decor = createDecor(data, this.terrain, this.decorSpinners, assets, this.decorFlames);
     this.scene.add(this.decor);
 
     this.particles = new Particles();
@@ -205,7 +209,7 @@ export class World {
     for (const s of data.spawns) {
       const r = s.type === "wall" ? (s.length ?? 20) / 2 + 4 : (CLEAR[s.type] ?? 0);
       if (r > 0) ex.push({ x: s.x, z: s.z, r });
-      if (s.waypoints && s.type !== "gunboat") {
+      if (s.waypoints && s.type !== "gunboat" && s.type !== "tanker" && s.type !== "minelayer") {
         const pts = s.waypoints;
         for (let i = 0; i < pts.length; i++) {
           const [ax, az] = pts[i];
@@ -256,6 +260,12 @@ export class World {
       case "truck":
         e = new Vehicle("truck", s.heading ?? this.rng.range(0, Math.PI * 2), s.waypoints);
         break;
+      case "tanker":
+        e = new Ship("tanker", s.heading ?? 0, s.waypoints);
+        break;
+      case "minelayer":
+        e = new Ship("minelayer", s.heading ?? 0, s.waypoints);
+        break;
       case "gunboat":
         e = new Gunboat(s.heading ?? 0, s.waypoints);
         if (process.env.NODE_ENV !== "production") {
@@ -275,7 +285,7 @@ export class World {
       default:
         e = new Structure(s.type as StructureType, s.heading ?? 0, s.variant ?? 0, s.length ?? 20, s.count ?? 4);
     }
-    if (process.env.NODE_ENV !== "production" && s.waypoints && s.type !== "gunboat") {
+    if (process.env.NODE_ENV !== "production" && s.waypoints && s.type !== "gunboat" && s.type !== "tanker" && s.type !== "minelayer") {
       for (const [wx, wz] of s.waypoints) {
         if (this.terrain.riverDistance(wx, wz) < 0) console.warn(`[thunder-strike] ${s.type} waypoint ${wx},${wz} is in the river`);
       }
@@ -493,6 +503,13 @@ export class World {
     }
 
     for (const s of this.decorSpinners) s.rotation.y += 0.55 * dt;
+    if (this.decorFlames.length) {
+      this.flameTimer -= dt;
+      if (this.flameTimer <= 0) {
+        this.flameTimer = 0.06;
+        for (const f of this.decorFlames) this.particles.flareStack(f);
+      }
+    }
     this.particles.update(dt);
     this.healthBars.update(this.entities, this.time);
     this.shakeAmount = Math.max(0, this.shakeAmount - dt * 4);

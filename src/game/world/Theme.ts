@@ -76,7 +76,7 @@ export interface PropTheme {
 }
 
 export interface Theme {
-  id: "desert" | "jungle" | "arctic";
+  id: "desert" | "jungle" | "arctic" | "gulf";
   /** Colour used for the mission picker swatch. */
   swatch: number;
   ground: GroundPalette;
@@ -154,6 +154,28 @@ export const arcticTheme: Theme = {
       { kind: "spruce", count: 700, scale: [0.8, 1.4], castShadow: true, sink: 0.1, maxSlope: 0.75, tints: [0xffffff, 0xe8f0f4, 0xd8e4ea], sway: 0.06 },
       { kind: "rock", count: 300, scale: [0.6, 3.4], castShadow: true, sink: 0.35, color: 0x7a7e84 },
       { kind: "shrub", count: 250, scale: [0.6, 1.3], castShadow: false, sink: 0.3, color: 0x6e6a5e, sway: 0.2 },
+    ],
+  },
+};
+
+export const gulfTheme: Theme = {
+  id: "gulf",
+  swatch: 0x2fa3ad,
+  ground: { light: 0xd8c39a, dark: 0xb59a6b, rockA: 0x8c7d68, rockB: 0x5c5045, wet: 0xb7a582, underwater: 0x4c8a8c, ripple: 0.5 },
+  fog: { color: 0xe8dcc4, near: 240, far: 900 },
+  sky: { horizon: 0xf1e6cf, zenith: 0x7fb2d6, haze: 0xf6eedc, sun: 0xfff2dc, hemiSky: 0xa8c4d8, hemiGround: 0x8a7a5c },
+  water: { deep: 0x0f6b7a, shallow: 0x2fa3ad, foam: 0xe4f4f4, foamAmount: 0.5, scale: 1 },
+  overview: { water: [18, 92, 104], shallow: [52, 150, 160], landLow: [176, 154, 112], landHigh: [222, 204, 164] },
+  dust: { start: 0xe4d2ac, end: 0xcdb98f },
+  wash: "dust",
+  props: {
+    minHeight: 1.5,
+    bankMargin: 4,
+    clearSpawns: true,
+    sets: [
+      { kind: "rock", count: 320, scale: [0.6, 3.6], castShadow: true, sink: 0.35, color: 0x8a7b66 },
+      { kind: "shrub", count: 260, scale: [0.6, 1.4], castShadow: false, sink: 0.3, color: 0x7a7f58 },
+      { kind: "palm", count: 120, scale: [0.8, 1.25], castShadow: true, sink: 0.1, maxSlope: 0.85, bankMargin: 6, tints: [0xffffff, 0xe8e0c8], sway: 0.1 },
     ],
   },
 };

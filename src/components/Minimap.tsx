@@ -11,6 +11,7 @@ const COLORS: Record<string, string> = {
   pow: "#8dff7a",
   lz: "#ffffff",
   missile: "#ff2a2a",
+  friendly: "#bfe9ff",
 };
 
 export default function Minimap({ snap, overview, size = 184 }: { snap: Snapshot; overview: ImageData | null; size?: number }) {

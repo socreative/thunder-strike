@@ -11,6 +11,7 @@ const S = balance.enemies.gunboat;
 const tmpMuzzle = new THREE.Vector3();
 const tmpDir = new THREE.Vector3();
 const tmpHit: RiverHit = { sd: 0, w: 0, cx: 0, cz: 0 };
+const near: Entity[] = [];
 
 /**
  * River patrol boat: runs a waypoint loop on the water, keeps off the banks,
@@ -83,15 +84,14 @@ export class Gunboat extends Entity {
   update(dt: number): void {
     const world = this.world;
     this.tickFlash(dt);
-    const heli = world.heli;
-    const d = heli.alive ? this.distanceXZ(heli) : Infinity;
-    const engaged = d < S.range;
+    const target = this.pickTarget();
+    const engaged = target !== null;
 
     // Boats never stop; they slow in the turns and while engaging.
     this.patrol(dt, engaged ? 0.5 : 1);
 
-    if (engaged) {
-      const want = headingTo(this.pos.x, this.pos.z, heli.pos.x, heli.pos.z) - this.heading;
+    if (target) {
+      const want = headingTo(this.pos.x, this.pos.z, target.pos.x, target.pos.z) - this.heading;
       this.gunYaw = turnToward(this.gunYaw, want, 3.5 * dt);
       this.reload -= dt;
       if (this.reload <= 0 && this.burstLeft === 0) {
@@ -160,8 +160,33 @@ export class Gunboat extends Entity {
     this.pos.z += Math.cos(this.heading) * v * dt;
   }
 
+  /** The aircraft, or the nearest friendly ship, whichever is closer and in range. */
+  private pickTarget(): (Entity & { vel: THREE.Vector3 }) | null {
+    const world = this.world;
+    let best: (Entity & { vel: THREE.Vector3 }) | null = null;
+    let bestD = S.range;
+    if (world.heli.alive) {
+      const d = this.distanceXZ(world.heli);
+      if (d < bestD) {
+        bestD = d;
+        best = world.heli;
+      }
+    }
+    world.grid.query(this.pos.x, this.pos.z, S.range + 40, near, (e) => e.team === "player" && e.kind === "tanker" && e.alive);
+    for (const e of near) {
+      const d = this.distanceXZ(e);
+      if (d < bestD) {
+        bestD = d;
+        best = e as Entity & { vel: THREE.Vector3 };
+      }
+    }
+    return best;
+  }
+
   private fire(): void {
     const world = this.world;
+    const target = this.pickTarget();
+    if (!target) return;
     const yaw = this.heading + this.gunYaw;
     // Keep the muzzle well above the water plane or the round dies as a splash on its first step.
     tmpMuzzle.set(
@@ -169,7 +194,7 @@ export class Gunboat extends Entity {
       2.4,
       this.pos.z + Math.cos(yaw) * 2.2 + Math.cos(this.heading) * 3,
     );
-    leadTarget(tmpMuzzle, world.heli, balance.enemyShots.aa.speed, tmpDir, S.spread);
+    leadTarget(tmpMuzzle, target, balance.enemyShots.aa.speed, tmpDir, S.spread);
     world.fire("aa", tmpMuzzle, tmpDir, "enemy", this);
     world.particles.muzzleFlash(tmpMuzzle, tmpDir);
     world.audio.play("aa", this.pos);

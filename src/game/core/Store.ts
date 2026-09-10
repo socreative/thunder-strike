@@ -23,7 +23,7 @@ export interface ObjectiveState {
   locked?: boolean;
 }
 
-export type BlipKind = "enemy" | "sam" | "objective" | "pickup" | "pow" | "lz" | "missile";
+export type BlipKind = "enemy" | "sam" | "objective" | "pickup" | "pow" | "lz" | "missile" | "friendly";
 
 export interface Blip {
   x: number;

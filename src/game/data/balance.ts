@@ -64,6 +64,9 @@ export const balance = {
     jeep: { hp: 60, range: 70, burst: 4, burstGap: 0.1, reload: 2.0, spread: 0.1, speed: 14, turnRate: 1.6, length: 5 },
     truck: { hp: 90, speed: 9, turnRate: 1.0, length: 8 },
     radome: { hp: 260, radius: 6 },
+    tanker: { hp: 700, speed: 3.2, turnRate: 0.25, length: 60 },
+    minelayer: { hp: 220, speed: 5, turnRate: 0.6, length: 26, mineEvery: 14 },
+    mine: { hp: 8, radius: 1.6, trigger: 9, damage: 260, blast: 7 },
     silo: { hp: 320, radius: 8 },
   },
   pickups: {

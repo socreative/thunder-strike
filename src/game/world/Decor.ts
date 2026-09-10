@@ -95,7 +95,7 @@ function parkAircraft(holder: THREE.Group, model: THREE.Object3D, assets: Assets
  * Non-interactive set dressing: the landing zone and the carrier offshore.
  * Objects pushed into `spinners` are rotated slowly by the world each frame.
  */
-export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE.Object3D[], assets: Assets): THREE.Group {
+export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE.Object3D[], assets: Assets, flames: THREE.Vector3[] = []): THREE.Group {
   const g = new THREE.Group();
   g.name = "decor";
 
@@ -200,7 +200,7 @@ export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE
     }
   }
 
-  for (const item of data.decor ?? []) g.add(buildDecorItem(item, terrain));
+  for (const item of data.decor ?? []) g.add(buildDecorItem(item, terrain, flames));
 
   return g;
 }
@@ -214,10 +214,11 @@ const MOSS = 0x5f7a45;
  * Mission set dressing that is neither a target nor a pickup: a runway cut
  * into the canopy, a dam wall across the river, a temple ruin.
  */
-function buildDecorItem(item: DecorItem, terrain: Terrain): THREE.Group {
+function buildDecorItem(item: DecorItem, terrain: Terrain, flames: THREE.Vector3[]): THREE.Group {
   const b = new Build();
   // A dam stands in the channel and floes float, so those sit at the water line rather than the bed.
-  const y = item.kind === "dam" || item.kind === "floes" ? 0 : terrain.heightAt(item.x, item.z);
+  const onWater = item.kind === "dam" || item.kind === "floes" || item.kind === "rig" || item.kind === "buoys";
+  const y = onWater ? 0 : terrain.heightAt(item.x, item.z);
   switch (item.kind) {
     case "runway": {
       const len = item.length ?? 130;
@@ -380,6 +381,102 @@ function buildDecorItem(item: DecorItem, terrain: Terrain): THREE.Group {
       for (let i = 0; i < 6; i++) b.box(1.5 + (i % 3) * 0.6, 0.12, 1.0, torn, { x: 2 + Math.cos(i * 2.1) * 9, y: 0.07, z: -24 - i * 2.4, ry: i * 0.7 });
       b.cyl(3.6, 3.6, 0.06, 0x24241f, { x: -11.5, y: 0.05, z: 4.6, seg: 14, mat: { roughness: 1 } });
       b.cyl(2.2, 2.2, 0.06, 0x24241f, { x: 5.5, y: 0.05, z: -16, seg: 12, mat: { roughness: 1 } });
+      break;
+    }
+    case "rig": {
+      // Offshore platform: four legs into the water, a two-level deck, derrick,
+      // crane, accommodation block, helideck and a flare boom that burns.
+      for (const [lx, lz] of [
+        [-11, -9],
+        [11, -9],
+        [-11, 9],
+        [11, 9],
+      ] as [number, number][]) {
+        b.cyl(1.4, 1.6, 20, P.concreteDark, { x: lx, y: 4, z: lz, seg: 12, mat: { roughness: 0.9 } });
+        b.cyl(1.9, 1.9, 1.2, P.rust, { x: lx, y: 0.4, z: lz, seg: 12 });
+      }
+      for (const [ax, az, bx, bz] of [
+        [-11, -9, 11, 9],
+        [11, -9, -11, 9],
+      ] as [number, number, number, number][]) {
+        b.strut(new THREE.Vector3(ax, 1, az), new THREE.Vector3(bx, 12, bz), 0.3, P.rust, { metalness: 0.4 }, 6);
+      }
+      b.box(30, 1.6, 24, P.metalDark, { y: 14, mat: { metalness: 0.4 } });
+      b.box(28, 1.2, 22, P.tarmac, { y: 15.4, mat: { roughness: 1 } });
+      b.railing(30, 1.1, P.hazard, { y: 16, z: 12 });
+      b.railing(30, 1.1, P.hazard, { y: 16, z: -12 });
+      b.railing(24, 1.1, P.hazard, { x: 15, y: 16, ry: Math.PI / 2 });
+      // Accommodation block and control room
+      b.box(10, 6, 8, P.white, { x: -8, y: 19, z: 6, mat: { roughness: 0.6 } });
+      b.box(10.4, 0.6, 8.4, P.metalDark, { x: -8, y: 22.3, z: 6 });
+      for (let i = -1; i <= 1; i++) b.box(2.2, 1.2, 0.2, P.glass, { x: -8 + i * 3, y: 19.5, z: 10.1, mat: { roughness: 0.25, metalness: 0.35 } });
+      // Derrick over the well
+      b.latticeMast(22, 4.5, P.rust, { x: 6, y: 16, z: -3 });
+      b.box(5, 1, 5, P.metalDark, { x: 6, y: 38.5, z: -3 });
+      // Helideck on a cantilever, with the H
+      b.cyl(7, 7, 0.6, P.metalDark, { x: -8, y: 23.5, z: -8, seg: 16 });
+      b.torus(6.4, 0.18, P.white, { x: -8, y: 23.9, z: -8, rx: Math.PI / 2, seg: 20 });
+      b.box(1.0, 0.1, 5, P.white, { x: -10, y: 23.85, z: -8 });
+      b.box(1.0, 0.1, 5, P.white, { x: -6, y: 23.85, z: -8 });
+      b.box(3, 0.1, 1.0, P.white, { x: -8, y: 23.85, z: -8 });
+      // Crane and pipe deck clutter
+      b.cyl(0.6, 0.8, 8, P.hazard, { x: 12, y: 20, z: 8, seg: 8 });
+      b.box(0.5, 0.5, 14, P.hazard, { x: 12, y: 24, z: 1, rx: -0.35 });
+      for (let i = 0; i < 4; i++) b.cyl(0.35, 0.35, 8, P.steel, { x: 2 + i * 0.9, y: 16.4, z: 6, rx: Math.PI / 2, seg: 8, mat: { metalness: 0.5 } });
+      for (let i = 0; i < 3; i++) b.box(2.4, 2.4, 6, i % 2 ? P.hazard : P.olive, { x: -2 + i * 3, y: 17.2, z: -9 });
+      // Flare boom reaching out over the water, burning at the tip
+      b.box(0.5, 0.5, 26, P.rust, { x: 14, y: 20, z: -14, rx: -0.5 });
+      b.cyl(0.3, 0.3, 3, P.metalDark, { x: 14, y: 27, z: -26.5, seg: 8 });
+      flames.push(new THREE.Vector3(item.x + Math.cos(item.heading) * 14 + Math.sin(item.heading) * -26.5, 28.5, item.z - Math.sin(item.heading) * 14 + Math.cos(item.heading) * -26.5));
+      break;
+    }
+    case "buoys": {
+      // Channel markers either side of the lane: red cans to port, green cones to starboard, each with a light.
+      const pts = item.points ?? [];
+      const off = item.width ?? 26;
+      let acc = 0;
+      for (let i = 0; i + 1 < pts.length; i++) {
+        const [ax, az] = pts[i];
+        const [bx, bz] = pts[i + 1];
+        const len = Math.hypot(bx - ax, bz - az);
+        const ux = (bx - ax) / len;
+        const uz = (bz - az) / len;
+        for (let d = acc; d < len; d += 60) {
+          const px = ax + ux * d - item.x;
+          const pz = az + uz * d - item.z;
+          for (const side of [-1, 1]) {
+            const x = px + -uz * side * off;
+            const z = pz + ux * side * off;
+            const red = side < 0;
+            b.cyl(1.1, 1.3, 1.6, red ? P.hazard : 0x2f9a4a, { x, y: 0.7, z, seg: 10 });
+            if (red) b.cyl(1.1, 1.1, 0.4, red ? P.hazard : 0x2f9a4a, { x, y: 1.7, z, seg: 10 });
+            else b.cone(1.0, 1.4, 0x2f9a4a, { x, y: 2.2, z, seg: 10 });
+            b.cyl(0.08, 0.08, 1.6, P.metalDark, { x, y: 2.6, z, seg: 5 });
+            b.sphere(0.25, red ? 0xff5040 : 0x60ff80, { x, y: 3.5, z, mat: { emissive: red ? 0xaa2010 : 0x20aa40 } });
+          }
+        }
+        acc = ((acc - len) % 60 + 60) % 60;
+      }
+      break;
+    }
+    case "quay": {
+      // Wharf along the shore: concrete apron, bollards, fenders, a crane, containers and fuel tanks.
+      const len = item.length ?? 90;
+      b.box(len, 2.6, 14, P.concreteDark, { y: 1.3, z: 0, mat: { roughness: 1 } });
+      b.box(len, 0.3, 14.4, P.concrete, { y: 2.75, mat: { roughness: 1 } });
+      b.box(len, 0.6, 0.6, P.hazard, { y: 2.9, z: 7.1 });
+      for (let x = -len / 2 + 6; x < len / 2; x += 12) {
+        b.cyl(0.5, 0.6, 1.2, P.metalDark, { x, y: 3.5, z: 6.2, seg: 10, mat: { metalness: 0.5 } });
+        b.box(1.4, 2.0, 0.6, 0x1e1e1e, { x, y: 1.6, z: 7.5, mat: { roughness: 1 } });
+      }
+      for (let i = 0; i < 6; i++) b.box(6, 2.6, 2.4, [P.hazard, P.olive, 0x3a6ea5, P.rust, 0x8a3a8a, P.oliveDark][i], { x: -len / 2 + 10 + (i % 3) * 8, y: 4.2 + Math.floor(i / 3) * 2.6, z: -3, ry: 0.05 * i });
+      b.cyl(3.5, 3.5, 6, P.white, { x: len / 2 - 12, y: 5.9, z: -3.5, seg: 16, mat: { roughness: 0.6 } });
+      b.cyl(3.5, 3.5, 6, P.white, { x: len / 2 - 20, y: 5.9, z: -3.5, seg: 16, mat: { roughness: 0.6 } });
+      // Portal crane
+      for (const sx of [-4, 4]) b.box(1.2, 14, 1.2, P.hazard, { x: 12 + sx, y: 9.9, z: 2 });
+      b.box(1.2, 1.2, 26, P.hazard, { x: 12, y: 17, z: 0 });
+      b.box(12, 1.2, 1.2, P.hazard, { x: 12, y: 17, z: 2 });
+      b.box(2.2, 2.2, 3, P.metalDark, { x: 12, y: 15.4, z: 8 });
       break;
     }
     case "ruin": {

@@ -243,7 +243,7 @@ export class Projectile extends Entity {
             if (h.kind === "projectile" && Math.abs(h.pos.y - sy) > 10) continue;
           } else {
             // Enemy fire has to actually reach the aircraft's altitude.
-            const top = h.kind === "helicopter" ? h.pos.y + 3 : world.terrain.heightAt(h.pos.x, h.pos.z) + heightOf(h);
+            const top = h.kind === "helicopter" ? h.pos.y + 3 : Math.max(world.terrain.heightAt(h.pos.x, h.pos.z), 0) + heightOf(h);
             const bottom = h.kind === "helicopter" ? h.pos.y - 3 : -10;
             if (sy > top + this.radius || sy < bottom) continue;
           }
@@ -321,6 +321,14 @@ function heightOf(e: Entity): number {
       return 14;
     case "wall":
       return 5;
+    case "tanker":
+      return 15;
+    case "minelayer":
+      return 8;
+    case "gunboat":
+      return 5;
+    case "mine":
+      return 2;
     case "infantry":
       return 3;
     default:

@@ -189,7 +189,7 @@ export class Game {
       return;
     }
     this.mission = data;
-    const place = data.theme.id === "jungle" ? "the valley" : data.theme.id === "arctic" ? "the ice" : "the province";
+    const place = { desert: "the province", jungle: "the valley", arctic: "the ice", gulf: "the strait" }[data.theme.id];
     this.store.set({ loadLabel: `building ${place}`, loadProgress: 0.85 });
     this.setScreen("loading");
     setTimeout(() => {
@@ -375,6 +375,7 @@ export class Game {
         if (input.wasPressed("Digit1")) this.selectMission(MISSIONS[0].id);
         if (input.wasPressed("Digit2") && MISSIONS[1]) this.selectMission(MISSIONS[1].id);
         if (input.wasPressed("Digit3") && MISSIONS[2]) this.selectMission(MISSIONS[2].id);
+        if (input.wasPressed("Digit4") && MISSIONS[3]) this.selectMission(MISSIONS[3].id);
         if (input.wasPressed("Enter", "Space")) this.start();
         if (input.wasPressed("Escape")) this.setScreen("title");
         break;
@@ -485,6 +486,10 @@ export class Game {
       }
       if (e.kind === "pow") {
         blips.push({ x: e.pos.x, z: e.pos.z, kind: "pow" });
+        continue;
+      }
+      if (e.kind === "tanker") {
+        blips.push({ x: e.pos.x, z: e.pos.z, kind: "friendly" });
         continue;
       }
       if (e.tag) {

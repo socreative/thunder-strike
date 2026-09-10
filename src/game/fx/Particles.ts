@@ -760,6 +760,45 @@ export class Particles {
     }
   }
 
+  /** Oily black smoke off a burning airframe, thick and slow to thin. */
+  blackSmoke(p: THREE.Vector3, size: number, driftX: number, driftZ: number): void {
+    this.smoke.spawn({
+      x: p.x + (Math.random() - 0.5) * size,
+      y: p.y,
+      z: p.z + (Math.random() - 0.5) * size,
+      vx: (Math.random() - 0.5) * 2 + driftX * 0.5,
+      vy: 3 + Math.random() * 3,
+      vz: (Math.random() - 0.5) * 2 + driftZ * 0.5,
+      life: 2.2 + Math.random() * 1.8,
+      size: size * 0.9,
+      sizeEnd: size * 4,
+      color: 0x0f0e0d,
+      colorEnd: 0x2c2a27,
+      alpha: 0.85,
+      drag: 1.2,
+      gravity: -1.5,
+    });
+  }
+
+  /** Flames licking out of a damaged hull: short, bright, rising, torn off by the airflow. */
+  hullFire(p: THREE.Vector3, size: number, driftX: number, driftZ: number): void {
+    this.fire.spawn({
+      x: p.x + (Math.random() - 0.5) * size * 0.8,
+      y: p.y,
+      z: p.z + (Math.random() - 0.5) * size * 0.8,
+      vx: (Math.random() - 0.5) * 2 + driftX * 0.6,
+      vy: 2.5 + Math.random() * 3,
+      vz: (Math.random() - 0.5) * 2 + driftZ * 0.6,
+      life: 0.25 + Math.random() * 0.3,
+      size: size * (0.9 + Math.random() * 0.6),
+      sizeEnd: size * 0.3,
+      color: 0xffd080,
+      colorEnd: 0xff4a10,
+      alpha: 0.95,
+      drag: 2.5,
+    });
+  }
+
   /** A gas flare burning off a stack: a licking orange flame with a thin dark plume. */
   flareStack(p: THREE.Vector3): void {
     this.fire.spawn({

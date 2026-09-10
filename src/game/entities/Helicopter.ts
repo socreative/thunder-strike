@@ -14,6 +14,7 @@ const WEAPON_ORDER: WeaponId[] = ["gun", "hydra", "hellfire"];
 
 const tmpForward = new THREE.Vector3();
 const tmpSunDir = new THREE.Vector3();
+const tmpEmit = new THREE.Vector3();
 const tmpNormal = new THREE.Vector3();
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 const tmpRight = new THREE.Vector3();
@@ -38,6 +39,12 @@ export class Helicopter extends Entity {
   private bob = 0;
   private washCarry = 0;
   private rotorShadow = createRotorShadow(7.8);
+  /** Hit flash on the player's own aircraft is kept gentle; it fills the screen centre. */
+  protected flashStrength = 0.3;
+  protected flashTint = new THREE.Color(0xff8a60);
+  private damageSmoke = 0;
+  private damageFire = 0;
+  private lastTint = -1;
   /** Attitude jolt from a hit, decaying back to level. */
   private kickPitch = 0;
   private kickBank = 0;
@@ -273,6 +280,7 @@ export class Helicopter extends Entity {
     this.body.rotation.set(this.pitch, 0, this.bank);
     this.syncObject();
     this.placeRotorShadow();
+    this.updateDamageState(dt);
 
     // Rotors
     // Slow enough that the blades read as turning rather than strobing;
@@ -443,6 +451,61 @@ export class Helicopter extends Entity {
     const len = Math.hypot(dir.x, dir.z);
     dir.x = Math.sin(a) * len;
     dir.z = Math.cos(a) * len;
+  }
+
+  /**
+   * Visible wear that tracks lost armour. Below 70 percent the engine bay
+   * trails thin grey smoke and the hull starts to scorch; below about 40
+   * percent the smoke turns thick and black; under 25 percent flames lick
+   * out as well. Repairs at the LZ walk all of it back.
+   */
+  private updateDamageState(dt: number): void {
+    const world = this.world;
+    const dmg = 1 - this.hp / this.maxHp;
+    if (Math.abs(dmg - this.lastTint) > 0.02) {
+      this.lastTint = dmg;
+      this.tintDamage(Math.max(0, (dmg - 0.3) / 0.7));
+    }
+    if (dmg < 0.3) return;
+    // Engine bay behind the rotor mast, in world space.
+    this.forward(tmpForward);
+    const ex = this.pos.x - tmpForward.x * 1.6;
+    const ez = this.pos.z - tmpForward.z * 1.6;
+    tmpEmit.set(ex, this.pos.y + 1.4, ez);
+    // Smoke: grey wisps at first, then thick black.
+    const smokeRate = dmg < 0.62 ? 3 + (dmg - 0.3) * 18 : 10 + (dmg - 0.62) * 34;
+    this.damageSmoke += smokeRate * dt;
+    while (this.damageSmoke >= 1) {
+      this.damageSmoke -= 1;
+      if (dmg < 0.62) {
+        world.particles.smoke.spawn({
+          x: tmpEmit.x + (Math.random() - 0.5) * 0.8,
+          y: tmpEmit.y,
+          z: tmpEmit.z + (Math.random() - 0.5) * 0.8,
+          vx: (Math.random() - 0.5) * 1.5 + this.vel.x * 0.3,
+          vy: 2 + Math.random() * 2,
+          vz: (Math.random() - 0.5) * 1.5 + this.vel.z * 0.3,
+          life: 1.2 + Math.random(),
+          size: 0.6,
+          sizeEnd: 2.4,
+          color: 0x777470,
+          colorEnd: 0x9a9793,
+          alpha: 0.4,
+          drag: 1.5,
+          gravity: -0.8,
+        });
+      } else {
+        world.particles.blackSmoke(tmpEmit, 0.9 + (dmg - 0.62) * 2.6, this.vel.x * 0.5, this.vel.z * 0.5);
+      }
+    }
+    // Fire once the airframe is close to the end.
+    if (dmg > 0.75) {
+      this.damageFire += (8 + (dmg - 0.75) * 60) * dt;
+      while (this.damageFire >= 1) {
+        this.damageFire -= 1;
+        world.particles.hullFire(tmpEmit, 0.8 + (dmg - 0.75) * 3, this.vel.x * 0.3, this.vel.z * 0.3);
+      }
+    }
   }
 
   /** Drop the rotor's soft shadow onto the ground where the sun's rays from the hub land. */

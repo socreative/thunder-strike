@@ -6,6 +6,7 @@ export type Team = "player" | "enemy" | "neutral";
 let nextId = 1;
 
 const flashColor = new THREE.Color(0xff5533);
+const scorchColor = new THREE.Color(0x1c1a17);
 
 /** Base for everything that lives in the world and can be hit. */
 export abstract class Entity {
@@ -75,8 +76,12 @@ export abstract class Entity {
     void source;
   }
 
-  /** Briefly tint the mesh when hit. Materials are cloned per entity on first use. */
-  flash(): void {
+  /** Emissive strength and colour of the hit flash; the player's aircraft uses gentler values. */
+  protected flashStrength = 1.5;
+  protected flashTint = flashColor;
+
+  /** Materials cloned per entity so tints do not leak into shared ones. Created on first use. */
+  protected ownMaterials(): THREE.MeshStandardNodeMaterial[] {
     if (this.flashMats === null) {
       const mats: THREE.MeshStandardNodeMaterial[] = [];
       this.object.traverse((o) => {
@@ -88,16 +93,32 @@ export abstract class Entity {
           m = m.clone() as THREE.MeshStandardNodeMaterial;
           m.userData.flashClone = true;
           m.userData.baseEmissive = m.emissive.getHex();
+          m.userData.baseColor = m.color.getHex();
           mesh.material = m;
         }
         mats.push(m);
       });
       this.flashMats = mats;
     }
+    return this.flashMats;
+  }
+
+  /** Briefly tint the mesh when hit. */
+  flash(): void {
+    const mats = this.ownMaterials();
     this.flashTimer = 0.09;
-    for (const m of this.flashMats) {
-      m.emissive.copy(flashColor);
-      m.emissiveIntensity = 1.5;
+    for (const m of mats) {
+      m.emissive.copy(this.flashTint);
+      m.emissiveIntensity = this.flashStrength;
+    }
+  }
+
+  /** Darken and dull the hull toward scorched metal; 0 is pristine, 1 is wrecked. */
+  protected tintDamage(amount: number): void {
+    for (const m of this.ownMaterials()) {
+      const base = (m.userData.baseColor as number) ?? 0xffffff;
+      m.color.setHex(base).lerp(scorchColor, Math.min(1, amount) * 0.62);
+      if (m.roughness !== undefined) m.roughness = Math.min(1, ((m.userData.baseRoughness as number) ?? (m.userData.baseRoughness = m.roughness)) + amount * 0.3);
     }
   }
 

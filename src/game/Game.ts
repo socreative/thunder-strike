@@ -7,6 +7,7 @@ import type { Blip, GameSettings, Screen, Store, WeaponId } from "./core/Store";
 import { balance } from "./data/balance";
 import type { MissionData } from "./data/mission";
 import { MISSIONS, missionById } from "./data/missions";
+import { track } from "./core/Analytics";
 import { Audio } from "./systems/Audio";
 import { CameraRig } from "./systems/CameraRig";
 import { World } from "./World";
@@ -240,6 +241,7 @@ export class Game {
     else if (this.screen === "briefing") {
       this.setScreen("playing");
       this.audio.play("select");
+      track("mission_start", { mission: this.mission.id });
     }
   }
 
@@ -423,9 +425,11 @@ export class Game {
       else if (world.phase === "won") {
         this.setScreen("won");
         this.audio.setRotor(false, 0);
+        track("mission_complete", { mission: this.mission.id, seconds: Math.round(world.stats.elapsed), kills: world.stats.kills, rescued: world.stats.rescued, lives_lost: world.stats.livesLost });
       } else if (world.phase === "lost") {
         this.setScreen("lost");
         this.audio.setRotor(false, 0);
+        track("mission_failed", { mission: this.mission.id, seconds: Math.round(world.stats.elapsed), reason: world.lostReason || "aircraft_lost" });
       }
       const heli = world.heli;
       const throttle = heli.speed / balance.heli.maxSpeed;

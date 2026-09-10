@@ -111,7 +111,7 @@ export class World {
     this.grid = new SpatialGrid(this.terrain.size + 200, balance.map.cellSize);
     this.scene.add(this.terrain.mesh);
     this.heightTex = this.terrain.heightTexture(256);
-    this.water = createWater(this.terrain.size, theme.water, this.heightTex, this.terrain.size, theme.sky.horizon);
+    this.water = createWater(this.terrain.size, theme.water, this.heightTex, this.terrain.size, theme.sky.zenith);
     this.scene.add(this.water);
     this.sky = createSky(1800, theme.sky);
     this.scene.add(this.sky);

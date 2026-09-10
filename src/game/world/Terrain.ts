@@ -186,7 +186,8 @@ export class Terrain {
         const d = Math.hypot(x - isl.x, z - isl.z);
         if (d > isl.r) continue;
         // A rounded hump with a little noise so it is not a perfect cone.
-        const k = 1 - smoothstep(isl.r * 0.45, isl.r, d);
+        // A long, gentle fall to the water so the shoreline stays smooth on the mesh grid.
+        const k = 1 - smoothstep(isl.r * 0.2, isl.r, d);
         const bump = isl.h * k * (0.85 + 0.3 * this.noise.noise2(x * 0.05, z * 0.05));
         h = Math.max(h, bump);
       }

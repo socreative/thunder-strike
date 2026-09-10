@@ -23,7 +23,36 @@ export function createRotorDisc(radius: number): THREE.Mesh {
   const disc = new THREE.Mesh(geo, mat);
   disc.rotation.x = -Math.PI / 2;
   disc.renderOrder = 5;
+  disc.name = "rotor-disc";
+  disc.castShadow = false;
   return disc;
+}
+
+/**
+ * Soft ground decal standing in for the shadow of a spinning rotor: real
+ * blades would freeze into a sharp cross in the shadow map, whereas the eye
+ * sees a faint translucent disc. Positioned each frame along the sun's rays.
+ */
+export function createRotorShadow(radius: number): THREE.Mesh {
+  const geo = new THREE.CircleGeometry(radius, 40);
+  const mat = new THREE.MeshBasicNodeMaterial();
+  const r = positionLocal.xy.length().div(radius);
+  mat.colorNode = color(0x14120c);
+  // Densest toward the middle where the blades overlap most, feathered at the tips.
+  // Edges low-to-high only: WGSL smoothstep is undefined with reversed edges.
+  mat.opacityNode = smoothstep(0.7, 1.0, r).oneMinus().mul(smoothstep(0.0, 0.25, r).mul(0.5).add(0.5)).mul(0.3);
+  mat.transparent = true;
+  mat.depthWrite = false;
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = -2;
+  mat.polygonOffsetUnits = -2;
+  const decal = new THREE.Mesh(geo, mat);
+  decal.renderOrder = 3;
+  decal.castShadow = false;
+  decal.receiveShadow = false;
+  decal.frustumCulled = false;
+  decal.name = "rotor-shadow";
+  return decal;
 }
 
 /** A rotor found in a model, plus the pivot that spins it about its own axis. */

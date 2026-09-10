@@ -56,7 +56,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
               <Image src="/logo.webp" alt="Thunder Strike" width={1400} height={525} priority unoptimized />
             </h1>
             <div className="eyebrow">AH-64 ATTACK HELICOPTER SIMULATION</div>
-            <p className="tagline">One aircraft. One province. Bring the pilots home.</p>
+            <p className="tagline">Desert, jungle, ice and open water. One aircraft. Everyone comes home.</p>
             {snap.audioReady ? (
               <>
                 <button className="btn primary" onClick={() => game?.start(true)}>

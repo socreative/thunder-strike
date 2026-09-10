@@ -40,6 +40,8 @@ export function createSun(pal: SkyPalette): { sun: THREE.DirectionalLight; hemi:
   // shadows and coarsens every edge.
   sun.shadow.bias = -0.00035;
   sun.shadow.normalBias = 0.12;
+  // Penumbra width in texels for the PCF filter; cascades inherit it.
+  sun.shadow.radius = 2.2;
   const hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, 0.7);
   return { sun, hemi };
 }

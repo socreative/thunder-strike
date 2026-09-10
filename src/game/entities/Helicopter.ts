@@ -5,7 +5,7 @@ import { clamp, damp } from "../core/MathUtil";
 import type { WeaponId } from "../core/Store";
 import type { Pickup } from "./Pickup";
 import type { Pow } from "./Pow";
-import { createRotorDisc, findRotorsByShape, splitRotorFromModel } from "../fx/Rotor";
+import { createRotorDisc, createRotorShadow, findRotorsByShape, splitRotorFromModel } from "../fx/Rotor";
 import { Flare } from "./Flare";
 
 const H = balance.heli;
@@ -13,6 +13,9 @@ const W = balance.weapons;
 const WEAPON_ORDER: WeaponId[] = ["gun", "hydra", "hellfire"];
 
 const tmpForward = new THREE.Vector3();
+const tmpSunDir = new THREE.Vector3();
+const tmpNormal = new THREE.Vector3();
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
 const tmpRight = new THREE.Vector3();
 const tmpMuzzle = new THREE.Vector3();
 const tmpDir = new THREE.Vector3();
@@ -34,6 +37,7 @@ export class Helicopter extends Entity {
   private pitch = 0;
   private bob = 0;
   private washCarry = 0;
+  private rotorShadow = createRotorShadow(7.8);
   /** Attitude jolt from a hit, decaying back to level. */
   private kickPitch = 0;
   private kickBank = 0;
@@ -69,6 +73,14 @@ export class Helicopter extends Entity {
 
   onSpawn(): void {
     this.buildModel();
+    // Spinning blades would freeze into a sharp cross on the ground, so nothing in a rotor casts;
+    // a soft decal projected along the sun stands in for the blurred disc instead.
+    for (const sp of this.spinners) {
+      sp.obj.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) m.castShadow = false;
+      });
+    }
     this.world.scene.add(this.rope);
   }
 
@@ -260,6 +272,7 @@ export class Helicopter extends Entity {
     this.object.rotation.set(0, this.heading, 0);
     this.body.rotation.set(this.pitch, 0, this.bank);
     this.syncObject();
+    this.placeRotorShadow();
 
     // Rotors
     // Slow enough that the blades read as turning rather than strobing;
@@ -432,6 +445,37 @@ export class Helicopter extends Entity {
     dir.z = Math.cos(a) * len;
   }
 
+  /** Drop the rotor's soft shadow onto the ground where the sun's rays from the hub land. */
+  private placeRotorShadow(): void {
+    const world = this.world;
+    const decal = this.rotorShadow;
+    if (!decal.parent) world.scene.add(decal);
+    decal.visible = this.alive && this.object.visible;
+    if (!decal.visible) return;
+    // Light direction from the sun to its target; constant under cascades.
+    tmpSunDir.copy(world.sun.target.position).sub(world.sun.position).normalize();
+    const hubY = this.pos.y + 2.2;
+    // March toward the ground once, then correct for the terrain height found there.
+    let g = Math.max(world.terrain.heightAt(this.pos.x, this.pos.z), 0);
+    let s = (hubY - g) / -tmpSunDir.y;
+    let gx = this.pos.x + tmpSunDir.x * s;
+    let gz = this.pos.z + tmpSunDir.z * s;
+    g = Math.max(world.terrain.heightAt(gx, gz), 0);
+    s = (hubY - g) / -tmpSunDir.y;
+    gx = this.pos.x + tmpSunDir.x * s;
+    gz = this.pos.z + tmpSunDir.z * s;
+    decal.position.set(gx, g + 0.12, gz);
+    world.terrain.normalAt(gx, gz, tmpNormal);
+    if (g <= 0.01) tmpNormal.set(0, 1, 0);
+    decal.quaternion.setFromUnitVectors(Z_AXIS, tmpNormal);
+    // The disc is stretched along the light's ground track, as a tilted circle's shadow is.
+    const stretch = 1 / Math.max(0.35, Math.abs(tmpSunDir.y));
+    const ang = Math.atan2(tmpSunDir.x, tmpSunDir.z);
+    decal.scale.set(1, 1, 1);
+    decal.rotateZ(-ang);
+    decal.scale.set(1, stretch * 0.75 + 0.25, 1);
+  }
+
   /** Nearest enemy inside a forward cone for Hellfire guidance. */
   private acquireTarget(): Entity | null {
     const world = this.world;
@@ -581,6 +625,9 @@ export class Helicopter extends Entity {
 
   dispose(): void {
     super.dispose();
+    this.rotorShadow.removeFromParent();
+    this.rotorShadow.geometry.dispose();
+    (this.rotorShadow.material as THREE.Material).dispose();
     this.rope.removeFromParent();
     this.ropeGeo.dispose();
   }

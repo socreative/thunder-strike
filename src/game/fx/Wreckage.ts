@@ -1,4 +1,6 @@
 import * as THREE from "three/webgpu";
+
+const trailFrom = new THREE.Vector3();
 import { Entity } from "../entities/Entity";
 
 interface Chunk {
@@ -302,11 +304,12 @@ export class HeliWreckage extends Entity {
       c.trailTimer -= dt;
       if (c.trailTimer <= 0) {
         c.trailTimer = c.big ? 0.02 : 0.045;
+        trailFrom.copy(c.mesh.position).addScaledVector(c.vel, -dt);
         if (c.big) {
           world.particles.burningSmoke(c.mesh.position, 1.6);
-          world.particles.rocketTrail(c.mesh.position, true);
+          world.particles.rocketTrail(trailFrom, c.mesh.position, true);
         } else {
-          world.particles.rocketTrail(c.mesh.position, false);
+          world.particles.rocketTrail(trailFrom, c.mesh.position, false);
         }
       }
 

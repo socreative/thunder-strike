@@ -2,7 +2,8 @@
 
 import type { Snapshot, WeaponId } from "@/src/game/core/Store";
 import Minimap from "./Minimap";
-import { FuelIcon, HeliIcon, PersonIcon, ShieldIcon } from "./HudIcons";
+import type { Game } from "@/src/game/Game";
+import { BurstIcon, FuelIcon, GunIcon, HeliIcon, MissileIcon, PersonIcon, RocketIcon, ShieldIcon } from "./HudIcons";
 
 /** Icon plus bar, no label: the phone strip has no room for words. */
 function MiniBar({ icon, value, max, warn }: { icon: React.ReactNode; value: number; max: number; warn: boolean }) {
@@ -17,28 +18,51 @@ function MiniBar({ icon, value, max, warn }: { icon: React.ReactNode; value: num
   );
 }
 
-/** Compact status strip for touch mode; the weapon chips live with the touch controls. */
-function CompactHud({ snap }: { snap: Snapshot }) {
+/** Status strip: shield, fuel, lives and passengers as icons and bars. */
+function StatusStrip({ snap }: { snap: Snapshot }) {
   return (
-    <>
-      <div className="hud-tl status-strip glass rect">
-        <MiniBar icon={<ShieldIcon />} value={snap.armor} max={snap.armorMax} warn={snap.lowArmor} />
-        <MiniBar icon={<FuelIcon />} value={snap.fuel} max={snap.fuelMax} warn={snap.lowFuel} />
-        <div className="mini-row">
-          <span className="lives">
-            {Array.from({ length: 3 }, (_, i) => (
-              <span key={i} className={i < snap.lives ? "life-heli on" : "life-heli"}>
-                <HeliIcon />
-              </span>
-            ))}
-          </span>
-          <span className="pax-chip">
-            <PersonIcon />
-            {snap.passengers}/{snap.passengersMax}
-          </span>
-        </div>
+    <div className="hud-tl status-strip glass rect">
+      <MiniBar icon={<ShieldIcon />} value={snap.armor} max={snap.armorMax} warn={snap.lowArmor} />
+      <MiniBar icon={<FuelIcon />} value={snap.fuel} max={snap.fuelMax} warn={snap.lowFuel} />
+      <div className="mini-row">
+        <span className="lives">
+          {Array.from({ length: 3 }, (_, i) => (
+            <span key={i} className={i < snap.lives ? "life-heli on" : "life-heli"}>
+              <HeliIcon />
+            </span>
+          ))}
+        </span>
+        <span className="pax-chip">
+          <PersonIcon />
+          {snap.passengers}/{snap.passengersMax}
+        </span>
       </div>
-    </>
+    </div>
+  );
+}
+
+const WEAPON_ICONS: Record<WeaponId, () => React.JSX.Element> = { gun: GunIcon, hydra: RocketIcon, hellfire: MissileIcon };
+
+/** Weapon chips for keyboard and mouse play; on phones the touch layer draws its own. */
+function WeaponChips({ snap, game }: { snap: Snapshot; game: Game | null }) {
+  return (
+    <div className="hud-tr weapon-chips">
+      {WEAPONS.map((w) => {
+        const Icon = WEAPON_ICONS[w.id];
+        return (
+          <button key={w.id} className={`chip glass rect ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`} onClick={() => game?.selectWeapon(w.id)} aria-label={w.label}>
+            <span className="chip-key">{w.key}</span>
+            <Icon />
+            <span className="chip-count">{snap.ammo[w.id]}</span>
+          </button>
+        );
+      })}
+      <div className={`chip glass rect flares ${snap.flares === 0 ? "empty" : ""}`} aria-label="Flares">
+        <span className="chip-key">F</span>
+        <BurstIcon />
+        <span className="chip-count">{snap.flares}</span>
+      </div>
+    </div>
   );
 }
 
@@ -48,64 +72,14 @@ const WEAPONS: { id: WeaponId; label: string; key: string }[] = [
   { id: "hellfire", label: "HELLFIRE", key: "3" },
 ];
 
-function Bar({ value, max, label, warn }: { value: number; max: number; label: string; warn: boolean }) {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
-  return (
-    <div className={`bar ${warn ? "bar-warn" : ""}`}>
-      <div className="bar-head">
-        <span>{label}</span>
-        <span className="bar-value">{Math.round(value)}</span>
-      </div>
-      <div className="bar-track">
-        <div className="bar-fill" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
-export default function Hud({ snap, overview, touch }: { snap: Snapshot; overview: ImageData | null; touch: boolean }) {
+export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; overview: ImageData | null; touch: boolean; game: Game | null }) {
   const current = snap.objectives.find((o) => !o.done && !o.locked) ?? snap.objectives.find((o) => !o.done);
   return (
     <div className="hud" aria-hidden>
-      {touch ? (
-        <CompactHud snap={snap} />
-      ) : (
+      <StatusStrip snap={snap} />
+      {!touch && <WeaponChips snap={snap} game={game} />}
+      {!touch && (
         <>
-          <div className="hud-tl panel">
-            <Bar value={snap.armor} max={snap.armorMax} label="ARMOUR" warn={snap.lowArmor} />
-            <Bar value={snap.fuel} max={snap.fuelMax} label="FUEL" warn={snap.lowFuel} />
-            <div className="hud-row">
-              <span>LIVES</span>
-              <span className="lives">
-                {Array.from({ length: 3 }, (_, i) => (
-                  <span key={i} className={i < snap.lives ? "life on" : "life"} />
-                ))}
-              </span>
-              <span>PAX</span>
-              <span className="pax">
-                {snap.passengers}/{snap.passengersMax}
-              </span>
-            </div>
-          </div>
-
-          <div className="hud-tr panel">
-            {WEAPONS.map((w) => (
-              <div
-                key={w.id}
-                className={`weapon ${snap.weapon === w.id ? "active" : ""} ${snap.ammo[w.id] === 0 ? "empty" : ""}`}
-                  >
-                <span className="weapon-key">{w.key}</span>
-                <span className="weapon-name">{w.label}</span>
-                <span className="weapon-ammo">{snap.ammo[w.id]}</span>
-              </div>
-            ))}
-            <div className={`weapon flares ${snap.flares === 0 ? "empty" : ""}`}>
-              <span className="weapon-key">F</span>
-              <span className="weapon-name">FLARES</span>
-              <span className="weapon-ammo">{snap.flares}</span>
-            </div>
-          </div>
-
           <div className="hud-bl panel">
             <div className="obj-title">OBJECTIVES</div>
             <ol className="objectives">

@@ -41,39 +41,11 @@ export class Flare extends Entity {
     this.syncObject();
     world.grid.update(this);
 
-    // Bright core with a white smoke tail.
+    // Burning core, sparks and a smoke ribbon.
     this.puffTimer -= dt;
     if (this.puffTimer <= 0) {
-      this.puffTimer = 0.025;
-      world.particles.fire.spawn({
-        x: this.pos.x,
-        y: this.pos.y,
-        z: this.pos.z,
-        vx: (Math.random() - 0.5) * 3,
-        vy: 1 + Math.random() * 2,
-        vz: (Math.random() - 0.5) * 3,
-        life: 0.25,
-        size: 2.6,
-        sizeEnd: 0.8,
-        color: 0xfff6d0,
-        colorEnd: 0xffa030,
-        alpha: 1,
-      });
-      world.particles.smoke.spawn({
-        x: this.pos.x,
-        y: this.pos.y,
-        z: this.pos.z,
-        vx: (Math.random() - 0.5) * 2,
-        vy: 1.5,
-        vz: (Math.random() - 0.5) * 2,
-        life: 1.4,
-        size: 1.2,
-        sizeEnd: 3.5,
-        color: 0xf0f0f0,
-        colorEnd: 0xbdbdbd,
-        alpha: 0.6,
-        drag: 1.2,
-      });
+      this.puffTimer = 0.03;
+      world.particles.flareBurn(this.pos, this.vel, this.vel.lengthSq() < 0.01);
     }
   }
 }

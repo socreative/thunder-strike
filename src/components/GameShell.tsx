@@ -59,7 +59,7 @@ export default function GameShell() {
     <div className={`game-root ${touch ? "touch" : ""}`} onContextMenu={(e) => e.preventDefault()}>
       <canvas ref={canvasRef} className="game-canvas" />
       {touch && game && inMission && <TouchControls game={game} snap={snap} />}
-      {showHud && <Hud snap={snap} overview={game?.getOverview() ?? null} touch={touch} />}
+      {showHud && <Hud snap={snap} overview={game?.getOverview() ?? null} touch={touch} game={game} />}
       <Screens snap={snap} game={game} error={error} touch={touch} />
       {rotate && (
         <div className="screen dim rotate-hint">

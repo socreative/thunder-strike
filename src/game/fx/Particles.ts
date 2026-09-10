@@ -195,7 +195,7 @@ export class Particles {
     this.hitEnd = end;
   }
 
-  constructor(smokeMax = 2500, fireMax = 2500, dustMax = 1800) {
+  constructor(smokeMax = 4500, fireMax = 2500, dustMax = 1800) {
     this.smoke = new Layer(smokeMax, false, 10);
     this.dust = new Layer(dustMax, false, 9);
     this.fire = new Layer(fireMax, true, 11);
@@ -343,32 +343,122 @@ export class Particles {
     });
   }
 
-  rocketTrail(p: THREE.Vector3, big: boolean): void {
-    this.smoke.spawn({
-      x: p.x,
-      y: p.y,
-      z: p.z,
-      vx: (Math.random() - 0.5) * 2,
-      vy: 0.6,
-      vz: (Math.random() - 0.5) * 2,
-      life: big ? 1.6 : 0.8,
-      size: big ? 1.6 : 0.9,
-      sizeEnd: big ? 4.2 : 2.4,
-      color: 0xd9d9d9,
-      colorEnd: 0x9a9a9a,
-      alpha: 0.55,
-      drag: 1,
+  /**
+   * Rocket exhaust laid down along the segment the round just flew, so the
+   * trail is continuous at any speed. Puffs start small and hot behind the
+   * nozzle, then swell, cool to grey and hang for seconds with a little
+   * turbulence, which is what makes a missile's path readable after the fact.
+   */
+  rocketTrail(from: THREE.Vector3, to: THREE.Vector3, big: boolean): void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dz = to.z - from.z;
+    let len = Math.hypot(dx, dy, dz);
+    let ux = 0;
+    let uy = -1;
+    let uz = 0;
+    if (len > 1e-4) {
+      ux = dx / len;
+      uy = dy / len;
+      uz = dz / len;
+    } else len = 0;
+    const nozzle = big ? 1.9 : 1.3;
+    const spacing = big ? 0.7 : 0.9;
+    const n = Math.max(1, Math.round(len / spacing));
+    for (let i = 0; i < n; i++) {
+      const t = (i + Math.random()) / n;
+      const x = from.x + dx * t - ux * nozzle;
+      const y = from.y + dy * t - uy * nozzle;
+      const z = from.z + dz * t - uz * nozzle;
+      // Exhaust leaves the nozzle rearward, then the plume expands sideways.
+      const side = (Math.random() - 0.5) * (big ? 1.4 : 1.0);
+      const side2 = (Math.random() - 0.5) * (big ? 1.4 : 1.0);
+      this.smoke.spawn({
+        x,
+        y,
+        z,
+        vx: -ux * 3 + side,
+        vy: -uy * 3 + 0.5 + Math.random() * 0.4,
+        vz: -uz * 3 + side2,
+        life: big ? 2.6 + Math.random() * 1.2 : 1.2 + Math.random() * 0.6,
+        size: big ? 0.45 : 0.3,
+        sizeEnd: big ? 3.6 + Math.random() * 1.2 : 2.2,
+        color: 0xf4f3ef,
+        colorEnd: big ? 0x8c8c89 : 0xa6a6a2,
+        alpha: big ? 0.55 : 0.45,
+        drag: 2.2,
+      });
+    }
+    // Motor flame at the nozzle: a white-hot core inside an orange tongue.
+    this.fire.spawn({
+      x: to.x - ux * (nozzle - 0.3),
+      y: to.y - uy * (nozzle - 0.3),
+      z: to.z - uz * (nozzle - 0.3),
+      vx: -ux * 12,
+      vy: -uy * 12,
+      vz: -uz * 12,
+      life: 0.09,
+      size: big ? 2.6 : 1.5,
+      sizeEnd: 0.4,
+      color: 0xffb060,
+      colorEnd: 0xff4a10,
+      alpha: 0.85,
     });
     this.fire.spawn({
-      x: p.x,
-      y: p.y,
-      z: p.z,
-      life: 0.12,
-      size: big ? 2.2 : 1.3,
-      sizeEnd: 0.4,
-      color: 0xffc070,
-      colorEnd: 0xff4010,
-      alpha: 0.9,
+      x: to.x - ux * (nozzle - 0.6),
+      y: to.y - uy * (nozzle - 0.6),
+      z: to.z - uz * (nozzle - 0.6),
+      life: 0.06,
+      size: big ? 1.4 : 0.9,
+      sizeEnd: 0.5,
+      color: 0xfff6dc,
+      alpha: 1,
+    });
+  }
+
+  /**
+   * A burning decoy flare: a flickering magnesium core with a wide soft glow,
+   * sparks spat out and pulled down by gravity, and a ribbon of white smoke
+   * that rises off the flame and greys as it spreads.
+   */
+  flareBurn(p: THREE.Vector3, vel: THREE.Vector3, grounded: boolean): void {
+    const flick = 0.8 + Math.random() * 0.6;
+    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.12, size: 2.2 * flick, sizeEnd: 1.2, color: 0xfff8e0, colorEnd: 0xffc060, alpha: 1 });
+    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.2, size: 5.5 * flick, sizeEnd: 3.5, color: 0xffb050, colorEnd: 0xff6020, alpha: 0.28 });
+    if (Math.random() < 0.7) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 4 + Math.random() * 6;
+      this.fire.spawn({
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        vx: Math.cos(a) * sp + vel.x * 0.3,
+        vy: 2 + Math.random() * 5,
+        vz: Math.sin(a) * sp + vel.z * 0.3,
+        life: 0.35 + Math.random() * 0.4,
+        size: 0.35,
+        sizeEnd: 0.1,
+        color: 0xfff0c0,
+        colorEnd: 0xff7030,
+        alpha: 1,
+        gravity: 18,
+        drag: 1.5,
+      });
+    }
+    this.smoke.spawn({
+      x: p.x + (Math.random() - 0.5) * 0.6,
+      y: p.y + 0.3,
+      z: p.z + (Math.random() - 0.5) * 0.6,
+      vx: (Math.random() - 0.5) * 1.5 + vel.x * 0.15,
+      vy: 2.2 + Math.random() * 1.5,
+      vz: (Math.random() - 0.5) * 1.5 + vel.z * 0.15,
+      life: grounded ? 2.6 : 2.0,
+      size: 0.6,
+      sizeEnd: 3.4 + Math.random(),
+      color: 0xf6f6f2,
+      colorEnd: 0xa9a9a6,
+      alpha: 0.5,
+      drag: 1.3,
     });
   }
 

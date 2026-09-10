@@ -90,7 +90,6 @@ export class Projectile extends Entity {
   readonly projKind: ProjectileKind;
   private life: number;
   private spec: KindSpec;
-  private trailTimer = 0;
   target: Entity | null = null;
   owner: Entity | null = null;
   /** Lured onto a flare: it will burst harmlessly. */
@@ -200,11 +199,7 @@ export class Projectile extends Entity {
     world.grid.update(this);
 
     if (this.spec.trail) {
-      this.trailTimer -= dt;
-      if (this.trailTimer <= 0) {
-        this.trailTimer = this.spec.trail === "big" ? 0.02 : 0.03;
-        world.particles.rocketTrail(this.pos, this.spec.trail === "big");
-      }
+      world.particles.rocketTrail(this.prev, this.pos, this.spec.trail === "big");
     } else if (this.projKind === "gun" && Math.random() < 0.5) {
       world.particles.tracer(this.pos);
     }

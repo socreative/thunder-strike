@@ -53,3 +53,10 @@ export const MissileIcon = () => (
     <path {...P} d="M7 19l-2 2M12.5 5.5L6 8l3 3M18.5 11.5L16 18l-3-3" />
   </svg>
 );
+
+export const BurstIcon = () => (
+  <svg viewBox="0 0 24 24" className="hicon">
+    <path {...P} d="M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M18.4 5.6l-3.5 3.5M9.1 14.9l-3.5 3.5" />
+    <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+  </svg>
+);

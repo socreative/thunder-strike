@@ -83,6 +83,8 @@ export interface MissionData {
   summary: string;
   briefing: string[];
   seed: number;
+  /** Music track name under public/music, without extension. */
+  music: string;
   theme: Theme;
   terrain: TerrainConfig;
   base: { x: number; z: number };

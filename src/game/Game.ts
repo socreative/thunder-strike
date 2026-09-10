@@ -277,15 +277,15 @@ export class Game {
     switch (this.screen) {
       case "title":
       case "missions":
-      case "briefing":
       case "credits":
+        this.audio.playMusic(MISSIONS[0].music);
+        break;
+      case "briefing":
       case "controls":
       case "playing":
       case "dead":
-        this.audio.playMusic("iron-sector-run");
-        break;
       case "paused":
-        this.audio.playMusic("iron-sector-run");
+        this.audio.playMusic(this.mission.music);
         break;
       case "won":
       case "lost":

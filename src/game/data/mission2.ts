@@ -30,6 +30,7 @@ export const mission2: MissionData = {
   codename: "GREEN FANG",
   summary: "Jungle river valley. Sink the gunboats, black out the dam, pull a recon crew out of a temple ruin and burn the hidden airstrip.",
   seed: 1994,
+  music: "jungle-advance",
   theme: jungleTheme,
   terrain: {
     shape: "jungle",

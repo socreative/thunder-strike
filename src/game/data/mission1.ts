@@ -21,6 +21,7 @@ export const mission1: MissionData = {
   codename: "SANDGLASS",
   summary: "Coastal desert. Blind the radar, clear three SAM sites, free the prison camp and level the headquarters.",
   seed: 1992,
+  music: "iron-sector-run",
   theme: desertTheme,
   terrain: DESERT_TERRAIN,
   briefing: [

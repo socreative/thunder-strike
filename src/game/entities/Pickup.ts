@@ -1,7 +1,7 @@
 import * as THREE from "three/webgpu";
 import { Entity, box, cylinder } from "./Entity";
 import { balance } from "../data/balance";
-import type { PickupItem } from "../data/mission1";
+import type { PickupItem } from "../data/mission";
 import type { Helicopter } from "./Helicopter";
 
 const P = balance.pickups;

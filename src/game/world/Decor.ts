@@ -1,6 +1,7 @@
 import * as THREE from "three/webgpu";
 import { box, cylinder, sharedMat } from "../entities/Entity";
-import type { MissionData } from "../data/mission1";
+import type { DecorItem, MissionData } from "../data/mission";
+import { Build, PALETTE as P } from "./Detail";
 import type { Terrain } from "./Terrain";
 import { createCarrier } from "./Carrier";
 import type { Assets } from "../core/Assets";
@@ -198,5 +199,92 @@ export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE
     }
   }
 
+  for (const item of data.decor ?? []) g.add(buildDecorItem(item, terrain));
+
+  return g;
+}
+
+/** Stone tones for the temple ruin. */
+const STONE = 0x8d8a78;
+const STONE_DARK = 0x6a675a;
+const MOSS = 0x5f7a45;
+
+/**
+ * Mission set dressing that is neither a target nor a pickup: a runway cut
+ * into the canopy, a dam wall across the river, a temple ruin.
+ */
+function buildDecorItem(item: DecorItem, terrain: Terrain): THREE.Group {
+  const b = new Build();
+  // A dam stands in the channel, so it is placed at the water line rather than the bed.
+  const y = item.kind === "dam" ? 0 : terrain.heightAt(item.x, item.z);
+  switch (item.kind) {
+    case "runway": {
+      const len = item.length ?? 130;
+      const wid = item.width ?? 18;
+      b.box(wid, 0.3, len, 0x5c5a52, { y: 0.15, mat: { roughness: 1 } });
+      // Centreline dashes, threshold bars, edge lights
+      for (let z = -len / 2 + 8; z < len / 2 - 6; z += 9) b.box(0.6, 0.06, 4.5, P.white, { y: 0.33, z });
+      for (const sz of [-1, 1]) {
+        for (let i = -3; i <= 3; i++) b.box(1.2, 0.06, 6, P.white, { x: i * 2.2, y: 0.33, z: sz * (len / 2 - 5) });
+        for (let z = -len / 2; z <= len / 2; z += 13) b.cyl(0.25, 0.25, 0.5, 0xffd27a, { x: sz * (wid / 2 + 1.2), y: 0.25, z, seg: 6, mat: { emissive: 0x6a5220 } });
+      }
+      // Apron and a windsock
+      b.box(22, 0.28, 20, 0x635f56, { x: wid / 2 + 13, y: 0.14, z: -8, mat: { roughness: 1 } });
+      b.cyl(0.1, 0.12, 6, P.metalDark, { x: -wid / 2 - 6, y: 3, z: len / 2 - 14, seg: 6 });
+      b.cone(0.55, 2.6, P.hazard, { x: -wid / 2 - 6, y: 6, z: len / 2 - 12.8, rx: -Math.PI / 2 });
+      break;
+    }
+    case "dam": {
+      const len = item.length ?? 50;
+      // Wall from the river bed to a crest 4 m over the water, with a walkway on top.
+      b.box(len, 10.5, 4.6, P.concrete, { y: -1.2 });
+      b.box(len, 1.0, 6.0, P.concreteDark, { y: 4.5 });
+      // Spillway steps on the downstream face and buttresses
+      for (let i = 0; i < 4; i++) b.box(len * 0.4, 0.9, 1.4, P.concreteShadow, { y: 3.0 - i * 1.1, z: 3.0 + i * 1.0 });
+      for (let x = -len / 2 + 6; x < len / 2; x += 8) b.box(1.6, 9, 2.6, P.concreteDark, { x, y: -1.4, z: 3.4 });
+      // Gate machinery on the crest and railings both sides
+      for (let x = -len / 2 + 9; x < len / 2 - 4; x += 12) {
+        b.box(2.2, 2.0, 2.2, P.metalDark, { x, y: 6.0, mat: { metalness: 0.4 } });
+        b.cyl(0.9, 0.9, 1.0, P.steel, { x, y: 7.5, rz: Math.PI / 2, seg: 10, mat: { metalness: 0.5 } });
+      }
+      b.railing(len - 2, 1.1, P.steel, { y: 5.0, z: 2.8 });
+      b.railing(len - 2, 1.1, P.steel, { y: 5.0, z: -2.8 });
+      // Foam skirt at the toe
+      b.box(len * 0.9, 0.2, 4, 0xd8e2d6, { y: 0.05, z: 6.0, mat: { roughness: 1 } });
+      break;
+    }
+    case "ruin": {
+      // Stepped stone platform with broken colonnade, a fallen lintel and a shrine.
+      b.box(30, 1.2, 26, STONE_DARK, { y: 0.6, mat: { roughness: 1 } });
+      b.box(22, 1.2, 18, STONE, { y: 1.8, mat: { roughness: 1 } });
+      b.box(12, 1.0, 10, STONE_DARK, { y: 2.9, mat: { roughness: 1 } });
+      for (let i = -3; i <= 3; i++) {
+        for (const sz of [-1, 1]) {
+          const broken = (i + sz + 7) % 3 === 0;
+          const h = broken ? 2.2 + ((i + 5) % 3) * 0.6 : 6.5;
+          b.cyl(0.55, 0.65, h, STONE, { x: i * 3.2, y: 2.4 + h / 2, z: sz * 7.2, seg: 8, mat: { roughness: 1 } });
+          if (!broken) b.box(1.5, 0.5, 1.5, STONE_DARK, { x: i * 3.2, y: 2.4 + h + 0.25, z: sz * 7.2 });
+        }
+      }
+      b.box(21, 0.7, 1.6, STONE_DARK, { y: 9.6, z: -7.2 });
+      b.box(9, 0.7, 1.6, STONE_DARK, { x: -6, y: 9.6, z: 7.2 });
+      // Fallen lintel and rubble on the steps
+      b.box(7, 0.7, 1.5, STONE, { x: 6, y: 2.8, z: 9.6, ry: 0.4, rz: 0.12 });
+      for (let i = 0; i < 9; i++) b.add(new THREE.DodecahedronGeometry(0.5 + (i % 4) * 0.25, 0), i % 2 ? STONE : STONE_DARK, { x: -14 + i * 3.3, y: 1.4, z: 12 + (i % 3) * 1.4, ry: i, mat: { flat: true } });
+      // Shrine with a doorway, moss on the north faces
+      b.box(6, 4.2, 5, STONE, { y: 5.5, mat: { roughness: 1 } });
+      b.box(4.4, 1.6, 4.2, STONE_DARK, { y: 8.4, mat: { roughness: 1 } });
+      b.box(1.8, 2.6, 0.4, 0x2a2a24, { y: 4.7, z: 2.55 });
+      b.box(6.2, 1.2, 0.2, MOSS, { y: 6.6, z: -2.6, mat: { roughness: 1 } });
+      b.box(22.2, 0.5, 0.2, MOSS, { y: 2.1, z: -9.1, mat: { roughness: 1 } });
+      // Steps down the front
+      for (let i = 0; i < 3; i++) b.box(8, 0.4, 1.4, STONE, { y: 0.2 + i * 0.4, z: 13.8 + (2 - i) * 1.4 });
+      break;
+    }
+  }
+  const g = b.finish();
+  g.position.set(item.x, y, item.z);
+  g.rotation.y = item.heading;
+  g.name = `decor-${item.kind}`;
   return g;
 }

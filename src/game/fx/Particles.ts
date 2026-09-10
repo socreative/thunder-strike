@@ -179,6 +179,20 @@ export class Particles {
   readonly dust: Layer;
   readonly group = new THREE.Group();
 
+  /** Ground colour kicked up by rounds and rotor wash; set per map theme. */
+  private dustStart = 0xe8d3a8;
+  private dustEnd = 0xd2b98c;
+  private hitStart = 0xd8bc86;
+  private hitEnd = 0xcbb283;
+
+  setDustColors(start: number, end: number): void {
+    this.dustStart = start;
+    this.dustEnd = end;
+    // Impact puffs are a touch lighter than the settling wash.
+    this.hitStart = new THREE.Color(start).lerp(new THREE.Color(0xffffff), 0.08).getHex();
+    this.hitEnd = end;
+  }
+
   constructor(smokeMax = 2500, fireMax = 2500, dustMax = 1800) {
     this.smoke = new Layer(smokeMax, false, 10);
     this.dust = new Layer(dustMax, false, 9);
@@ -306,8 +320,8 @@ export class Particles {
         life: 0.6 + Math.random() * 0.5,
         size: size * 1.2,
         sizeEnd: size * 3,
-        color: 0xd8bc86,
-        colorEnd: 0xcbb283,
+        color: this.hitStart,
+        colorEnd: this.hitEnd,
         alpha: 0.55,
         drag: 2,
       });
@@ -381,11 +395,34 @@ export class Particles {
         life: 0.45 + Math.random() * 0.75,
         size: 0.35 + Math.random() * 0.7,
         sizeEnd: 1.6 + Math.random() * 1.7,
-        color: 0xe8d3a8,
-        colorEnd: 0xd2b98c,
+        color: this.dustStart,
+        colorEnd: this.dustEnd,
         alpha: (0.12 + Math.random() * 0.1) * strength,
         drag: 2.4,
         gravity: 1.1,
+      });
+    }
+  }
+
+  /** Foam churned up behind a boat: white puffs spreading from the stern at the water line. */
+  wake(x: number, z: number, fx: number, fz: number, stern: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const side = (Math.random() - 0.5) * 2;
+      this.dust.spawn({
+        x: x - fx * stern + -fz * side * 1.2,
+        y: 0.15,
+        z: z - fz * stern + fx * side * 1.2,
+        vx: -fx * 1.5 + -fz * side * (1 + Math.random() * 1.5),
+        vy: 0,
+        vz: -fz * 1.5 + fx * side * (1 + Math.random() * 1.5),
+        life: 1.2 + Math.random() * 0.8,
+        size: 0.7,
+        sizeEnd: 3.2,
+        color: 0xe6efe9,
+        colorEnd: 0x9fbdb4,
+        alpha: 0.3,
+        drag: 2,
+        gravity: 0,
       });
     }
   }

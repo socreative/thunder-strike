@@ -17,7 +17,8 @@ export class SamSite extends Entity {
   private tube = 0;
   private tubes: THREE.Object3D[] = [];
 
-  constructor() {
+  /** Wired to the grid: dish stops and launches cease once a blackout objective completes. */
+  constructor(private readonly powered = false) {
     super();
     this.kind = "sam";
     this.hp = this.maxHp = S.hp;
@@ -111,10 +112,11 @@ export class SamSite extends Entity {
   update(dt: number): void {
     const world = this.world;
     this.tickFlash(dt);
-    this.dish.rotation.y += 2.4 * dt;
+    const dark = this.powered && this.world.gridDown;
+    if (!dark) this.dish.rotation.y += 2.4 * dt;
     const heli = world.heli;
     const d = heli.alive ? this.distanceXZ(heli) : Infinity;
-    if (d < S.range) {
+    if (d < S.range && !dark) {
       const want = headingTo(this.pos.x, this.pos.z, heli.pos.x, heli.pos.z);
       this.yaw = turnToward(this.yaw, want, 1.6 * dt);
       this.reload -= dt;

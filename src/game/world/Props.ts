@@ -1,82 +1,73 @@
 import * as THREE from "three/webgpu";
+import { mergeGeometries as mergeAddon } from "three/addons/utils/BufferGeometryUtils.js";
 import { Random } from "../core/Random";
-import type { FlatSpot } from "../data/mission1";
 import type { Terrain } from "./Terrain";
+import type { PropKind, PropTheme } from "./Theme";
 
-/** Instanced rocks, shrubs and cacti scattered over open desert. */
+/** A circle kept clear of vegetation. */
+export interface Exclusion {
+  x: number;
+  z: number;
+  r: number;
+}
+
+const tmpNormal = new THREE.Vector3();
+const tmpColor = new THREE.Color();
+
+/**
+ * Instanced vegetation and rocks scattered over open ground. One mesh per
+ * kind, so a whole jungle costs a handful of draw calls.
+ */
 export class Props {
   readonly group = new THREE.Group();
   private meshes: THREE.InstancedMesh[] = [];
 
-  constructor(terrain: Terrain, flats: FlatSpot[], seed: number) {
+  constructor(terrain: Terrain, exclusions: Exclusion[], seed: number, theme: PropTheme) {
     const rng = new Random(seed ^ 0x5eed);
     const half = terrain.size / 2 - 20;
     const dummy = new THREE.Object3D();
 
     const blocked = (x: number, z: number) => {
-      for (const f of flats) {
+      for (const f of exclusions) {
         const dx = x - f.x;
         const dz = z - f.z;
-        if (dx * dx + dz * dz < (f.r + 6) * (f.r + 6)) return true;
+        if (dx * dx + dz * dz < f.r * f.r) return true;
       }
       return false;
     };
 
-    const scatter = (
-      geo: THREE.BufferGeometry,
-      mat: THREE.Material,
-      count: number,
-      scale: [number, number],
-      sink: number,
-      shadow: boolean,
-    ) => {
-      const mesh = new THREE.InstancedMesh(geo, mat, count);
+    for (const set of theme.sets) {
+      const { geo, mat } = buildKind(set.kind);
+      const mesh = new THREE.InstancedMesh(geo, mat, set.count);
+      const bankMargin = set.bankMargin ?? theme.bankMargin;
       let placed = 0;
       let tries = 0;
-      while (placed < count && tries < count * 20) {
+      while (placed < set.count && tries < set.count * 20) {
         tries++;
         const x = rng.range(-half, half);
         const z = rng.range(-half, half);
         const h = terrain.heightAt(x, z);
-        if (h < 2.2 || blocked(x, z)) continue;
-        const s = rng.range(scale[0], scale[1]);
-        dummy.position.set(x, h - sink * s, z);
+        if (h < theme.minHeight || blocked(x, z)) continue;
+        if (bankMargin > 0 && terrain.riverDistance(x, z) < bankMargin) continue;
+        if (set.maxSlope !== undefined && terrain.normalAt(x, z, tmpNormal).y < set.maxSlope) continue;
+        const s = rng.range(set.scale[0], set.scale[1]);
+        dummy.position.set(x, h - set.sink * s, z);
         dummy.rotation.set(rng.range(-0.15, 0.15), rng.range(0, Math.PI * 2), rng.range(-0.15, 0.15));
         dummy.scale.setScalar(s);
         dummy.updateMatrix();
         mesh.setMatrixAt(placed, dummy.matrix);
+        if (set.tints) mesh.setColorAt(placed, tmpColor.setHex(set.tints[rng.int(0, set.tints.length - 1)]));
         placed++;
       }
       mesh.count = placed;
       mesh.instanceMatrix.needsUpdate = true;
-      mesh.castShadow = shadow;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.castShadow = set.castShadow;
       mesh.receiveShadow = true;
+      mesh.name = `props-${set.kind}`;
       this.meshes.push(mesh);
       this.group.add(mesh);
-    };
-
-    const rockMat = new THREE.MeshStandardNodeMaterial({ color: 0x8b6f4e, roughness: 0.95, flatShading: true });
-    scatter(new THREE.DodecahedronGeometry(1.4, 0), rockMat, 420, [0.6, 3.2], 0.35, true);
-
-    const shrubMat = new THREE.MeshStandardNodeMaterial({ color: 0x6d7a3a, roughness: 1, flatShading: true });
-    scatter(new THREE.IcosahedronGeometry(1, 0), shrubMat, 380, [0.7, 1.6], 0.3, false);
-
-    // Cactus: a trunk with two arms, merged into one geometry.
-    const cactusMat = new THREE.MeshStandardNodeMaterial({ color: 0x4f7f3e, roughness: 0.9 });
-    const trunk = new THREE.CylinderGeometry(0.45, 0.55, 4.2, 7);
-    trunk.translate(0, 2.1, 0);
-    const armA = new THREE.CylinderGeometry(0.3, 0.3, 1.8, 6);
-    armA.rotateZ(Math.PI / 2);
-    armA.translate(0.9, 2.2, 0);
-    const armAUp = new THREE.CylinderGeometry(0.3, 0.3, 1.6, 6);
-    armAUp.translate(1.7, 3.0, 0);
-    const armB = new THREE.CylinderGeometry(0.28, 0.28, 1.4, 6);
-    armB.rotateZ(Math.PI / 2);
-    armB.translate(-0.7, 2.8, 0);
-    const armBUp = new THREE.CylinderGeometry(0.28, 0.28, 1.3, 6);
-    armBUp.translate(-1.3, 3.4, 0);
-    const cactus = mergeGeometries([trunk, armA, armAUp, armB, armBUp]);
-    scatter(cactus, cactusMat, 160, [0.7, 1.4], 0.05, true);
+    }
   }
 
   dispose(): void {
@@ -85,6 +76,105 @@ export class Props {
       (m.material as THREE.Material).dispose();
     }
   }
+}
+
+/* Geometry per kind. Trees bake their part colours into a colour attribute. */
+
+function buildKind(kind: PropKind): { geo: THREE.BufferGeometry; mat: THREE.Material } {
+  switch (kind) {
+    case "rock":
+      return { geo: new THREE.DodecahedronGeometry(1.4, 0), mat: new THREE.MeshStandardNodeMaterial({ color: 0x8b6f4e, roughness: 0.95, flatShading: true }) };
+    case "shrub":
+      return { geo: new THREE.IcosahedronGeometry(1, 0), mat: new THREE.MeshStandardNodeMaterial({ color: 0x6d7a3a, roughness: 1, flatShading: true }) };
+    case "cactus":
+      return { geo: cactusGeometry(), mat: new THREE.MeshStandardNodeMaterial({ color: 0x4f7f3e, roughness: 0.9 }) };
+    case "fern":
+      return { geo: new THREE.IcosahedronGeometry(1, 0).scale(1, 0.55, 1).translate(0, 0.45, 0), mat: new THREE.MeshStandardNodeMaterial({ color: 0x2f6a2c, roughness: 1, flatShading: true }) };
+    case "palm":
+      return { geo: palmGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.95, flatShading: true }) };
+    case "broadleaf":
+      return { geo: broadleafGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, flatShading: true }) };
+  }
+}
+
+function cactusGeometry(): THREE.BufferGeometry {
+  // Cactus: a trunk with two arms, merged into one geometry.
+  const trunk = new THREE.CylinderGeometry(0.45, 0.55, 4.2, 7);
+  trunk.translate(0, 2.1, 0);
+  const armA = new THREE.CylinderGeometry(0.3, 0.3, 1.8, 6);
+  armA.rotateZ(Math.PI / 2);
+  armA.translate(0.9, 2.2, 0);
+  const armAUp = new THREE.CylinderGeometry(0.3, 0.3, 1.6, 6);
+  armAUp.translate(1.7, 3.0, 0);
+  const armB = new THREE.CylinderGeometry(0.28, 0.28, 1.4, 6);
+  armB.rotateZ(Math.PI / 2);
+  armB.translate(-0.7, 2.8, 0);
+  const armBUp = new THREE.CylinderGeometry(0.28, 0.28, 1.3, 6);
+  armBUp.translate(-1.3, 3.4, 0);
+  return mergeGeometries([trunk, armA, armAUp, armB, armBUp]);
+}
+
+/** Tag every vertex of a geometry with one colour so parts can be merged into a single mesh. */
+function tint(geo: THREE.BufferGeometry, hex: number): THREE.BufferGeometry {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  if (g !== geo) geo.dispose();
+  const c = new THREE.Color(hex);
+  const n = g.attributes.position.count;
+  const arr = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    arr[i * 3] = c.r;
+    arr[i * 3 + 1] = c.g;
+    arr[i * 3 + 2] = c.b;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(arr, 3));
+  return g;
+}
+
+function mergeColored(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const merged = mergeAddon(parts, false);
+  for (const p of parts) p.dispose();
+  return merged;
+}
+
+/** Coconut palm: a leaning tapered trunk, a crown of drooping fronds and a nut cluster. About 10 m tall. */
+function palmGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const trunk = new THREE.CylinderGeometry(0.22, 0.42, 9.6, 6, 3, true);
+  trunk.translate(0, 4.8, 0);
+  // Lean the trunk a little: shear the top by displacing upper vertices.
+  const pos = trunk.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const k = (y / 9.6) ** 2;
+    pos.setX(i, pos.getX(i) + k * 1.4);
+  }
+  trunk.computeVertexNormals();
+  parts.push(tint(trunk, 0x6b4f2e));
+  parts.push(tint(new THREE.SphereGeometry(0.5, 6, 5).translate(1.4, 9.7, 0), 0x5a3f22));
+  const fronds = 7;
+  for (let i = 0; i < fronds; i++) {
+    const a = (i / fronds) * Math.PI * 2 + 0.3;
+    const f = new THREE.ConeGeometry(0.95, 4.4, 4, 1, true);
+    f.scale(1, 1, 0.28);
+    // Cone points up along +Y; lay it outward and let the tip droop.
+    f.translate(0, -2.2, 0);
+    f.rotateX(-Math.PI / 2 - 0.55);
+    f.rotateY(a);
+    f.translate(1.4, 9.9, 0);
+    parts.push(tint(f, i % 2 ? 0x3f7a2e : 0x4d8a36));
+  }
+  return mergeColored(parts);
+}
+
+/** Broadleaf tree: a straight trunk with three overlapping canopy lobes. About 9 m tall. */
+function broadleafGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  parts.push(tint(new THREE.CylinderGeometry(0.3, 0.55, 5.6, 6, 1, true).translate(0, 2.8, 0), 0x5e4630));
+  parts.push(tint(new THREE.CylinderGeometry(0.12, 0.2, 2.2, 5, 1, true).rotateZ(0.7).translate(1.0, 5.6, 0.3), 0x5e4630));
+  parts.push(tint(new THREE.IcosahedronGeometry(2.7, 1).translate(0, 6.6, 0), 0x2f6a2c));
+  parts.push(tint(new THREE.IcosahedronGeometry(2.1, 1).translate(1.7, 5.9, 0.9), 0x3c7d33));
+  parts.push(tint(new THREE.IcosahedronGeometry(2.2, 1).translate(-1.5, 6.1, -1.1), 0x356f2e));
+  return mergeColored(parts);
 }
 
 /** Merge non-indexed geometries that share the standard attributes. */

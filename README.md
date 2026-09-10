@@ -32,15 +32,15 @@ Open the deployed site in Safari, then Share, Add to Home Screen. Launched from 
 
 Hover slowly over a crate or a POW and the winch engages on its own. Bring POWs back to the landing zone on the beach, which also refuels and repairs the aircraft.
 
-## Mission: Operation Sandglass
+## Missions
 
-1. Destroy the coastal radar station (unlocks the full minimap picture).
-2. Destroy all three SAM sites.
-3. Level the prison and rescue the four POWs to the LZ.
-4. Destroy the enemy headquarters bunker.
-5. Return to the landing zone.
+START MISSION opens a picker; both missions are always available, and the win screen offers the other one.
 
-Three lives. Running out of fuel or armour costs one.
+**Operation Sandglass.** Coastal desert. Destroy the coastal radar to reveal the full map, clear three SAM sites, level the prison and fly its four POWs back to the LZ, destroy the headquarters bunker, then return to the landing zone.
+
+**Operation Green Fang.** Jungle river valley. Sink the three patrol gunboats, destroy the generator at the dam so every gun and missile battery wired to the grid goes quiet, rescue a downed recon crew from a temple ruin, level both hangars and the fuel dump at a hidden airstrip, then return to the landing zone.
+
+Missions are data: `src/game/data/mission*.ts` holds the layout, spawns, objectives and a theme (`src/game/world/Theme.ts`) covering ground, sky, water, fog, dust and vegetation. Terrain shape, coast and river come from a per-mission terrain config in `src/game/world/Terrain.ts`.
 
 ## Project layout
 

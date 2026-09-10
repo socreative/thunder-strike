@@ -1,106 +1,8 @@
-export type SpawnType =
-  | "tank"
-  | "lightTank"
-  | "aa"
-  | "sam"
-  | "infantry"
-  | "radar"
-  | "hq"
-  | "prison"
-  | "building"
-  | "wall"
-  | "tower"
-  | "fuelDepot"
-  | "pickup"
-  | "carrier";
+import { ring, square, type MissionData } from "./mission";
+import { DESERT_TERRAIN } from "../world/Terrain";
+import { desertTheme } from "../world/Theme";
 
-export type PickupItem = "fuel" | "ammo" | "armor";
-
-export interface Spawn {
-  type: SpawnType;
-  x: number;
-  z: number;
-  heading?: number;
-  /** Patrol route for vehicles (world XZ). */
-  waypoints?: [number, number][];
-  item?: PickupItem;
-  variant?: number;
-  /** Optional tag used by objectives. */
-  tag?: string;
-  /** Wall segment length for type "wall". */
-  length?: number;
-}
-
-export interface FlatSpot {
-  x: number;
-  z: number;
-  r: number;
-  h?: number;
-}
-
-export interface ObjectiveDef {
-  id: string;
-  text: string;
-  /** Number of things to do; 1 for single targets. */
-  total: number;
-  /** Requires all previous objectives complete before it counts. */
-  final?: boolean;
-  doneMessage: string;
-}
-
-export interface MissionData {
-  name: string;
-  codename: string;
-  briefing: string[];
-  seed: number;
-  base: { x: number; z: number };
-  lz: { x: number; z: number; r: number };
-  flats: FlatSpot[];
-  spawns: Spawn[];
-  objectives: ObjectiveDef[];
-}
-
-/* Helpers to lay out compounds. */
-function ring(type: SpawnType, cx: number, cz: number, r: number, n: number, extra: Partial<Spawn> = {}): Spawn[] {
-  const out: Spawn[] = [];
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    out.push({ type, x: cx + Math.sin(a) * r, z: cz + Math.cos(a) * r, heading: a + Math.PI, ...extra });
-  }
-  return out;
-}
-
-function square(cx: number, cz: number, half: number, gapSide: number): Spawn[] {
-  // Four walls made of segments, one side left open as a gate.
-  const out: Spawn[] = [];
-  const seg = half * 2;
-  const sides = [
-    { x: cx, z: cz - half, heading: 0, id: 0 },
-    { x: cx + half, z: cz, heading: Math.PI / 2, id: 1 },
-    { x: cx, z: cz + half, heading: 0, id: 2 },
-    { x: cx - half, z: cz, heading: Math.PI / 2, id: 3 },
-  ];
-  for (const s of sides) {
-    if (s.id === gapSide) {
-      // two shorter pieces leaving a gap in the middle
-      const along = s.heading === 0 ? [1, 0] : [0, 1];
-      const q = seg * 0.3;
-      out.push({ type: "wall", x: s.x + along[0] * (half - q / 2), z: s.z + along[1] * (half - q / 2), heading: s.heading, length: q * 1.35 });
-      out.push({ type: "wall", x: s.x - along[0] * (half - q / 2), z: s.z - along[1] * (half - q / 2), heading: s.heading, length: q * 1.35 });
-    } else {
-      out.push({ type: "wall", x: s.x, z: s.z, heading: s.heading, length: seg });
-    }
-  }
-  for (const [dx, dz] of [
-    [-half, -half],
-    [half, -half],
-    [half, half],
-    [-half, half],
-  ]) {
-    out.push({ type: "tower", x: cx + dx, z: cz + dz });
-  }
-  return out;
-}
+export type { SpawnType, PickupItem, Spawn, FlatSpot, ObjectiveDef, MissionData } from "./mission";
 
 const RADAR = { x: -160, z: -260 };
 const SAM_A = { x: 40, z: -200 };
@@ -114,9 +16,13 @@ const VILLAGE_B = { x: 120, z: 160 };
 const BASE = { x: -225, z: 240 };
 
 export const mission1: MissionData = {
+  id: "sandglass",
   name: "Operation Sandglass",
   codename: "SANDGLASS",
+  summary: "Coastal desert. Blind the radar, clear three SAM sites, free the prison camp and level the headquarters.",
   seed: 1992,
+  theme: desertTheme,
+  terrain: DESERT_TERRAIN,
   briefing: [
     "A hostile general has seized the coastal province and is holding our downed pilots in a desert prison camp.",
     "You will fly a single AH-64 from the forward landing zone on the beach. The airspace is covered by a coastal radar station and three surface to air missile batteries.",
@@ -229,10 +135,10 @@ export const mission1: MissionData = {
     { type: "pickup", x: 320, z: -300, item: "armor" },
   ],
   objectives: [
-    { id: "radar", text: "Destroy the coastal radar station", total: 1, doneMessage: "Radar station destroyed. Their network is blind." },
-    { id: "sams", text: "Destroy all three SAM sites", total: 3, doneMessage: "All SAM sites down. Airspace is ours." },
-    { id: "pows", text: "Level the prison and rescue 4 POWs to the LZ", total: 4, doneMessage: "All POWs recovered. Outstanding flying." },
-    { id: "hq", text: "Destroy the enemy headquarters bunker", total: 1, doneMessage: "HQ bunker destroyed. Their command is gone." },
-    { id: "return", text: "Return to the landing zone", total: 1, final: true, doneMessage: "Welcome home. Mission complete." },
+    { id: "radar", kind: "destroyTag", tag: "radar", effect: "radarDown", text: "Destroy the coastal radar station", total: 1, doneMessage: "Radar station destroyed. Their network is blind." },
+    { id: "sams", kind: "destroyTag", tag: "sam", text: "Destroy all three SAM sites", total: 3, doneMessage: "All SAM sites down. Airspace is ours." },
+    { id: "pows", kind: "rescue", text: "Level the prison and rescue 4 POWs to the LZ", total: 4, doneMessage: "All POWs recovered. Outstanding flying." },
+    { id: "hq", kind: "destroyTag", tag: "hq", text: "Destroy the enemy headquarters bunker", total: 1, doneMessage: "HQ bunker destroyed. Their command is gone." },
+    { id: "return", kind: "returnToLZ", text: "Return to the landing zone", total: 1, final: true, doneMessage: "Welcome home. Mission complete." },
   ],
 };

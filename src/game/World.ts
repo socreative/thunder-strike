@@ -6,7 +6,7 @@ import { Random } from "./core/Random";
 import { SpatialGrid } from "./core/SpatialGrid";
 import type { MissionStats } from "./core/Store";
 import { balance } from "./data/balance";
-import type { MissionData, Spawn } from "./data/mission1";
+import type { MissionData, Spawn } from "./data/mission";
 import { Entity, type Team } from "./entities/Entity";
 import { Helicopter } from "./entities/Helicopter";
 import { Pickup } from "./entities/Pickup";
@@ -18,13 +18,16 @@ import { AAGun } from "./entities/enemies/AAGun";
 import { Infantry } from "./entities/enemies/Infantry";
 import { SamSite } from "./entities/enemies/SamSite";
 import { Tank } from "./entities/enemies/Tank";
+import { Gunboat } from "./entities/enemies/Gunboat";
+import { Pow } from "./entities/Pow";
+import type { SpawnType } from "./data/mission";
 import { HealthBars } from "./fx/HealthBars";
 import { Particles } from "./fx/Particles";
 import { HeliWreckage } from "./fx/Wreckage";
 import type { Audio } from "./systems/Audio";
 import { Mission } from "./systems/Mission";
 import { createDecor } from "./world/Decor";
-import { Props } from "./world/Props";
+import { Props, type Exclusion } from "./world/Props";
 import { CSMShadowNode } from "three/addons/csm/CSMShadowNode.js";
 import { createSky, createSun } from "./world/Sky";
 import { Terrain } from "./world/Terrain";
@@ -87,29 +90,31 @@ export class World {
     readonly assets: Assets,
     readonly audio: Audio,
   ) {
+    const theme = data.theme;
     this.scene = new THREE.Scene();
     this.rng = new Random(data.seed);
-    this.terrain = new Terrain(data.seed, data.flats);
+    this.terrain = new Terrain(data.seed, data.flats, data.terrain, theme.ground, theme.overview);
     this.grid = new SpatialGrid(this.terrain.size + 200, balance.map.cellSize);
     this.scene.add(this.terrain.mesh);
-    this.water = createWater(this.terrain.size);
+    this.water = createWater(this.terrain.size, theme.water);
     this.scene.add(this.water);
-    this.sky = createSky(1800);
+    this.sky = createSky(1800, theme.sky);
     this.scene.add(this.sky);
-    this.scene.fog = new THREE.Fog(0xe2d0ad, 260, 900);
-    const { sun, hemi } = createSun();
+    this.scene.fog = new THREE.Fog(theme.fog.color, theme.fog.near, theme.fog.far);
+    const { sun, hemi } = createSun(theme.sky);
     this.sun = sun;
     this.hemi = hemi;
     this.scene.add(sun, sun.target, hemi);
     this.flashLight = new THREE.PointLight(0xffa050, 0, 80, 1.5);
     this.scene.add(this.flashLight);
 
-    this.props = new Props(this.terrain, data.flats, data.seed);
+    this.props = new Props(this.terrain, this.propExclusions(), data.seed, theme.props);
     this.scene.add(this.props.group);
     this.decor = createDecor(data, this.terrain, this.decorSpinners, assets);
     this.scene.add(this.decor);
 
     this.particles = new Particles();
+    this.particles.setDustColors(theme.dust.start, theme.dust.end);
     this.scene.add(this.particles.group);
     this.scene.add(this.healthBars.sprite);
 
@@ -158,6 +163,57 @@ export class World {
     }
   }
 
+  /**
+   * Ground kept free of vegetation. The desert clears only its flats, which is
+   * how it always was; the jungle also clears every installation and patrol
+   * lane so nothing drives through a tree trunk.
+   */
+  private propExclusions(): Exclusion[] {
+    const data = this.data;
+    const ex: Exclusion[] = data.flats.map((f) => ({ x: f.x, z: f.z, r: f.r + 6 }));
+    if (!data.theme.props.clearSpawns) return ex;
+    const CLEAR: Partial<Record<SpawnType, number>> = {
+      tank: 12,
+      lightTank: 11,
+      aa: 8,
+      sam: 10,
+      infantry: 4,
+      pickup: 6,
+      pow: 5,
+      building: 10,
+      hq: 18,
+      prison: 14,
+      radar: 12,
+      generator: 12,
+      tower: 4,
+      fuelDepot: 7,
+    };
+    for (const s of data.spawns) {
+      const r = s.type === "wall" ? (s.length ?? 20) / 2 + 4 : (CLEAR[s.type] ?? 0);
+      if (r > 0) ex.push({ x: s.x, z: s.z, r });
+      if (s.waypoints && s.type !== "gunboat") {
+        const pts = s.waypoints;
+        for (let i = 0; i < pts.length; i++) {
+          const [ax, az] = pts[i];
+          const [bx, bz] = pts[(i + 1) % pts.length];
+          const len = Math.hypot(bx - ax, bz - az);
+          const steps = Math.max(1, Math.ceil(len / 10));
+          for (let k = 0; k <= steps; k++) ex.push({ x: ax + ((bx - ax) * k) / steps, z: az + ((bz - az) * k) / steps, r: 8 });
+        }
+      }
+    }
+    for (const d of data.decor ?? []) ex.push({ x: d.x, z: d.z, r: d.kind === "runway" ? (d.length ?? 120) / 2 + 12 : d.kind === "dam" ? (d.length ?? 60) / 2 + 10 : 26 });
+    return ex;
+  }
+
+  /** The generator objective: everything wired to the grid goes quiet. */
+  gridDown = false;
+
+  blackout(): void {
+    this.gridDown = true;
+    this.message("Grid is dark. Their river defences have lost power.");
+  }
+
   private spawnFromDef(s: Spawn): void {
     const y = this.terrain.heightAt(s.x, s.z);
     let e: Entity | null = null;
@@ -169,21 +225,37 @@ export class World {
         e = new Tank(true, s.heading ?? this.rng.range(0, Math.PI * 2), s.waypoints);
         break;
       case "aa":
-        e = new AAGun();
+        e = new AAGun(!!s.powered);
         break;
       case "sam":
-        e = new SamSite();
+        e = new SamSite(!!s.powered);
         break;
       case "infantry":
         e = new Infantry();
         break;
+      case "gunboat":
+        e = new Gunboat(s.heading ?? 0, s.waypoints);
+        if (process.env.NODE_ENV !== "production") {
+          for (const [wx, wz] of s.waypoints ?? []) {
+            if (this.terrain.riverDistance(wx, wz) > -4) console.warn(`[thunder-strike] gunboat waypoint ${wx},${wz} is too close to the bank`);
+          }
+        }
+        break;
       case "pickup":
         e = new Pickup(s.item ?? "fuel");
+        break;
+      case "pow":
+        e = new Pow();
         break;
       case "carrier":
         return; // handled by decor
       default:
-        e = new Structure(s.type as StructureType, s.heading ?? 0, s.variant ?? 0, s.length ?? 20);
+        e = new Structure(s.type as StructureType, s.heading ?? 0, s.variant ?? 0, s.length ?? 20, s.count ?? 4);
+    }
+    if (process.env.NODE_ENV !== "production" && s.waypoints && s.type !== "gunboat") {
+      for (const [wx, wz] of s.waypoints) {
+        if (this.terrain.riverDistance(wx, wz) < 0) console.warn(`[thunder-strike] ${s.type} waypoint ${wx},${wz} is in the river`);
+      }
     }
     e.pos.set(s.x, y, s.z);
     e.tag = s.tag;
@@ -494,7 +566,7 @@ export class World {
     this.sky.geometry.dispose();
     this.decor.traverse((o) => {
       const m = o as THREE.Mesh;
-      if (m.isMesh) m.geometry.dispose();
+      if (m.isMesh && !m.userData.sharedGeometry) m.geometry.dispose();
     });
     this.scene.clear();
   }

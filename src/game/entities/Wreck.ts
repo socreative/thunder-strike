@@ -1,14 +1,20 @@
 import * as THREE from "three/webgpu";
 import { Entity, sharedMat } from "./Entity";
 
-export type WreckStyle = "vehicle" | "emplacement" | "rubble";
+const smokeAt = new THREE.Vector3();
+
+export type WreckStyle = "vehicle" | "emplacement" | "rubble" | "boat";
 
 /** Charred remains left after a kill. Smokes for a while, then just sits there. */
 export class Wreck extends Entity {
   private smokeTimer = 0;
   private smokeLeft: number;
 
-  constructor(heading: number, size: number, style: WreckStyle) {
+  constructor(
+    heading: number,
+    size: number,
+    private readonly style: WreckStyle,
+  ) {
     super();
     this.kind = "wreck";
     this.team = "neutral";
@@ -19,6 +25,18 @@ export class Wreck extends Entity {
     this.smokeLeft = 14 + size * 3;
     this.object.rotation.y = heading;
     const mat = sharedMat(0x1f1d1a, { roughness: 1, flat: true });
+    if (style === "boat") {
+      // Burnt-out hull that settles bow-down into the river.
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(size * 1.3, size * 0.35, size * 2.6), mat);
+      hull.position.y = size * 0.12;
+      hull.castShadow = true;
+      this.object.add(hull);
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(size * 0.9, size * 0.5, size * 1.1), mat);
+      cabin.position.set(0, size * 0.5, -size * 0.3);
+      cabin.castShadow = true;
+      this.object.add(cabin);
+      return;
+    }
     if (style === "vehicle") {
       const hull = new THREE.Mesh(new THREE.BoxGeometry(size * 1.2, size * 0.5, size * 1.9), mat);
       hull.position.y = size * 0.25;
@@ -47,12 +65,21 @@ export class Wreck extends Entity {
   }
 
   update(dt: number): void {
+    if (this.style === "boat" && this.pos.y > -5) {
+      this.pos.y -= 0.5 * dt;
+      this.object.rotation.x += 0.08 * dt;
+      this.object.rotation.z += 0.03 * dt;
+      this.syncObject();
+    }
     if (this.smokeLeft <= 0) return;
     this.smokeLeft -= dt;
     this.smokeTimer -= dt;
     if (this.smokeTimer <= 0) {
       this.smokeTimer = 0.18;
-      this.world.particles.burningSmoke(this.pos, 1.3);
+      if (this.style === "boat") {
+        smokeAt.set(this.pos.x, Math.max(this.pos.y, 0) + 0.3, this.pos.z);
+        if (this.pos.y > -2.5) this.world.particles.burningSmoke(smokeAt, 1.2);
+      } else this.world.particles.burningSmoke(this.pos, 1.3);
     }
   }
 }

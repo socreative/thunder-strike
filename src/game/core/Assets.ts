@@ -88,7 +88,13 @@ export class Assets {
   get(name: string): THREE.Group | null {
     const m = this.models.get(name);
     if (!m) return null;
-    return cloneSkeleton(m) as THREE.Group;
+    const clone = cloneSkeleton(m) as THREE.Group;
+    // Clones share geometry with the cached model, so a world tearing itself
+    // down must leave that geometry alone or the next world draws destroyed buffers.
+    clone.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) o.userData.sharedGeometry = true;
+    });
+    return clone;
   }
 
   /** Approximate footprint of a loaded model, or null. */

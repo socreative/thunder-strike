@@ -1,6 +1,7 @@
 export type Screen =
   | "loading"
   | "title"
+  | "missions"
   | "briefing"
   | "playing"
   | "paused"
@@ -45,8 +46,24 @@ export interface MissionStats {
   elapsed: number;
 }
 
+export interface MissionCard {
+  id: string;
+  name: string;
+  codename: string;
+  summary: string;
+  swatch: number;
+}
+
 export interface Snapshot {
   screen: Screen;
+  /** Current mission, and the list the picker offers. */
+  missionId: string;
+  missionName: string;
+  missionCodename: string;
+  briefing: string[];
+  missions: MissionCard[];
+  /** Highlighted entry on the picker, for keyboard users. */
+  missionCursor: number;
   backend: Backend;
   loadProgress: number;
   loadLabel: string;
@@ -84,6 +101,12 @@ export interface Snapshot {
 
 export const initialSnapshot: Snapshot = {
   screen: "loading",
+  missionId: "",
+  missionName: "",
+  missionCodename: "",
+  briefing: [],
+  missions: [],
+  missionCursor: 0,
   backend: null,
   loadProgress: 0,
   loadLabel: "initialising renderer",

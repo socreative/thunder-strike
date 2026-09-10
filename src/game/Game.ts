@@ -5,7 +5,8 @@ import { Assets } from "./core/Assets";
 import { Input } from "./core/Input";
 import type { Blip, Screen, Store, WeaponId } from "./core/Store";
 import { balance } from "./data/balance";
-import { mission1 } from "./data/mission1";
+import type { MissionData } from "./data/mission";
+import { MISSIONS, missionById } from "./data/missions";
 import { Audio } from "./systems/Audio";
 import { CameraRig } from "./systems/CameraRig";
 import { World } from "./World";
@@ -22,6 +23,8 @@ export class Game {
   private readonly audio = new Audio();
   private readonly assets = new Assets();
   private world: World | null = null;
+  private mission: MissionData = MISSIONS[0];
+  private missionCursor = 0;
   rig: CameraRig;
   private post: THREE.PostProcessing | null = null;
   private usePost = true;
@@ -109,13 +112,15 @@ export class Game {
       this.world.dispose();
       this.world = null;
     }
-    const world = new World(mission1, this.input, this.assets, this.audio);
+    const world = new World(this.mission, this.input, this.assets, this.audio);
     this.world = world;
     this.audio.setListener(world.heli.pos);
     this.rig.snapTo(world.heli.pos);
     world.enableCascadedShadows();
-    this.overview ??= world.terrain.renderOverview(96);
+    // Rendered per world: each mission has its own map.
+    this.overview = world.terrain.renderOverview(this.mission.theme.id === "jungle" ? 128 : 96);
     this.buildPost(world);
+    this.publishMission();
   }
 
   private buildPost(world: World): void {
@@ -135,6 +140,57 @@ export class Game {
   }
 
   /* Screen flow */
+
+  private publishMission(): void {
+    const m = this.mission;
+    this.store.set({
+      missionId: m.id,
+      missionName: m.name,
+      missionCodename: m.codename,
+      briefing: m.briefing,
+      missions: MISSIONS.map((d) => ({ id: d.id, name: d.name, codename: d.codename, summary: d.summary, swatch: d.theme.swatch })),
+      missionCursor: this.missionCursor,
+    });
+  }
+
+  /** From the picker: build the chosen map and go to its briefing. */
+  selectMission(id: string): void {
+    const data = missionById(id);
+    if (!data) return;
+    this.audio.ensure();
+    this.missionCursor = MISSIONS.indexOf(data);
+    // The world built at start-up is reused if it is untouched; anything else
+    // is rebuilt behind the loading screen, since a jungle takes a few seconds.
+    const fresh = this.world && this.mission === data && this.world.time === 0;
+    if (fresh) {
+      this.publishMission();
+      this.publish(true);
+      this.setScreen("briefing");
+      this.audio.play("select");
+      return;
+    }
+    this.mission = data;
+    this.store.set({ loadLabel: `building ${data.theme.id === "jungle" ? "the valley" : "the province"}`, loadProgress: 0.85 });
+    this.setScreen("loading");
+    setTimeout(() => {
+      if (this.disposed) return;
+      this.createWorld();
+      this.publish(true);
+      this.store.set({ loadProgress: 1 });
+      this.setScreen("briefing");
+      this.audio.play("select");
+    }, 40);
+  }
+
+  /** The mission after the current one, wrapping round. */
+  nextMissionId(): string {
+    return MISSIONS[(MISSIONS.indexOf(this.mission) + 1) % MISSIONS.length].id;
+  }
+
+  private moveMissionCursor(delta: number): void {
+    this.missionCursor = (this.missionCursor + delta + MISSIONS.length) % MISSIONS.length;
+    this.store.set({ missionCursor: this.missionCursor });
+  }
 
   private setScreen(s: Screen): void {
     this.screen = s;
@@ -158,7 +214,8 @@ export class Game {
       if (!fromUi) return;
     }
     this.audio.ensure();
-    if (this.screen === "title") this.setScreen("briefing");
+    if (this.screen === "title") this.setScreen("missions");
+    else if (this.screen === "missions") this.selectMission(MISSIONS[this.missionCursor].id);
     else if (this.screen === "briefing") {
       this.setScreen("playing");
       this.audio.play("select");
@@ -219,6 +276,7 @@ export class Game {
   private updateMusic(): void {
     switch (this.screen) {
       case "title":
+      case "missions":
       case "briefing":
       case "credits":
       case "controls":
@@ -285,9 +343,17 @@ export class Game {
           if (input.anyPressed()) this.unlockAudio();
         } else if (input.wasPressed("Enter", "Space")) this.start();
         break;
-      case "briefing":
+      case "missions":
+        if (input.wasPressed("ArrowDown", "ArrowRight", "KeyS", "KeyD", "Tab")) this.moveMissionCursor(1);
+        if (input.wasPressed("ArrowUp", "ArrowLeft", "KeyW", "KeyA")) this.moveMissionCursor(-1);
+        if (input.wasPressed("Digit1")) this.selectMission(MISSIONS[0].id);
+        if (input.wasPressed("Digit2") && MISSIONS[1]) this.selectMission(MISSIONS[1].id);
         if (input.wasPressed("Enter", "Space")) this.start();
         if (input.wasPressed("Escape")) this.setScreen("title");
+        break;
+      case "briefing":
+        if (input.wasPressed("Enter", "Space")) this.start();
+        if (input.wasPressed("Escape")) this.setScreen("missions");
         break;
       case "playing":
         if (input.wasPressed("Escape", "KeyP")) this.togglePause();

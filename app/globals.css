@@ -583,6 +583,74 @@ button {
   }
 }
 
+/* Mission picker */
+.missions-card {
+  width: min(760px, 94vw) !important;
+}
+.mission-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+.mission-card {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 12px;
+  row-gap: 4px;
+  align-items: start;
+  text-align: left;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.mission-card:hover,
+.mission-card.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--amber);
+}
+.mission-card .swatch {
+  grid-row: 1 / span 3;
+  width: 14px;
+  height: 100%;
+  min-height: 60px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.mission-code {
+  letter-spacing: 0.3em;
+  font-size: 11px;
+  color: var(--amber);
+}
+.mission-name {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+.mission-summary {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.touch .mission-cards {
+  gap: 8px;
+}
+.touch .mission-card {
+  padding: 10px 12px;
+}
+.touch .mission-name {
+  font-size: 17px;
+}
+.touch .mission-summary {
+  font-size: 11px;
+}
+
 /* Controls overlay */
 .controls-card {
   width: min(860px, 94vw);

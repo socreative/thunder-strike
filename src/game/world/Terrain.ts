@@ -2,23 +2,109 @@ import * as THREE from "three/webgpu";
 import { SimplexNoise } from "../core/Random";
 import { clamp, smoothstep } from "../core/MathUtil";
 import { balance } from "../data/balance";
-import type { FlatSpot } from "../data/mission1";
+import type { FlatSpot } from "../data/mission";
 import { createTerrainMaterial } from "./TerrainMaterial";
+import type { GroundPalette, OverviewPalette } from "./Theme";
+
+/** A river as a centreline with a half-width at each control point. */
+export interface RiverDef {
+  points: [x: number, z: number, halfWidth: number][];
+  /** Depth of the channel floor below the water plane. */
+  bed?: number;
+  /** Width of the shoulder that blends the channel edge back into the land. */
+  bank?: number;
+}
+
+export interface TerrainConfig {
+  shape: "desert" | "jungle";
+  /** Land falls into the sea west of this X, down to `floor`. */
+  coast?: { edgeX: number; floor: number };
+  river?: RiverDef;
+}
+
+export const DESERT_TERRAIN: TerrainConfig = { shape: "desert", coast: { edgeX: balance.map.seaEdgeX, floor: -9 } };
+
+interface RiverSeg {
+  ax: number;
+  az: number;
+  dx: number;
+  dz: number;
+  invLen2: number;
+  wa: number;
+  wb: number;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+/** Nearest river point: signed distance from the channel edge (negative inside), its half-width and centreline point. */
+export interface RiverHit {
+  sd: number;
+  w: number;
+  cx: number;
+  cz: number;
+}
+
+const tmpHit: RiverHit = { sd: Infinity, w: 0, cx: 0, cz: 0 };
+/** Channel edge height: always under the water plane so the shoreline is smooth. */
+const LIP = -0.8;
 
 /**
- * Analytic heightfield: noise dunes, a coastline on the west and flattened
- * pads under each compound. The mesh samples the same function that gameplay
- * uses, so ground units always sit on the visible surface.
+ * Analytic heightfield: noise hills, an optional coastline or river, and
+ * flattened pads under each compound. The mesh samples the same function that
+ * gameplay uses, so ground units always sit on the visible surface.
  */
 export class Terrain {
   readonly mesh: THREE.Mesh;
   readonly size = balance.map.size;
   private noise: SimplexNoise;
   private flats: Required<FlatSpot>[];
+  private readonly base: (x: number, z: number) => number;
+  private segs: RiverSeg[] = [];
+  private riverBed = -5;
+  private riverBank = 14;
 
-  constructor(seed: number, flats: FlatSpot[]) {
+  constructor(
+    seed: number,
+    flats: FlatSpot[],
+    private readonly cfg: TerrainConfig = DESERT_TERRAIN,
+    ground: GroundPalette,
+    private readonly overview: OverviewPalette,
+  ) {
     this.noise = new SimplexNoise(seed);
-    this.flats = flats.map((f) => ({ ...f, h: f.h ?? this.baseHeight(f.x, f.z) }));
+    this.base = cfg.shape === "jungle" ? this.jungleHeight : this.desertHeight;
+    if (cfg.river) {
+      this.riverBed = cfg.river.bed ?? -5;
+      this.riverBank = cfg.river.bank ?? 14;
+      const pts = cfg.river.points;
+      const pad = Math.max(...pts.map((p) => p[2])) + this.riverBank + 1;
+      for (let i = 0; i + 1 < pts.length; i++) {
+        const [ax, az, wa] = pts[i];
+        const [bx, bz, wb] = pts[i + 1];
+        const dx = bx - ax;
+        const dz = bz - az;
+        this.segs.push({
+          ax,
+          az,
+          dx,
+          dz,
+          invLen2: 1 / Math.max(1e-6, dx * dx + dz * dz),
+          wa,
+          wb,
+          minX: Math.min(ax, bx) - pad,
+          maxX: Math.max(ax, bx) + pad,
+          minZ: Math.min(az, bz) - pad,
+          maxZ: Math.max(az, bz) + pad,
+        });
+      }
+    }
+    this.flats = flats.map((f) => ({ ...f, h: f.h ?? this.base(f.x, f.z) }));
+    if (process.env.NODE_ENV !== "production") {
+      for (const f of this.flats) {
+        if (this.riverDistance(f.x, f.z) < f.r) console.warn(`[thunder-strike] flat at ${f.x},${f.z} overlaps the river`);
+      }
+    }
 
     const segments = 220;
     const geo = new THREE.PlaneGeometry(this.size, this.size, segments, segments);
@@ -32,26 +118,36 @@ export class Terrain {
     pos.needsUpdate = true;
     geo.computeVertexNormals();
 
-    this.mesh = new THREE.Mesh(geo, createTerrainMaterial());
+    this.mesh = new THREE.Mesh(geo, createTerrainMaterial(ground));
     this.mesh.receiveShadow = true;
     this.mesh.name = "terrain";
   }
 
-  private baseHeight(x: number, z: number): number {
+  private desertHeight = (x: number, z: number): number => {
     const n = this.noise;
     let h = 5 + 11 * n.fbm(x * 0.0038, z * 0.0038, 4) + 2.2 * n.fbm(x * 0.021 + 7, z * 0.021 - 3, 2);
     // long dune ridges
     h += 1.6 * Math.sin(x * 0.045 + n.noise2(z * 0.01, x * 0.005) * 3);
     h = Math.max(h, 1.5);
     // Coastline: land falls into the sea to the west.
-    const sea = balance.map.seaEdgeX;
-    const c = smoothstep(sea + 70, sea - 50, x);
-    h = h * (1 - c) + -9 * c;
+    const coast = this.cfg.coast;
+    if (coast) {
+      const sea = coast.edgeX;
+      const c = smoothstep(sea + 70, sea - 50, x);
+      h = h * (1 - c) + coast.floor * c;
+    }
     return h;
-  }
+  };
+
+  private jungleHeight = (x: number, z: number): number => {
+    const n = this.noise;
+    // Rolling hills: lower frequency, no dune ridge, a little fine roughness.
+    const h = 6 + 9 * n.fbm(x * 0.0045, z * 0.0045, 4) + 1.8 * n.fbm(x * 0.025 + 7, z * 0.025 - 3, 2);
+    return Math.max(h, 1.5);
+  };
 
   heightAt(x: number, z: number): number {
-    let h = this.baseHeight(x, z);
+    let h = this.base(x, z);
     for (const f of this.flats) {
       const dx = x - f.x;
       const dz = z - f.z;
@@ -60,7 +156,45 @@ export class Terrain {
       const w = 1 - smoothstep(f.r * 0.55, f.r, d);
       h = h * (1 - w) + f.h * w;
     }
+    if (this.segs.length) h = this.carve(h, x, z);
     return h;
+  }
+
+  /**
+   * Cut the river after the flats so a pad can never fill the channel. Inside
+   * the channel the land is never consulted, so nothing pokes above the water.
+   */
+  private carve(h: number, x: number, z: number): number {
+    const r = this.riverInfo(x, z, tmpHit);
+    if (r.sd >= this.riverBank) return h;
+    if (r.sd <= 0) return this.riverBed + (LIP - this.riverBed) * smoothstep(-r.w * 0.5, 0, r.sd);
+    return LIP + (h - LIP) * smoothstep(0, this.riverBank, r.sd);
+  }
+
+  /** Nearest point on the river. Segments are exact capsules, so the min over them is the union. */
+  riverInfo(x: number, z: number, out: RiverHit): RiverHit {
+    out.sd = Infinity;
+    for (const s of this.segs) {
+      if (x < s.minX || x > s.maxX || z < s.minZ || z > s.maxZ) continue;
+      let t = ((x - s.ax) * s.dx + (z - s.az) * s.dz) * s.invLen2;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const px = s.ax + s.dx * t;
+      const pz = s.az + s.dz * t;
+      const w = s.wa + (s.wb - s.wa) * t;
+      const sd = Math.hypot(x - px, z - pz) - w;
+      if (sd < out.sd) {
+        out.sd = sd;
+        out.w = w;
+        out.cx = px;
+        out.cz = pz;
+      }
+    }
+    return out;
+  }
+
+  /** Signed metres from the river's edge, negative inside; Infinity without a river. */
+  riverDistance(x: number, z: number): number {
+    return this.riverInfo(x, z, tmpHit).sd;
   }
 
   /** True when the point is over open water. */
@@ -89,22 +223,28 @@ export class Terrain {
   renderOverview(resolution: number): ImageData {
     const img = new ImageData(resolution, resolution);
     const half = this.size / 2;
+    const pal = this.overview;
+    const put = (i: number, c: [number, number, number]) => {
+      img.data[i] = c[0];
+      img.data[i + 1] = c[1];
+      img.data[i + 2] = c[2];
+    };
+    const mixed: [number, number, number] = [0, 0, 0];
+    const mix = (a: [number, number, number], b: [number, number, number], t: number) => {
+      mixed[0] = a[0] + t * (b[0] - a[0]);
+      mixed[1] = a[1] + t * (b[1] - a[1]);
+      mixed[2] = a[2] + t * (b[2] - a[2]);
+      return mixed;
+    };
     for (let py = 0; py < resolution; py++) {
       for (let px = 0; px < resolution; px++) {
         const x = -half + (px / (resolution - 1)) * this.size;
         const z = -half + (py / (resolution - 1)) * this.size;
         const h = this.heightAt(x, z);
         const i = (py * resolution + px) * 4;
-        if (h < 0) {
-          img.data[i] = 28;
-          img.data[i + 1] = 70;
-          img.data[i + 2] = 92;
-        } else {
-          const t = clamp(h / 26, 0, 1);
-          img.data[i] = 150 + t * 70;
-          img.data[i + 1] = 120 + t * 60;
-          img.data[i + 2] = 70 + t * 40;
-        }
+        if (h < 0) put(i, mix(pal.water, pal.shallow, smoothstep(-5, 0, h)));
+        else if (pal.bank && h < 1.2) put(i, pal.bank);
+        else put(i, mix(pal.landLow, pal.landHigh, clamp(h / 26, 0, 1)));
         img.data[i + 3] = 255;
       }
     }

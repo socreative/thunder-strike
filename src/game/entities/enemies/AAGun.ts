@@ -20,7 +20,8 @@ export class AAGun extends Entity {
   private burstTimer = 0;
   private side = 1;
 
-  constructor() {
+  /** Wired to the grid: goes quiet once a blackout objective completes. */
+  constructor(private readonly powered = false) {
     super();
     this.kind = "aa";
     this.hp = this.maxHp = S.hp;
@@ -101,7 +102,8 @@ export class AAGun extends Entity {
     const world = this.world;
     this.tickFlash(dt);
     const heli = world.heli;
-    const d = heli.alive ? this.distanceXZ(heli) : Infinity;
+    const dark = this.powered && world.gridDown;
+    const d = heli.alive && !dark ? this.distanceXZ(heli) : Infinity;
     if (d < S.range) {
       const want = headingTo(this.pos.x, this.pos.z, heli.pos.x, heli.pos.z);
       this.yaw = turnToward(this.yaw, want, 3.5 * dt);
@@ -114,7 +116,8 @@ export class AAGun extends Entity {
         this.reload = S.reload;
       }
     } else {
-      this.pitch = turnToward(this.pitch, -0.3, 2 * dt);
+      // Unpowered guns droop to the stops so the blackout reads at a glance.
+      this.pitch = turnToward(this.pitch, dark ? 0.25 : -0.3, 2 * dt);
       this.burstLeft = 0;
     }
     if (this.burstLeft > 0) {

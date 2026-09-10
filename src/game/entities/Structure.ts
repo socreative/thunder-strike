@@ -1,11 +1,11 @@
 import * as THREE from "three/webgpu";
 import { Entity } from "./Entity";
 import { balance } from "../data/balance";
-import type { SpawnType } from "../data/mission1";
+import type { SpawnType } from "../data/mission";
 import { Build, PALETTE as P } from "../world/Detail";
 import { Pow } from "./Pow";
 
-export type StructureType = Extract<SpawnType, "radar" | "hq" | "prison" | "building" | "wall" | "tower" | "fuelDepot">;
+export type StructureType = Extract<SpawnType, "radar" | "hq" | "prison" | "building" | "wall" | "tower" | "fuelDepot" | "generator">;
 
 const E = balance.enemies;
 
@@ -24,6 +24,8 @@ export class Structure extends Entity {
     heading: number,
     variant = 0,
     length = 20,
+    /** Prisoners released when a prison falls. */
+    private readonly count = 4,
   ) {
     super();
     this.kind = type;
@@ -67,6 +69,11 @@ export class Structure extends Entity {
         this.blip = false;
         this.buildFuelDepot();
         break;
+      case "generator":
+        this.hp = this.maxHp = E.generator.hp;
+        this.radius = E.generator.radius;
+        this.buildGenerator();
+        break;
     }
     // Each build sets its own silhouette height; float the damage bar above it.
     this.barHeight = this.height + 1.6;
@@ -105,6 +112,10 @@ export class Structure extends Entity {
       case "fuelDepot":
         hx = 5.5;
         hz = 4.0;
+        break;
+      case "generator":
+        hx = 7.8;
+        hz = 6.0;
         break;
       default:
         // Warehouse is broad, barracks is deep, the house is square.
@@ -439,6 +450,51 @@ export class Structure extends Entity {
   }
 
   /** Fuel farm: horizontal tanks on saddles, with pipework, valves and a bund. */
+  /** Dam powerhouse: turbine hall, transformer yard behind a fence and a pylon taking the lines out. */
+  private buildGenerator(): void {
+    const b = new Build();
+    b.box(15.4, 0.3, 11.6, P.concreteShadow, { y: 0.15, mat: { roughness: 1 } });
+    // Turbine hall with a clerestory and vents
+    b.box(9.5, 5.2, 7.2, P.concrete, { x: -2.4, y: 2.6 });
+    b.box(8.0, 1.2, 3.6, P.concreteDark, { x: -2.4, y: 5.8 });
+    for (let i = -1; i <= 1; i++) b.box(0.5, 0.9, 3.4, P.glass, { x: -2.4 + i * 2.6, y: 5.8, mat: { roughness: 0.3, metalness: 0.4 } });
+    for (let i = -2; i <= 2; i++) b.box(1.3, 1.6, 0.2, P.glass, { x: -2.4 + i * 1.8, y: 3.3, z: 3.7, mat: { roughness: 0.3, metalness: 0.4 } });
+    b.box(2.6, 3.2, 0.3, 0x59544a, { x: -5.5, y: 1.6, z: 3.7 });
+    b.corrugatedRoof(9.9, 7.6, P.roof, { x: -2.4, y: 5.25 });
+    // Penstock pipes coming out of the hall toward the dam side
+    for (const sz of [-1.8, 1.8]) {
+      b.cyl(0.8, 0.8, 4.2, P.steel, { x: -8.4, y: 1.6, z: sz, rz: Math.PI / 2, seg: 12, mat: { metalness: 0.5 } });
+      b.torus(0.85, 0.12, P.metalDark, { x: -7.2, y: 1.6, z: sz, ry: Math.PI / 2, seg: 12 });
+    }
+    // Transformer yard: three transformers with cooling fins and insulators
+    for (let i = 0; i < 3; i++) {
+      const x = 3.6;
+      const z = -3.6 + i * 3.4;
+      b.box(2.0, 2.2, 1.6, P.metalDark, { x, y: 1.3, z, mat: { metalness: 0.4 } });
+      for (let f = 0; f < 5; f++) b.box(0.12, 1.8, 1.8, P.metal, { x: x - 1.1 + f * 0.55, y: 1.3, z, mat: { metalness: 0.4 } });
+      for (const ix of [-0.5, 0.2, 0.9]) b.cyl(0.14, 0.18, 1.1, P.white, { x: x + ix, y: 2.95, z, seg: 8 });
+      b.cyl(0.4, 0.4, 0.5, P.metalDark, { x, y: 0.25, z, seg: 10 });
+    }
+    // Chain fence on posts round the yard
+    for (const [fx, fz, len, ry] of [
+      [3.6, -5.6, 6.4, 0],
+      [3.6, 5.6, 6.4, 0],
+      [6.8, 0, 11.2, Math.PI / 2],
+    ] as [number, number, number, number][]) {
+      b.railing(len, 2.0, P.steel, { x: fx, y: 0.3, z: fz, ry });
+    }
+    // Pylon carrying the lines out over the jungle
+    b.latticeMast(11, 1.8, P.steel, { x: 6.2, y: 0.3, z: 0 });
+    b.box(4.6, 0.25, 0.25, P.steel, { x: 6.2, y: 9.6 });
+    b.box(3.4, 0.25, 0.25, P.steel, { x: 6.2, y: 11.0 });
+    // Warning stripes on the hall corner and a floodlight mast
+    b.box(0.5, 5.2, 0.5, P.hazard, { x: 2.5, y: 2.6, z: 3.6 });
+    b.cyl(0.12, 0.14, 6.5, P.metalDark, { x: -7.0, y: 3.4, z: -5.0, seg: 6 });
+    b.box(0.7, 0.4, 0.5, P.white, { x: -7.0, y: 6.7, z: -4.8, rx: 0.5, mat: { emissive: 0x554c33 } });
+    this.object.add(b.finish());
+    this.height = 11;
+  }
+
   private buildFuelDepot(): void {
     const b = new Build();
     const tankR = 1.75;
@@ -526,19 +582,39 @@ export class Structure extends Entity {
         world.explode(this.pos, 6, 30, "neutral", 3.2, this);
         world.spawnWreck(this.pos, 0, 6, "rubble");
         // Prisoners escape the rubble.
-        for (let i = 0; i < 4; i++) {
+        const n = this.count;
+        for (let i = 0; i < n; i++) {
           const pow = new Pow();
-          const a = (i / 4) * Math.PI * 2 + 0.4;
+          const a = (i / n) * Math.PI * 2 + 0.4;
           pow.pos.set(this.pos.x + Math.cos(a) * 12, 0, this.pos.z + Math.sin(a) * 12);
           pow.pos.y = world.terrain.heightAt(pow.pos.x, pow.pos.z);
           world.add(pow);
         }
-        world.message("Prison breached. Four POWs are in the open, winch them up.");
+        world.message(`Prison breached. ${["No", "One", "Two", "Three", "Four", "Five", "Six"][n] ?? n} POW${n === 1 ? " is" : "s are"} in the open, winch them up.`);
         break;
       }
       case "radar": {
         world.explode(this.pos, 8, 50, "neutral", 3.6, this);
         world.spawnWreck(this.pos, 0, 5, "rubble");
+        break;
+      }
+      case "generator": {
+        world.explode(this.pos, 9, 60, "neutral", 3.8, this);
+        // Transformers arc and let go one after another.
+        const ry = this.object.rotation.y;
+        for (let i = 0; i < 3; i++) {
+          const lx = 3.6;
+          const lz = -3.6 + i * 3.4;
+          const p = this.pos.clone();
+          p.x += lx * Math.cos(ry) + lz * Math.sin(ry);
+          p.z += -lx * Math.sin(ry) + lz * Math.cos(ry);
+          p.y += 1.5;
+          world.later(0.2 + i * 0.25, () => {
+            world.explode(p, 4, 20, "neutral", 2.2, this);
+            for (let k = 0; k < 4; k++) world.particles.spark(p, 0x9fd8ff);
+          });
+        }
+        world.spawnWreck(this.pos, ry, 6, "rubble");
         break;
       }
       case "wall":

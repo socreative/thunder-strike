@@ -59,6 +59,8 @@ export const balance = {
     wall: { hp: 60, radius: 3 },
     tower: { hp: 90, radius: 2.5 },
     fuelDepot: { hp: 50, radius: 4, blastRadius: 16, blastDamage: 220 },
+    generator: { hp: 260, radius: 7 },
+    gunboat: { hp: 120, range: 85, burst: 5, burstGap: 0.1, reload: 2.2, spread: 0.09, speed: 7, turnRate: 0.9, length: 14 },
   },
   pickups: {
     fuel: 60,

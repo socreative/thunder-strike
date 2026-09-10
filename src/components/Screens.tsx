@@ -2,7 +2,6 @@
 
 import type { Snapshot } from "@/src/game/core/Store";
 import type { Game } from "@/src/game/Game";
-import { mission1 } from "@/src/game/data/mission1";
 import Image from "next/image";
 import ControlsOverlay from "./ControlsOverlay";
 
@@ -79,22 +78,46 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
         </div>
       );
 
+    case "missions":
+      return (
+        <div className="screen splash">
+          <div className="card menu-card missions-card">
+            <div className="eyebrow">SELECT MISSION</div>
+            <div className="mission-cards">
+              {snap.missions.map((m, i) => (
+                <button key={m.id} className={`mission-card ${i === snap.missionCursor ? "active" : ""}`} onClick={() => game?.selectMission(m.id)}>
+                  <span className="swatch" style={{ background: `#${m.swatch.toString(16).padStart(6, "0")}` }} />
+                  <span className="mission-code">
+                    {String(i + 1).padStart(2, "0")} {m.codename}
+                  </span>
+                  <span className="mission-name">{m.name}</span>
+                  <span className="mission-summary">{m.summary}</span>
+                </button>
+              ))}
+            </div>
+            <button className="btn link" onClick={() => game?.backToTitle()}>
+              BACK
+            </button>
+          </div>
+        </div>
+      );
+
     case "briefing":
       return (
         <div className="screen">
           <div className="card briefing">
             <div className="eyebrow">MISSION BRIEFING</div>
-            <h2 className="subtitle">{mission1.name}</h2>
+            <h2 className="subtitle">{snap.missionName}</h2>
             {/* Two columns on a phone held sideways so the button stays in view. */}
             <div className="brief-cols">
               <div className="brief-text">
-                {mission1.briefing.map((p, i) => (
+                {snap.briefing.map((p, i) => (
                   <p key={i}>{p}</p>
                 ))}
               </div>
               <div className="brief-side">
                 <ol className="brief-objectives">
-                  {mission1.objectives.map((o) => (
+                  {snap.objectives.map((o) => (
                     <li key={o.id}>{o.text}</li>
                   ))}
                 </ol>
@@ -183,7 +206,12 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
                 </tr>
               </tbody>
             </table>
-            <button className="btn primary" onClick={() => game?.restart()}>
+            {won && snap.missions.length > 1 && (
+              <button className="btn primary" onClick={() => game?.selectMission(game.nextMissionId())}>
+                NEXT MISSION
+              </button>
+            )}
+            <button className={`btn ${won && snap.missions.length > 1 ? "" : "primary"}`} onClick={() => game?.restart()}>
               FLY AGAIN
             </button>
             <button className="btn link" onClick={() => game?.backToTitle()}>

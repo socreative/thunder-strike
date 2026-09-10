@@ -276,36 +276,110 @@ function buildDecorItem(item: DecorItem, terrain: Terrain): THREE.Group {
       break;
     }
     case "crash": {
-      // A transport that came down hard: fuselage broken in two, one wing torn off, a skid trench behind it.
-      const grey = 0x9aa3a8;
-      const dark = 0x3a3d3c;
-      const drab = 0x4a5a48;
-      b.box(6, 0.15, 46, 0x5d6266, { y: 0.02, z: -18, ry: 0.06, mat: { roughness: 1 } });
-      // Forward fuselage with nose and cockpit, rolled a little onto one side
-      b.cyl(2.2, 2.2, 13, grey, { y: 2.0, z: 6.5, rx: Math.PI / 2, rz: 0.18, seg: 14, mat: { roughness: 0.6, metalness: 0.3 } });
-      b.cone(2.2, 3.5, grey, { y: 2.0, z: 14.7, rx: Math.PI / 2, seg: 14, mat: { roughness: 0.6, metalness: 0.3 } });
-      b.box(2.6, 0.9, 2.2, P.glass, { y: 3.4, z: 12.2, rx: -0.3, mat: { roughness: 0.25, metalness: 0.4 } });
-      b.box(4.6, 0.4, 13, drab, { y: 3.9, z: 6.5, rz: 0.18 });
-      // Aft fuselage, separated and lying at an angle, with the tail fin
-      b.cyl(2.2, 1.6, 12, grey, { x: 1.6, y: 1.8, z: -7.5, rx: Math.PI / 2, ry: 0.22, rz: -0.35, seg: 14, mat: { roughness: 0.6, metalness: 0.3 } });
-      b.box(0.4, 4.2, 4.0, grey, { x: 0.4, y: 4.6, z: -12.4, rz: -0.35, ry: 0.22, mat: { roughness: 0.6, metalness: 0.3 } });
-      b.box(6, 0.3, 2.4, grey, { x: 1.2, y: 3.0, z: -12.6, ry: 0.22, mat: { roughness: 0.6, metalness: 0.3 } });
-      // Torn edges
-      b.cyl(2.25, 2.25, 0.6, dark, { y: 2.0, z: -0.2, rx: Math.PI / 2, rz: 0.18, seg: 14, mat: { roughness: 1 } });
-      b.cyl(2.25, 2.25, 0.6, dark, { x: 1.3, y: 1.9, z: -1.7, rx: Math.PI / 2, ry: 0.22, seg: 14, mat: { roughness: 1 } });
-      // Attached wing with two engines, and the other wing torn off nearby
-      b.box(17, 0.5, 4.2, grey, { x: -9.5, y: 2.6, z: 5.5, rz: 0.1, ry: 0.15, mat: { roughness: 0.6, metalness: 0.3 } });
-      for (const ex of [-6, -12]) b.cyl(1.0, 1.0, 3.6, dark, { x: ex, y: 1.6, z: 6.8, rx: Math.PI / 2, seg: 10, mat: { roughness: 0.7, metalness: 0.3 } });
-      b.box(14, 0.5, 4.0, grey, { x: 13, y: 0.6, z: -3, ry: 0.9, rz: 0.08, mat: { roughness: 0.6, metalness: 0.3 } });
-      b.cyl(1.0, 1.0, 3.6, dark, { x: 9, y: 0.9, z: 9, rx: Math.PI / 2 + 0.4, seg: 10, mat: { roughness: 0.7, metalness: 0.3 } });
-      // Spilled cargo and debris
-      for (let i = 0; i < 8; i++) {
-        const a = i * 1.3;
-        b.box(1.4, 1.2, 1.2, i % 2 ? P.olive : P.oliveDark, { x: -4 + Math.cos(a) * 6 + i, y: 0.6, z: -8 + Math.sin(a) * 5 - i * 0.8, ry: a });
+      // A four-engine transport that came down hard on the ice. Tapered
+      // fuselage broken behind the wing, one wing still on with drooped
+      // nacelles and bent props, the other torn off and flipped, T-tail
+      // leaning, cargo ramp hanging open, and a skid trench behind it all.
+      const skin = 0xb3b9bd;
+      const belly = 0x8b9297;
+      const torn = 0x2b2d2c;
+      const stripe = 0x4a5a48;
+      const snow = 0xf1f5f7;
+      const metalOpts = { roughness: 0.55, metalness: 0.35 };
+      const wingPlan = (root: number, tip: number, span: number, thick: number) => {
+        // Planform in the XZ plane, extruded through Y for thickness; +X is outboard.
+        const shape = new THREE.Shape();
+        shape.moveTo(0, -root / 2);
+        shape.lineTo(span, -tip / 2 - 0.6);
+        shape.lineTo(span, tip / 2 - 0.6);
+        shape.lineTo(0, root / 2);
+        shape.closePath();
+        const g = new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false });
+        g.rotateX(Math.PI / 2);
+        return g;
+      };
+      const fin = (rootChord: number, tipChord: number, height: number, thick: number) => {
+        const shape = new THREE.Shape();
+        shape.moveTo(-rootChord / 2, 0);
+        shape.lineTo(rootChord / 2, 0);
+        shape.lineTo(tipChord / 2 - 1.2, height);
+        shape.lineTo(-tipChord / 2 - 1.2, height);
+        shape.closePath();
+        return new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false });
+      };
+
+      // Skid trench: the ground torn open, with berms of thrown snow either side
+      b.box(7, 0.2, 52, 0x6b7176, { y: 0.02, z: -20, ry: 0.05, mat: { roughness: 1 } });
+      for (let i = 0; i < 9; i++) {
+        for (const side of [-1, 1]) b.box(2.2 + (i % 3) * 0.6, 0.7 + (i % 2) * 0.3, 5, snow, { x: side * (4.4 + (i % 2) * 0.5), y: 0.3, z: -42 + i * 5.2, ry: side * 0.15, mat: { roughness: 1, flat: true } });
       }
-      for (let i = 0; i < 6; i++) b.box(1.5 + (i % 3) * 0.6, 0.15, 0.9, dark, { x: 2 + Math.cos(i * 2.1) * 9, y: 0.08, z: -14 - i * 2.2, ry: i * 0.7 });
-      // A scorched patch where an engine burned
-      b.cyl(3.5, 3.5, 0.06, 0x24241f, { x: -12, y: 0.05, z: 6.5, seg: 12, mat: { roughness: 1 } });
+      // Snow thrown up against the nose where it stopped
+      b.box(6, 1.2, 3, snow, { y: 0.5, z: 17.5, mat: { roughness: 1, flat: true } });
+
+      // Forward fuselage: barrel, tapered nose with radome, cockpit glazing, cheek windows
+      const roll = 0.16;
+      b.cyl(2.3, 2.3, 13, skin, { y: 2.2, z: 5.5, rx: Math.PI / 2, rz: roll, seg: 18, mat: metalOpts });
+      b.cyl(2.3, 2.3, 13.2, belly, { y: 2.15, z: 5.5, rx: Math.PI / 2, rz: roll, seg: 18, s: [1, 1, 0.999], mat: metalOpts });
+      b.cyl(1.1, 2.3, 4.2, skin, { y: 2.45, z: 14.1, rx: Math.PI / 2, seg: 18, mat: metalOpts });
+      b.sphere(1.1, torn, { y: 2.6, z: 16.2, mat: { roughness: 0.8 } });
+      b.box(2.6, 0.9, 2.0, P.glass, { y: 3.85, z: 13.0, rx: -0.35, mat: { roughness: 0.25, metalness: 0.4 } });
+      b.box(0.3, 0.9, 1.6, P.glass, { x: 1.35, y: 3.5, z: 12.6, mat: { roughness: 0.25, metalness: 0.4 } });
+      b.box(0.3, 0.9, 1.6, P.glass, { x: -1.35, y: 3.5, z: 12.6, mat: { roughness: 0.25, metalness: 0.4 } });
+      // Cheat line and a door
+      b.box(4.75, 0.5, 12.6, stripe, { y: 2.9, z: 5.5, rz: roll, s: [1, 1, 1], mat: metalOpts });
+      b.box(0.1, 1.9, 1.2, torn, { x: 2.33, y: 2.4, z: 9.0 });
+      // Wing box and the high wing, port side still attached and drooped to the ice
+      b.box(5.4, 1.3, 6.2, skin, { y: 4.1, z: 3.0, mat: metalOpts });
+      b.add(wingPlan(5.6, 2.2, 17, 0.6), skin, { x: -1.5, y: 4.2, z: 3.0, ry: Math.PI, rz: -0.14, mat: metalOpts });
+      b.add(wingPlan(5.6, 2.2, 17, 0.6), belly, { x: -1.5, y: 4.15, z: 3.0, ry: Math.PI, rz: -0.14, mat: metalOpts });
+      // Two nacelles on the port wing with bent propeller blades
+      for (const [ox, oy] of [
+        [-6.5, 3.6],
+        [-12.0, 2.85],
+      ] as [number, number][]) {
+        b.cyl(0.78, 0.9, 4.2, skin, { x: ox, y: oy, z: 4.4, rx: Math.PI / 2, seg: 12, mat: metalOpts });
+        b.cone(0.55, 0.9, torn, { x: ox, y: oy, z: 6.9, rx: Math.PI / 2, seg: 10 });
+        for (let k = 0; k < 4; k++) {
+          const a = (k / 4) * Math.PI * 2 + 0.4;
+          const bend = k % 2 ? 0.7 : -0.4;
+          b.box(0.28, 2.3, 0.08, torn, { x: ox + Math.sin(a) * 1.1, y: oy + Math.cos(a) * 1.1, z: 7.2, rz: -a + bend, rx: k % 2 ? 0.6 : -0.3 });
+        }
+      }
+      // Starboard wing torn off at the root: a jagged stub, then the wing itself flipped 14 m away
+      b.box(3.2, 0.6, 4.8, torn, { x: 3.6, y: 4.1, z: 3.0, ry: 0.12 });
+      b.add(wingPlan(5.2, 2.2, 15, 0.6), belly, { x: 9, y: 0.45, z: -6, ry: 0.55, rz: 0.06, mat: metalOpts });
+      b.add(wingPlan(5.2, 2.2, 15, 0.6), skin, { x: 9, y: 0.4, z: -6, ry: 0.55, rz: 0.06, mat: metalOpts });
+      b.cyl(0.78, 0.9, 4.0, skin, { x: 14.5, y: 1.3, z: -4.2, rx: Math.PI / 2 + 0.5, ry: 0.55, seg: 12, mat: metalOpts });
+      for (let k = 0; k < 4; k++) b.box(0.28, 2.2, 0.08, torn, { x: 16.2 + Math.sin(k) * 0.6, y: 1.2 + Math.cos(k * 1.6) * 0.9, z: -1.6, rz: k * 1.6 + 0.3, ry: 0.55 });
+      // One engine ripped clear and rolling by itself
+      b.cyl(0.78, 0.9, 4.0, skin, { x: 5.5, y: 0.85, z: -16, rz: Math.PI / 2, ry: 0.3, seg: 12, mat: metalOpts });
+
+      // The break: exposed frames and dark interiors on both torn faces
+      b.cyl(2.32, 2.32, 0.4, torn, { y: 2.2, z: -1.1, rx: Math.PI / 2, rz: roll, seg: 18, mat: { roughness: 1 } });
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * Math.PI * 1.6 - 0.3;
+        b.box(0.18, 0.18, 1.6 + (k % 3) * 0.5, torn, { x: Math.cos(a) * 2.25, y: 2.2 + Math.sin(a) * 2.25, z: -1.9, rx: 0.2 * (k % 3) });
+      }
+      // Aft fuselage: tapered, thrown off line, up-swept with the cargo ramp hanging
+      const aft = { x: 1.9, z: -8.6, ry: 0.28, rz: -0.32 };
+      b.cyl(1.6, 2.3, 11, skin, { x: aft.x, y: 2.05, z: aft.z, rx: Math.PI / 2 + 0.06, ry: aft.ry, rz: aft.rz, seg: 18, mat: metalOpts });
+      b.cyl(1.6, 2.3, 11.1, belly, { x: aft.x, y: 2.0, z: aft.z, rx: Math.PI / 2 + 0.06, ry: aft.ry, rz: aft.rz, seg: 18, s: [1, 1, 0.999], mat: metalOpts });
+      b.cyl(2.32, 2.32, 0.4, torn, { x: aft.x - Math.sin(aft.ry) * 5.5, y: 2.05, z: aft.z + Math.cos(aft.ry) * 5.5, rx: Math.PI / 2, ry: aft.ry, seg: 18, mat: { roughness: 1 } });
+      b.box(3.2, 0.3, 4.4, belly, { x: aft.x + Math.sin(aft.ry) * 6.6, y: 0.9, z: aft.z - Math.cos(aft.ry) * 6.6, rx: 0.9, ry: aft.ry, mat: metalOpts });
+      // T-tail: fin extruded and leaning, tailplane across the top
+      b.add(fin(4.6, 2.6, 5.8, 0.5), skin, { x: aft.x + Math.sin(aft.ry) * 5.2, y: 3.0, z: aft.z - Math.cos(aft.ry) * 5.2, ry: aft.ry + Math.PI / 2, rz: -0.28, mat: metalOpts });
+      b.add(fin(3.0, 1.6, 5.2, 0.4), skin, { x: aft.x + Math.sin(aft.ry) * 6.8, y: 8.4, z: aft.z - Math.cos(aft.ry) * 6.8, ry: aft.ry, rx: -Math.PI / 2 + 0.1, rz: -0.28, order: "YXZ", mat: metalOpts });
+      b.add(fin(3.0, 1.6, 5.2, 0.4), skin, { x: aft.x + Math.sin(aft.ry) * 6.8, y: 8.4, z: aft.z - Math.cos(aft.ry) * 6.8, ry: aft.ry + Math.PI, rx: -Math.PI / 2 + 0.1, rz: 0.28, order: "YXZ", mat: metalOpts });
+
+      // Spilled cargo: pallets, drums, crates and a torn cargo net, plus a scorched patch
+      for (let i = 0; i < 6; i++) {
+        const a = i * 1.1;
+        b.box(1.6, 1.1, 1.3, i % 2 ? P.olive : P.oliveDark, { x: -3 + Math.cos(a) * 7 + i * 0.8, y: 0.55, z: -12 + Math.sin(a) * 5 - i, ry: a });
+      }
+      for (let i = 0; i < 5; i++) b.cyl(0.5, 0.5, 1.2, i % 2 ? P.hazard : P.rust, { x: 4 + Math.cos(i * 2.3) * 5, y: 0.5, z: -20 - i * 1.6, rx: Math.PI / 2, ry: i * 0.9, seg: 10 });
+      for (let i = 0; i < 6; i++) b.box(1.5 + (i % 3) * 0.6, 0.12, 1.0, torn, { x: 2 + Math.cos(i * 2.1) * 9, y: 0.07, z: -24 - i * 2.4, ry: i * 0.7 });
+      b.cyl(3.6, 3.6, 0.06, 0x24241f, { x: -11.5, y: 0.05, z: 4.6, seg: 14, mat: { roughness: 1 } });
+      b.cyl(2.2, 2.2, 0.06, 0x24241f, { x: 5.5, y: 0.05, z: -16, seg: 12, mat: { roughness: 1 } });
       break;
     }
     case "ruin": {

@@ -53,6 +53,7 @@ export class Mission {
     const def = this.def(id);
     if (def) {
       this.world.message(def.doneMessage);
+      this.world.showBanner(def.kind === "returnToLZ" ? "MISSION COMPLETE" : "OBJECTIVE COMPLETE", def.text);
       if (def.effect === "radarDown") this.radarDown = true;
       if (def.effect === "blackout") this.world.blackout();
     }

@@ -491,6 +491,7 @@ export class Game {
       winchProgress: heli.winchProgress,
       winchLabel: world.winchLabel,
       incoming: world.incomingMissile(),
+      banner: world.banner && world.time < world.banner.until ? { title: world.banner.title, text: world.banner.text } : null,
       lowFuel: heli.fuel < 22,
       lowArmor: heli.hp < heli.maxHp * 0.25,
       heli: { x: heli.pos.x, z: heli.pos.z, heading: heli.heading },

@@ -62,6 +62,8 @@ export class World {
   lives = balance.heli.lives;
   shakeAmount = 0;
   winchLabel = "";
+  /** Centre-screen notice, shown until `until` in world time. */
+  banner: { title: string; text: string; until: number } | null = null;
   messages: { id: number; text: string; time: number }[] = [];
   private messageId = 0;
   private pendingAdd: Entity[] = [];
@@ -376,6 +378,10 @@ export class World {
     if (this.messages.length > 6) this.messages.shift();
     this.events.emit("message", { text });
     this.audio.play("message");
+  }
+
+  showBanner(title: string, text: string, seconds = 4): void {
+    this.banner = { title, text, until: this.time + seconds };
   }
 
   setWinchLabel(label: string): void {

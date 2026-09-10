@@ -85,6 +85,8 @@ export interface Snapshot {
   winchProgress: number;
   winchLabel: string;
   incoming: boolean;
+  /** Objective banner in the middle of the screen, or null. */
+  banner: { title: string; text: string } | null;
   lowFuel: boolean;
   lowArmor: boolean;
   heli: { x: number; z: number; heading: number };
@@ -128,6 +130,7 @@ export const initialSnapshot: Snapshot = {
   winchProgress: 0,
   winchLabel: "",
   incoming: false,
+  banner: null,
   lowFuel: false,
   lowArmor: false,
   heli: { x: 0, z: 0, heading: 0 },

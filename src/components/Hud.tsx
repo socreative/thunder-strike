@@ -143,6 +143,12 @@ export default function Hud({ snap, overview, touch }: { snap: Snapshot; overvie
 
       <div className="hud-center">
         {snap.incoming && <div className="alert incoming">MISSILE INCOMING</div>}
+        {snap.banner && (
+          <div className="alert objective" key={snap.banner.text}>
+            {snap.banner.title}
+            <span className="alert-sub">{snap.banner.text}</span>
+          </div>
+        )}
         {snap.lowFuel && !snap.incoming && <div className="alert fuel">FUEL LOW</div>}
         {snap.winchLabel && (
           <div className="winch">

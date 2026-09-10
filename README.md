@@ -13,6 +13,8 @@ npm run dev
 
 Open http://localhost:3000. Add `?webgl=1` to force the WebGL 2 backend, `?nopost=1` to disable bloom.
 
+Aim assist is on by default: chain gun and Hydra rounds bend up to about eight degrees toward the nearest enemy in a narrow cone ahead, so you still have to point at the target but need not be exact. Turn it off in the pause menu; the choice is remembered by the browser.
+
 ### On a phone
 
 Open the deployed site in Safari, then Share, Add to Home Screen. Launched from the icon it runs without browser chrome; hold the phone in landscape. A stick appears wherever your left thumb lands and the aircraft flies toward wherever it points; let go to slow down. FIRE, FLARES and two strafe buttons sit under the right thumb, tapping a weapon in the list selects it, pinching zooms the camera, and the pause button is at the top. Touch controls switch on automatically for coarse pointers; `?touch=1` forces them on a desktop for layout work and `?touch=0` forces them off.

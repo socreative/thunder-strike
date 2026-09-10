@@ -146,6 +146,9 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
             <button className="btn" onClick={() => game?.toggleMute()}>
               {snap.muted ? "UNMUTE" : "MUTE"}
             </button>
+            <button className="btn" onClick={() => game?.setAimAssist(!snap.aimAssist)}>
+              AIM ASSIST: {snap.aimAssist ? "ON" : "OFF"}
+            </button>
             <button className="btn primary" onClick={() => game?.togglePause()}>
               RESUME
             </button>

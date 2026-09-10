@@ -100,6 +100,8 @@ export interface Snapshot {
   stats: MissionStats;
   volume: number;
   musicVolume: number;
+  /** Rounds bend a little toward the nearest target in front. */
+  aimAssist: boolean;
   muted: boolean;
   audioReady: boolean;
   fps: number;
@@ -145,6 +147,7 @@ export const initialSnapshot: Snapshot = {
   radarDown: false,
   stats: { kills: 0, rescued: 0, shotsFired: 0, damageTaken: 0, livesLost: 0, elapsed: 0 },
   volume: 0.7,
+  aimAssist: true,
   musicVolume: 0.55,
   muted: false,
   audioReady: false,
@@ -174,4 +177,9 @@ export class Store {
       this.listeners.delete(listener);
     };
   };
+}
+
+/** Player preferences the simulation reads live. Owned by Game, shared with World. */
+export interface GameSettings {
+  aimAssist: boolean;
 }

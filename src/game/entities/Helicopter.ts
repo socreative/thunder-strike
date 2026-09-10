@@ -332,6 +332,7 @@ export class Helicopter extends Entity {
       this.gunSide = -this.gunSide;
       tmpMuzzle.copy(this.pos).addScaledVector(tmpForward, 5.5).add(new THREE.Vector3(0, -1.4, 0));
       tmpDir.copy(tmpForward);
+      this.assistAim(tmpDir, 0.14);
       tmpDir.y = -0.12; // gentle drop; anything under the round's path is hit
       tmpDir.x += (Math.random() - 0.5) * spec.spread;
       tmpDir.z += (Math.random() - 0.5) * spec.spread;
@@ -343,6 +344,7 @@ export class Helicopter extends Entity {
       this.hydraSide = -this.hydraSide;
       tmpMuzzle.copy(this.pos).addScaledVector(tmpRight, this.hydraSide * 3).addScaledVector(tmpForward, 2).add(new THREE.Vector3(0, -1, 0));
       tmpDir.copy(tmpForward);
+      this.assistAim(tmpDir, 0.1);
       tmpDir.y = -0.12;
       tmpDir.x += (Math.random() - 0.5) * spec.spread;
       tmpDir.z += (Math.random() - 0.5) * spec.spread;
@@ -387,6 +389,47 @@ export class Helicopter extends Entity {
     }
     world.decoyMissiles(flares);
     world.audio.play("flare");
+  }
+
+  /**
+   * Aim assist for unguided rounds. The nearest enemy inside a narrow cone
+   * ahead pulls the shot toward itself, but only by up to `maxTurn` radians,
+   * so the player still has to be pointing roughly the right way. Off when the
+   * setting is off. Horizontal only: the arcade rule already hits anything
+   * under the round's path.
+   */
+  private assistAim(dir: THREE.Vector3, maxTurn: number): void {
+    const world = this.world;
+    if (!world.settings.aimAssist) return;
+    const range = 150;
+    world.grid.query(this.pos.x, this.pos.z, range, nearby, (e) => e.team === "enemy" && e.targetable && e.kind !== "projectile");
+    let best: Entity | null = null;
+    let bestScore = Infinity;
+    const cone = Math.cos(0.42); // about 24 degrees either side
+    for (const e of nearby) {
+      const dx = e.pos.x - this.pos.x;
+      const dz = e.pos.z - this.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 6) continue;
+      const cos = (dx * dir.x + dz * dir.z) / d;
+      if (cos < cone) continue;
+      // Angular error dominates, distance breaks ties toward the nearer target.
+      const score = (1 - cos) * 400 + d * 0.15;
+      if (score < bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+    if (!best) return;
+    const want = Math.atan2(best.pos.x - this.pos.x, best.pos.z - this.pos.z);
+    const have = Math.atan2(dir.x, dir.z);
+    let delta = want - have;
+    delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+    const turn = Math.max(-maxTurn, Math.min(maxTurn, delta));
+    const a = have + turn;
+    const len = Math.hypot(dir.x, dir.z);
+    dir.x = Math.sin(a) * len;
+    dir.z = Math.cos(a) * len;
   }
 
   /** Nearest enemy inside a forward cone for Hellfire guidance. */

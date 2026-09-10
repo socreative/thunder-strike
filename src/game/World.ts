@@ -4,7 +4,7 @@ import type { Input } from "./core/Input";
 import { Emitter } from "./core/Events";
 import { Random } from "./core/Random";
 import { SpatialGrid } from "./core/SpatialGrid";
-import type { MissionStats } from "./core/Store";
+import type { GameSettings, MissionStats } from "./core/Store";
 import { balance } from "./data/balance";
 import type { MissionData, Spawn } from "./data/mission";
 import { Entity, type Team } from "./entities/Entity";
@@ -97,6 +97,7 @@ export class World {
     readonly input: Input,
     readonly assets: Assets,
     readonly audio: Audio,
+    readonly settings: GameSettings = { aimAssist: true },
   ) {
     const theme = data.theme;
     this.scene = new THREE.Scene();

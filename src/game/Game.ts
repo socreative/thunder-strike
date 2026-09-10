@@ -3,7 +3,7 @@ import { pass } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { Assets } from "./core/Assets";
 import { Input } from "./core/Input";
-import type { Blip, Screen, Store, WeaponId } from "./core/Store";
+import type { Blip, GameSettings, Screen, Store, WeaponId } from "./core/Store";
 import { balance } from "./data/balance";
 import type { MissionData } from "./data/mission";
 import { MISSIONS, missionById } from "./data/missions";
@@ -16,6 +16,23 @@ const zeroVel = new THREE.Vector3();
 const shadowCentre = new THREE.Vector3();
 const PUBLISH_HZ = 20;
 
+/* Small persisted preferences; storage can be missing or blocked, so every access is guarded. */
+function readSetting(key: string, fallback: boolean): boolean {
+  try {
+    const v = window.localStorage.getItem(`thunder-strike.${key}`);
+    return v === null ? fallback : v === "1";
+  } catch {
+    return fallback;
+  }
+}
+function writeSetting(key: string, value: boolean): void {
+  try {
+    window.localStorage.setItem(`thunder-strike.${key}`, value ? "1" : "0");
+  } catch {
+    /* private mode or storage disabled */
+  }
+}
+
 /** Owns the renderer, the loop and screen flow. Gameplay lives in World. */
 export class Game {
   private renderer!: THREE.WebGPURenderer;
@@ -24,6 +41,8 @@ export class Game {
   private readonly assets = new Assets();
   private world: World | null = null;
   private mission: MissionData = MISSIONS[0];
+  /** Preferences shared with the world; persisted in the browser. */
+  private readonly settings: GameSettings = { aimAssist: readSetting("aimAssist", true) };
   private missionCursor = 0;
   rig: CameraRig;
   private post: THREE.PostProcessing | null = null;
@@ -83,7 +102,7 @@ export class Game {
     window.addEventListener("resize", this.onResize);
     document.addEventListener("visibilitychange", this.onVisibility);
     this.setScreen("title");
-    this.store.set({ loadProgress: 1, mapSize: balance.map.size });
+    this.store.set({ loadProgress: 1, mapSize: balance.map.size, aimAssist: this.settings.aimAssist });
     this.last = performance.now();
     this.renderer.setAnimationLoop((t) => this.frame(t));
     if (process.env.NODE_ENV !== "production") {
@@ -112,7 +131,7 @@ export class Game {
       this.world.dispose();
       this.world = null;
     }
-    const world = new World(this.mission, this.input, this.assets, this.audio);
+    const world = new World(this.mission, this.input, this.assets, this.audio, this.settings);
     this.world = world;
     this.audio.setListener(world.heli.pos);
     this.rig.snapTo(world.heli.pos);
@@ -266,6 +285,12 @@ export class Game {
   setVolume(v: number): void {
     this.audio.setVolume(v);
     this.store.set({ volume: v });
+  }
+
+  setAimAssist(on: boolean): void {
+    this.settings.aimAssist = on;
+    writeSetting("aimAssist", on);
+    this.store.set({ aimAssist: on });
   }
 
   setMusicVolume(v: number): void {

@@ -203,12 +203,14 @@ export class Particles {
   }
 
   update(dt: number): void {
+    this.updateFragments(dt);
     this.smoke.update(dt);
     this.dust.update(dt);
     this.fire.update(dt);
   }
 
   clear(): void {
+    this.fragments.length = 0;
     this.smoke.clear();
     this.dust.clear();
     this.fire.clear();
@@ -222,70 +224,175 @@ export class Particles {
 
   /* Effect recipes */
 
+  /**
+   * Blast in layers: a flash and a ground shockwave ring, a boiling fireball
+   * of many small tongues that cool from white through orange to dark red, a
+   * buoyant column of dark smoke that greys as it climbs, glowing embers, and
+   * solid fragments that arc out on ballistic paths trailing smoke. Counts
+   * scale with `size`, which runs from about 1.4 for a rocket to 4.6 for a silo.
+   */
   explosion(p: THREE.Vector3, size: number): void {
-    const n = Math.round(6 + size * 4);
-    // flash
-    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.16, size: size * 6, sizeEnd: size * 9, color: 0xfff4d0, alpha: 1 });
-    for (let i = 0; i < n; i++) {
+    const s = size;
+    // Flash: a hot white core that swells and dies within a few frames.
+    this.fire.spawn({ x: p.x, y: p.y + s * 0.4, z: p.z, life: 0.14, size: s * 5, sizeEnd: s * 9, color: 0xfff6dc, alpha: 1 });
+    this.fire.spawn({ x: p.x, y: p.y + s * 0.6, z: p.z, life: 0.3, size: s * 3, sizeEnd: s * 6, color: 0xffc070, colorEnd: 0xff5a20, alpha: 0.7 });
+
+    // Fireball: many small tongues, dense at the core, boiling upward and out.
+    const fireN = Math.round(16 + s * 12);
+    for (let i = 0; i < fireN; i++) {
       const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * size * 1.5;
-      const up = 4 + Math.random() * 6 * size;
+      const el = Math.random() * Math.PI * 0.5;
+      const sp = (3 + Math.random() * 7) * s * 0.7;
+      const hot = Math.random();
       this.fire.spawn({
-        x: p.x + Math.cos(a) * r * 0.4,
-        y: p.y + Math.random() * size,
-        z: p.z + Math.sin(a) * r * 0.4,
-        vx: Math.cos(a) * r * 2,
-        vy: up,
-        vz: Math.sin(a) * r * 2,
-        life: 0.35 + Math.random() * 0.4,
-        size: size * (1.6 + Math.random()),
-        sizeEnd: size * 0.4,
-        color: 0xffc860,
-        colorEnd: 0xff3a10,
-        alpha: 0.9,
-        drag: 3,
+        x: p.x + Math.cos(a) * Math.random() * s * 0.5,
+        y: p.y + Math.random() * s * 0.6,
+        z: p.z + Math.sin(a) * Math.random() * s * 0.5,
+        vx: Math.cos(a) * Math.cos(el) * sp,
+        vy: Math.sin(el) * sp + 3 + Math.random() * 4 * s * 0.5,
+        vz: Math.sin(a) * Math.cos(el) * sp,
+        life: 0.35 + Math.random() * 0.55,
+        size: s * (0.6 + Math.random() * 0.9),
+        sizeEnd: s * (1.2 + Math.random() * 0.8),
+        color: hot > 0.6 ? 0xfff0c0 : 0xffb050,
+        colorEnd: hot > 0.6 ? 0xff7020 : 0x7a1a08,
+        alpha: 0.95,
+        drag: 2.6,
+        gravity: -6,
       });
     }
-    const smokeN = Math.round(5 + size * 3);
+
+    // Shockwave: a ring of ground dust racing outward and settling.
+    const ringN = Math.round(14 + s * 10);
+    for (let i = 0; i < ringN; i++) {
+      const a = (i / ringN) * Math.PI * 2 + Math.random() * 0.3;
+      const sp = (10 + Math.random() * 8) * (0.8 + s * 0.25);
+      this.dust.spawn({
+        x: p.x + Math.cos(a) * s * 0.8,
+        y: p.y + 0.3 + Math.random() * 0.6,
+        z: p.z + Math.sin(a) * s * 0.8,
+        vx: Math.cos(a) * sp,
+        vy: 1.5 + Math.random() * 2,
+        vz: Math.sin(a) * sp,
+        life: 0.9 + Math.random() * 0.7,
+        size: s * 0.6,
+        sizeEnd: s * (2.6 + Math.random()),
+        color: this.dustStart,
+        colorEnd: this.dustEnd,
+        alpha: 0.5,
+        drag: 3.2,
+        gravity: 2,
+      });
+    }
+
+    // Smoke column: dark, buoyant, long-lived, thinning to grey as it rises.
+    const smokeN = Math.round(10 + s * 7);
     for (let i = 0; i < smokeN; i++) {
       const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * size;
+      const r = Math.random() * s * 0.9;
+      const late = Math.random();
       this.smoke.spawn({
         x: p.x + Math.cos(a) * r,
-        y: p.y + Math.random() * size * 0.5,
+        y: p.y + Math.random() * s * 0.8,
         z: p.z + Math.sin(a) * r,
-        vx: Math.cos(a) * r * 1.2,
-        vy: 4 + Math.random() * 5,
-        vz: Math.sin(a) * r * 1.2,
-        life: 1.4 + Math.random() * 1.6 * size * 0.5,
-        size: size * 1.8,
-        sizeEnd: size * 4.5,
-        color: 0x3a3632,
-        colorEnd: 0x6e6a66,
-        alpha: 0.75,
-        drag: 1.5,
-        gravity: -1.2,
+        vx: Math.cos(a) * r * 1.5 + (Math.random() - 0.5) * 2,
+        vy: 3 + Math.random() * 4 + late * 3,
+        vz: Math.sin(a) * r * 1.5 + (Math.random() - 0.5) * 2,
+        life: 2.4 + Math.random() * 2.6 + s * 0.5,
+        size: s * (0.9 + Math.random() * 0.6),
+        sizeEnd: s * (3.4 + Math.random() * 1.6),
+        color: late > 0.5 ? 0x2a2622 : 0x3d3630,
+        colorEnd: 0x7d7975,
+        alpha: 0.7,
+        drag: 1.4,
+        gravity: -2.2,
       });
     }
-    // debris sparks
-    for (let i = 0; i < n; i++) {
+
+    // Embers: glowing specks thrown high that fall and fade.
+    const emberN = Math.round(10 + s * 8);
+    for (let i = 0; i < emberN; i++) {
       const a = Math.random() * Math.PI * 2;
-      const sp = 8 + Math.random() * 16 * size * 0.6;
+      const sp = 6 + Math.random() * 14 * s * 0.6;
       this.fire.spawn({
         x: p.x,
         y: p.y + 0.5,
         z: p.z,
         vx: Math.cos(a) * sp,
-        vy: 6 + Math.random() * 14,
+        vy: 8 + Math.random() * 16,
         vz: Math.sin(a) * sp,
-        life: 0.6 + Math.random() * 0.6,
-        size: 0.5,
-        sizeEnd: 0.15,
+        life: 0.7 + Math.random() * 0.9,
+        size: 0.45,
+        sizeEnd: 0.12,
         color: 0xffd080,
-        colorEnd: 0xff5020,
-        gravity: 25,
-        drag: 0.6,
+        colorEnd: 0xff4010,
+        gravity: 24,
+        drag: 0.5,
       });
+    }
+
+    // Fragments: solid debris on ballistic arcs, each trailing smoke.
+    const fragN = Math.min(Math.round(4 + s * 3), 40);
+    for (let i = 0; i < fragN; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const el = 0.5 + Math.random() * 0.9;
+      const sp = (12 + Math.random() * 14) * (0.7 + s * 0.2);
+      this.fragments.push({
+        x: p.x,
+        y: p.y + 0.6,
+        z: p.z,
+        vx: Math.cos(a) * Math.cos(el) * sp,
+        vy: Math.sin(el) * sp,
+        vz: Math.sin(a) * Math.cos(el) * sp,
+        life: 1.2 + Math.random() * 1.4,
+        size: 0.25 + Math.random() * 0.35 * s * 0.4,
+        trail: 0,
+      });
+    }
+  }
+
+  /** Debris fragments in flight. Simulated here so each can leave a smoke trail. */
+  private fragments: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; size: number; trail: number }[] = [];
+
+  private updateFragments(dt: number): void {
+    const list = this.fragments;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const f = list[i];
+      f.life -= dt;
+      if (f.life <= 0) {
+        list.splice(i, 1);
+        continue;
+      }
+      f.vy -= 22 * dt;
+      const drag = Math.max(0, 1 - 0.35 * dt);
+      f.vx *= drag;
+      f.vz *= drag;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      f.z += f.vz * dt;
+      // The fragment itself: a dark speck redrawn each frame.
+      this.dust.spawn({ x: f.x, y: f.y, z: f.z, life: 0.08, size: f.size, sizeEnd: f.size, color: 0x1e1c1a, alpha: 0.95 });
+      // Its smoke trail, thin and short-lived so it reads as a streak.
+      f.trail -= dt;
+      if (f.trail <= 0) {
+        // Dense enough that consecutive puffs overlap at the fragment's speed.
+        f.trail = 0.014;
+        this.smoke.spawn({
+          x: f.x,
+          y: f.y,
+          z: f.z,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: 0.6,
+          vz: (Math.random() - 0.5) * 0.6,
+          life: 0.8 + Math.random() * 0.5,
+          size: f.size * 2.2,
+          sizeEnd: f.size * 4,
+          color: 0x5a5652,
+          colorEnd: 0x8c8884,
+          alpha: 0.55,
+          drag: 2,
+        });
+      }
     }
   }
 

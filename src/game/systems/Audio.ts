@@ -35,6 +35,10 @@ export class Audio {
   private rotorGain!: GainNode;
   private rotorLfo!: OscillatorNode;
   private rotorHum!: OscillatorNode;
+  /** Synth bed and recorded loop each feed rotorGain through their own fader. */
+  private rotorSynthMix!: GainNode;
+  private rotorSampleMix!: GainNode;
+  private rotorSample: AudioBufferSourceNode | null = null;
   private noiseBuffer!: AudioBuffer;
   private listener: THREE.Vector3 | null = null;
   private lastPlay = new Map<Sfx, number>();
@@ -115,12 +119,48 @@ export class Audio {
     humGain.gain.value = 0.25;
     this.rotorGain = ctx.createGain();
     this.rotorGain.gain.value = 0;
-    src.connect(bp).connect(chop).connect(this.rotorGain);
-    this.rotorHum.connect(humLp).connect(humGain).connect(this.rotorGain);
+    this.rotorSynthMix = ctx.createGain();
+    this.rotorSynthMix.gain.value = 1;
+    this.rotorSampleMix = ctx.createGain();
+    this.rotorSampleMix.gain.value = 0;
+    src.connect(bp).connect(chop).connect(this.rotorSynthMix);
+    this.rotorHum.connect(humLp).connect(humGain).connect(this.rotorSynthMix);
+    this.rotorSynthMix.connect(this.rotorGain);
+    this.rotorSampleMix.connect(this.rotorGain);
     this.rotorGain.connect(this.master);
     src.start();
     this.rotorLfo.start();
     this.rotorHum.start();
+    void this.loadRotorSample();
+  }
+
+  /**
+   * A recorded rotor loop takes over from the synth bed once it has decoded.
+   * The synth keeps running underneath at zero gain so a failed fetch just
+   * leaves the original sound in place.
+   */
+  private async loadRotorSample(): Promise<void> {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const probe = document.createElement("audio");
+    const ext = probe.canPlayType('audio/webm; codecs="opus"') ? "webm" : "mp3";
+    try {
+      const res = await fetch(`/sfx/rotor.${ext}`);
+      if (!res.ok) throw new Error(`${res.status}`);
+      const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+      if (this.ctx !== ctx) return;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(this.rotorSampleMix);
+      src.start();
+      this.rotorSample = src;
+      const t = ctx.currentTime;
+      this.rotorSampleMix.gain.setTargetAtTime(1, t, 0.4);
+      this.rotorSynthMix.gain.setTargetAtTime(0, t, 0.4);
+    } catch (err) {
+      console.warn("[audio] rotor sample unavailable, keeping the synth", err);
+    }
   }
 
   setListener(pos: THREE.Vector3): void {
@@ -131,7 +171,7 @@ export class Audio {
   setRotor(on: boolean, throttle: number): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const target = on ? 0.28 + throttle * 0.14 : 0;
+    const target = on ? 0.3 + throttle * 0.15 : 0;
     if (on !== this.rotorOn) {
       this.rotorGain.gain.cancelScheduledValues(t);
       this.rotorGain.gain.setTargetAtTime(target, t, on ? 0.6 : 0.25);
@@ -141,6 +181,8 @@ export class Audio {
     }
     this.rotorLfo.frequency.setTargetAtTime(12.5 + throttle * 4, t, 0.4);
     this.rotorHum.frequency.setTargetAtTime(50 + throttle * 10, t, 0.4);
+    // The recording spins up with the throttle: a little faster and higher under power.
+    this.rotorSample?.playbackRate.setTargetAtTime(0.9 + throttle * 0.22, t, 0.5);
   }
 
   setVolume(v: number): void {

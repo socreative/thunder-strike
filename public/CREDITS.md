@@ -34,7 +34,7 @@ Quaternius models are CC0 (public domain).
 
 ## Sound
 
-All sound effects are synthesised at runtime with the Web Audio API.
+Helicopter rotor loop cut from a recording by freesound_community (Pixabay Content License). All other sound effects are synthesised at runtime with the Web Audio API.
 
 ## Artwork
 

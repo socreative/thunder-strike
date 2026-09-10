@@ -464,7 +464,7 @@ export class Helicopter extends Entity {
     s = (hubY - g) / -tmpSunDir.y;
     gx = this.pos.x + tmpSunDir.x * s;
     gz = this.pos.z + tmpSunDir.z * s;
-    decal.position.set(gx, g + 0.12, gz);
+    decal.position.set(gx, g + 0.4, gz);
     world.terrain.normalAt(gx, gz, tmpNormal);
     if (g <= 0.01) tmpNormal.set(0, 1, 0);
     decal.quaternion.setFromUnitVectors(Z_AXIS, tmpNormal);

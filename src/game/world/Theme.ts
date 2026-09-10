@@ -36,6 +36,10 @@ export interface WaterPalette {
   scale: number;
   /** Colour of the bottom showing through the shallows. */
   bed?: number;
+  /** Strength of the open-water swell; rivers want almost none. */
+  swell?: number;
+  /** Strength of the shore-following rollers and their surf. */
+  shore?: number;
 }
 
 export interface OverviewPalette {
@@ -120,7 +124,7 @@ export const jungleTheme: Theme = {
   ground: { light: 0x5d8a3c, dark: 0x3a5f2c, rockA: 0x5f5a4a, rockB: 0x3b3a30, wet: 0x5a4d35, underwater: 0x3d5541, ripple: 0 },
   fog: { color: 0xb7c9b0, near: 220, far: 760 },
   sky: { horizon: 0xd6dfcf, zenith: 0x7f9fb8, haze: 0xe4e9dc, sun: 0xfff6e2, hemiSky: 0xaebfcf, hemiGround: 0x3d5a2e },
-  water: { deep: 0x2f4a3a, shallow: 0x4f7a5a, foam: 0xb9c9b0, foamAmount: 0.25, scale: 2, bed: 0x6d6a4a },
+  water: { deep: 0x2f4a3a, shallow: 0x4f7a5a, foam: 0xb9c9b0, foamAmount: 0.25, scale: 2, bed: 0x6d6a4a, swell: 0.15, shore: 0.3 },
   overview: { water: [24, 64, 58], shallow: [52, 104, 88], landLow: [44, 80, 38], landHigh: [104, 124, 64], bank: [138, 128, 92] },
   dust: { start: 0x8a7a55, end: 0x6b6a4a },
   wash: "leaves",

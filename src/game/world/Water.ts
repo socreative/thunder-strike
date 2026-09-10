@@ -39,21 +39,36 @@ export function createWater(size: number, pal: WaterPalette, heights: THREE.Data
   const groundAt = (xz: Node<"vec2">) => texture(heights, xz.div(mapSize).add(0.5)).r.mul(40).sub(20);
   const sum = (parts: Node<"float">[]) => parts.reduce((a, b) => a.add(b));
 
-  /* Vertex stage: Gerstner displacement, damped as the water shoals. */
+  /*
+   * Two wave systems. Open-water swell is the Gerstner sum, alive only where
+   * the water is deep. Near the shore, waves are driven by depth itself: the
+   * phase is the depth, so every crest is an iso-depth contour, parallel to
+   * whatever shoreline it is approaching, and rolls landward as time runs.
+   * That is what refraction does to real swell, at a fraction of the cost.
+   */
+  const swellStrength = pal.swell ?? 1;
+  const SHORE_K = (2 * Math.PI) / 14;
+  const SHORE_W = 1.15;
+  const SHORE_AMP = 0.34;
+  const deepWeight = (d: Node<"float">) => smoothstep(1.5, 7, d).mul(swellStrength);
+  const shoreStrength = pal.shore ?? 1;
+  const shoreWeight = (d: Node<"float">) => smoothstep(0.25, 1.6, d).mul(smoothstep(9, 3.5, d)).mul(shoreStrength);
+
+  /* Vertex stage. */
   const lxz = positionLocal.xz;
   const vDepth = groundAt(lxz).negate();
-  const damp = smoothstep(0.2, 5, vDepth);
-  // Crests sharpen as the wave slows over shallow ground.
-  const steep = float(0.55).add(smoothstep(6, 1, vDepth).mul(0.4));
+  const vDeep = deepWeight(vDepth);
   const vertexWaves = SWELLS.map((w) => {
     const k = (2 * Math.PI) / w.length;
     const omega = Math.sqrt(9.81 * k) * w.speed;
     const phase = lxz.x.mul(w.dir[0] * k).add(lxz.y.mul(w.dir[1] * k)).sub(t.mul(omega));
-    const amp = float(w.amp).mul(damp);
-    return { x: amp.mul(steep).mul(w.dir[0]).mul(phase.cos()), y: amp.mul(phase.sin()), z: amp.mul(steep).mul(w.dir[1]).mul(phase.cos()) };
+    const amp = float(w.amp).mul(vDeep);
+    return { x: amp.mul(0.6 * w.dir[0]).mul(phase.cos()), y: amp.mul(phase.sin()), z: amp.mul(0.6 * w.dir[1]).mul(phase.cos()) };
   });
+  const vShorePhase = vDepth.mul(SHORE_K).sub(t.mul(SHORE_W));
+  const vShore = float(SHORE_AMP).mul(shoreWeight(vDepth)).mul(vShorePhase.sin());
   const dispX = sum(vertexWaves.map((v) => v.x));
-  const dispY = sum(vertexWaves.map((v) => v.y));
+  const dispY = sum(vertexWaves.map((v) => v.y)).add(vShore);
   const dispZ = sum(vertexWaves.map((v) => v.z));
   mat.positionNode = positionLocal.add(vec3(dispX, dispY, dispZ));
 
@@ -61,24 +76,35 @@ export function createWater(size: number, pal: WaterPalette, heights: THREE.Data
   const xz = positionWorld.xz;
   const ground = groundAt(xz);
   const depth = ground.negate();
-  const fDamp = smoothstep(0.2, 5, depth);
+  const fDeep = deepWeight(depth);
+  const fShoreW = shoreWeight(depth);
   const fragWaves = SWELLS.map((w) => {
     const k = (2 * Math.PI) / w.length;
     const omega = Math.sqrt(9.81 * k) * w.speed;
     const phase = xz.x.mul(w.dir[0] * k).add(xz.y.mul(w.dir[1] * k)).sub(t.mul(omega));
-    const amp = float(w.amp).mul(fDamp);
+    const amp = float(w.amp).mul(fDeep);
     return { sx: amp.mul(w.dir[0] * k).mul(phase.cos()), sz: amp.mul(w.dir[1] * k).mul(phase.cos()), h: amp.mul(phase.sin()) };
   });
-  const slopeX = sum(fragWaves.map((v) => v.sx));
-  const slopeZ = sum(fragWaves.map((v) => v.sz));
-  const height = sum(fragWaves.map((v) => v.h));
-  const ampSum = SWELLS.reduce((a, w) => a + w.amp, 0);
-  // Ripples on top of the swell: two scrolling octaves of vector noise.
+  // Shore waves travel down the depth gradient; two extra taps give its direction.
+  const e = 3;
+  const gx = groundAt(xz.add(vec2(e, 0))).sub(groundAt(xz.sub(vec2(e, 0))));
+  const gz = groundAt(xz.add(vec2(0, e))).sub(groundAt(xz.sub(vec2(0, e))));
+  const gradLen = vec2(gx, gz).length().max(1e-3);
+  const toShore = vec2(gx, gz).div(gradLen);
+  const shorePhase = depth.mul(SHORE_K).sub(t.mul(SHORE_W));
+  const shoreH = float(SHORE_AMP).mul(fShoreW).mul(shorePhase.sin());
+  // Slope is exaggerated against the true (shallow) beach gradient so the rollers read from the air.
+  const shoreSlope = float(SHORE_AMP * SHORE_K * 0.7).mul(fShoreW).mul(shorePhase.cos());
+  const slopeX = sum(fragWaves.map((v) => v.sx)).add(toShore.x.mul(shoreSlope));
+  const slopeZ = sum(fragWaves.map((v) => v.sz)).add(toShore.y.mul(shoreSlope));
+  const height = sum(fragWaves.map((v) => v.h)).add(shoreH);
+  const ampSum = SWELLS.reduce((a, w) => a + w.amp, 0) * Math.max(0.3, swellStrength) + SHORE_AMP;
+  // Ripples on top: two scrolling octaves of vector noise.
   const s1 = 0.07 * pal.scale;
   const s2 = 0.22 * pal.scale;
   const n1 = mx_noise_vec3(vec3(xz.mul(s1).add(vec2(t.mul(0.3), t.mul(0.18))), t.mul(0.12)));
   const n2 = mx_noise_vec3(vec3(xz.mul(s2).add(vec2(t.mul(-0.5), t.mul(0.4))), t.mul(0.28)));
-  const ripple = n1.xy.mul(0.22).add(n2.xy.mul(0.14)).mul(fDamp.mul(0.7).add(0.3));
+  const ripple = n1.xy.mul(0.22).add(n2.xy.mul(0.14)).mul(smoothstep(0.2, 3, depth).mul(0.7).add(0.3));
   const nWorld = normalize(vec3(slopeX.negate().mul(1.6).add(ripple.x), 1, slopeZ.negate().mul(1.6).add(ripple.y)));
   mat.normalNode = transformNormalToView(nWorld);
 
@@ -96,15 +122,14 @@ export function createWater(size: number, pal: WaterPalette, heights: THREE.Data
 
   /* Foam. */
   const breakup = mx_noise_float(xz.mul(0.35).add(vec2(t.mul(0.4), t.mul(-0.2)))).mul(0.5).add(0.5);
-  // Whitecaps: the top of a crest, far more of it where the swell steepens over the shallows.
+  // Whitecaps: the top of any crest, sparse offshore and heavy on the rollers coming in.
   const crestness = smoothstep(0.55, 0.95, relief);
-  const breaking = smoothstep(9, 1.5, depth).mul(0.8).add(0.12);
+  const breaking = fShoreW.mul(0.9).add(0.12);
   const whitecap = crestness.mul(breaking).mul(smoothstep(0.3, 0.75, breakup)).mul(pal.foamAmount * 1.1);
-  // Surf: lines of foam running up the beach with the waves, thickest at the water line.
-  const surge = depth.mul(2.4).sub(t.mul(1.8)).add(breakup.mul(3)).sin();
-  const lines = smoothstep(0.45, 0.92, surge).mul(smoothstep(3.0, 0.5, depth));
-  const edge = smoothstep(0.9, 0.1, depth).mul(smoothstep(0.3, 0.7, breakup.add(height.mul(0.4))));
-  const foamK = saturate(whitecap.add(lines.mul(0.6)).add(edge));
+  // Surf: the crests of the shore waves themselves whiten as they run up the last metres.
+  const rollerFoam = smoothstep(0.45, 0.95, shorePhase.add(breakup.mul(1.2)).sin()).mul(smoothstep(3.0, 0.5, depth)).mul(shoreStrength);
+  const edge = smoothstep(0.9, 0.1, depth).mul(smoothstep(0.3, 0.7, breakup.add(height.mul(0.4)))).mul(shoreStrength * 0.5 + 0.5);
+  const foamK = saturate(whitecap.add(rollerFoam.mul(0.65)).add(edge));
   col = mix(col, foam, foamK);
 
   /* Sky at grazing angles. */

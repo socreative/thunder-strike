@@ -35,17 +35,24 @@ export function createRotorDisc(radius: number): THREE.Mesh {
  */
 export function createRotorShadow(radius: number): THREE.Mesh {
   const geo = new THREE.CircleGeometry(radius, 40);
-  const mat = new THREE.MeshBasicNodeMaterial();
-  const r = positionLocal.xy.length().div(radius);
-  mat.colorNode = color(0x14120c);
-  // Densest toward the middle where the blades overlap most, feathered at the tips.
-  // Edges low-to-high only: WGSL smoothstep is undefined with reversed edges.
-  mat.opacityNode = smoothstep(0.7, 1.0, r).oneMinus().mul(smoothstep(0.0, 0.25, r).mul(0.5).add(0.5)).mul(0.3);
-  mat.transparent = true;
-  mat.depthWrite = false;
-  mat.polygonOffset = true;
-  mat.polygonOffsetFactor = -2;
-  mat.polygonOffsetUnits = -2;
+  // Radial falloff baked into a small alpha map: densest where the blades overlap
+  // at the hub, feathered to nothing at the tips.
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, "rgba(255,255,255,0.75)");
+  grad.addColorStop(0.15, "rgba(255,255,255,1)");
+  grad.addColorStop(0.7, "rgba(255,255,255,1)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const alpha = new THREE.CanvasTexture(canvas);
+  alpha.colorSpace = THREE.NoColorSpace;
+  const mat = new THREE.MeshBasicNodeMaterial({ color: 0x14120c, transparent: true, opacity: 0.22, depthWrite: false });
+  mat.alphaMap = alpha;
   const decal = new THREE.Mesh(geo, mat);
   decal.renderOrder = 3;
   decal.castShadow = false;

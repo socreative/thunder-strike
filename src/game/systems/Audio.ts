@@ -293,89 +293,72 @@ export class Audio {
         this.tone("triangle", 900, 300, 0.2, 0.15);
         break;
       case "missileAlert":
-        this.alarm(0.44, 0.62);
+        this.alarm(0.5, 0.5);
         break;
     }
   }
 
   /**
-   * Missile launch warning in the spirit of a radar warning receiver: three
-   * detuned square oscillators stacked as a harsh interval, hard-gated at
-   * around 19 Hz so it buzzes rather than beeps, focused through a bandpass
-   * where the ear is most sensitive and topped with a transient click.
+   * Missile launch warning modelled on a cockpit radar warning receiver: a
+   * clean two-tone warble that steps between a low and a high pitch about
+   * fourteen times a second, with an octave-down body under it and a soft
+   * gate at each step so the notes articulate. The steady cadence from the
+   * world makes it read as a continuous "deedle-deedle" while a missile is
+   * tracking.
    */
   private alarm(duration: number, gain: number): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
+    const step = 0.07;
+    const low = 1180;
+    const high = 1580;
 
     const out = ctx.createGain();
     out.gain.setValueAtTime(0, t);
-    out.gain.linearRampToValueAtTime(gain, t + 0.005);
-    out.gain.setValueAtTime(gain, t + duration - 0.06);
+    out.gain.linearRampToValueAtTime(gain, t + 0.008);
+    out.gain.setValueAtTime(gain, t + duration - 0.05);
     out.gain.exponentialRampToValueAtTime(0.001, t + duration);
     out.connect(this.sfx);
 
-    // Bandpass keeps it piercing without turning to mush on small speakers.
+    // Gentle bandpass: keeps it bright on phone speakers without harshness.
     const bp = ctx.createBiquadFilter();
     bp.type = "bandpass";
-    bp.frequency.value = 2100;
-    bp.Q.value = 0.65;
+    bp.frequency.value = 1400;
+    bp.Q.value = 0.5;
     bp.connect(out);
 
-    // Hard gate: base and depth are equal so the tone is fully chopped.
+    // Articulation: a shallow dip at every pitch step.
     const gate = ctx.createGain();
-    gate.gain.value = 0.5;
+    gate.gain.value = 1;
     gate.connect(bp);
-    const lfo = ctx.createOscillator();
-    lfo.type = "square";
-    lfo.frequency.value = 19;
-    const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = 0.5;
-    lfo.connect(lfoDepth).connect(gate.gain);
-    lfo.start(t);
-    lfo.stop(t + duration + 0.05);
-
-    // A minor-second-ish stack beats against itself, which reads as an alarm.
-    for (const [freq, level] of [
-      [1180, 0.5],
-      [1772, 0.42],
-      [2380, 0.22],
-    ] as [number, number][]) {
-      const o = ctx.createOscillator();
-      o.type = "square";
-      o.frequency.setValueAtTime(freq, t);
-      o.frequency.linearRampToValueAtTime(freq - 55, t + duration);
-      const og = ctx.createGain();
-      og.gain.value = level;
-      o.connect(og).connect(gate);
-      o.start(t);
-      o.stop(t + duration + 0.05);
+    const steps = Math.floor(duration / step);
+    for (let i = 0; i <= steps; i++) {
+      const at = t + i * step;
+      gate.gain.setValueAtTime(0.35, at);
+      gate.gain.linearRampToValueAtTime(1, at + 0.018);
     }
 
-    // Transient click on each pulse so it punches through rotor and gunfire.
-    const click = ctx.createBufferSource();
-    click.buffer = this.noiseBuffer;
-    const hp = ctx.createBiquadFilter();
-    hp.type = "highpass";
-    hp.frequency.value = 2600;
-    const cg = ctx.createGain();
-    cg.gain.setValueAtTime(gain * 0.5, t);
-    cg.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-    click.connect(hp).connect(cg).connect(this.sfx);
-    click.start(t, Math.random() * 1.4, 0.06);
-
-    // Low body so it is felt as well as heard.
-    const sub = ctx.createOscillator();
-    sub.type = "square";
-    sub.frequency.value = 118;
-    const sg = ctx.createGain();
-    sg.gain.setValueAtTime(0, t);
-    sg.gain.linearRampToValueAtTime(gain * 0.16, t + 0.01);
-    sg.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.8);
-    sub.connect(sg).connect(this.sfx);
-    sub.start(t);
-    sub.stop(t + duration);
+    // Lead tone and its octave-down body.
+    const lead = ctx.createOscillator();
+    lead.type = "triangle";
+    const body = ctx.createOscillator();
+    body.type = "sine";
+    for (let i = 0; i <= steps; i++) {
+      const f = i % 2 === 0 ? low : high;
+      lead.frequency.setValueAtTime(f, t + i * step);
+      body.frequency.setValueAtTime(f / 2, t + i * step);
+    }
+    const leadGain = ctx.createGain();
+    leadGain.gain.value = 0.7;
+    const bodyGain = ctx.createGain();
+    bodyGain.gain.value = 0.35;
+    lead.connect(leadGain).connect(gate);
+    body.connect(bodyGain).connect(gate);
+    lead.start(t);
+    body.start(t);
+    lead.stop(t + duration + 0.05);
+    body.stop(t + duration + 0.05);
   }
 
   private noiseBurst(duration: number, cutoff: number, type: BiquadFilterType, gain: number, attack: number, sweepTo?: number): void {

@@ -31,7 +31,7 @@ Quaternius models are CC0 (public domain).
 
 ## Music
 
-"Iron Sector Run", "Jungle Advance" and "Arctic Front", generated with Suno by the project author.
+"Iron Sector Run", "Jungle Advance", "Arctic Front" and "March of the Sands", generated with Suno by the project author.
 
 ## Sound
 

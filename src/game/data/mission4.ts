@@ -34,7 +34,7 @@ export const mission4: MissionData = {
   codename: "NARROW WATER",
   summary: "Strait of Hormuz. Sink the minelayers, sweep the lane, shepherd two tankers through under fire from gunboats and cliff-top batteries, then burn the naval base.",
   seed: 2001,
-  music: "iron-sector-run",
+  music: "march-of-the-sands",
   theme: gulfTheme,
   terrain: {
     shape: "gulf",

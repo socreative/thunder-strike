@@ -239,7 +239,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
               Thomas Koenders, &ldquo;Gerald Ford Aircraft Carrier&rdquo; by Uxman, &ldquo;F-16 Fighter Jet&rdquo; by iedalton, &ldquo;Jungle Tent&rdquo; by SyntheticMN and &ldquo;Patrol Boat PBR MK2&rdquo; by Savy. Where a model is
               missing the game builds a procedural placeholder instead.
             </p>
-            <p>Music: &ldquo;Iron Sector Run&rdquo; and &ldquo;Jungle Advance&rdquo;, generated with Suno. The rotor is a recording by freesound_community via Pixabay; other sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.</p>
+            <p>Music: &ldquo;Iron Sector Run&rdquo;, &ldquo;Jungle Advance&rdquo; and &ldquo;Arctic Front&rdquo;, generated with Suno. The rotor is a recording by freesound_community via Pixabay; other sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.</p>
             <button className="btn primary" onClick={() => game?.backToTitle()}>
               BACK
             </button>

@@ -34,7 +34,7 @@ export const mission3: MissionData = {
   codename: "WHITE SILENCE",
   summary: "Arctic missile field. Blind the radomes, kill the launch control, cut the fuel convoy, pull a transport crew off the ice and destroy three silos before they can launch.",
   seed: 1997,
-  music: "iron-sector-run",
+  music: "arctic-front",
   theme: arcticTheme,
   terrain: { shape: "arctic", coast: { edgeX: -270, floor: -9 } },
   briefing: [

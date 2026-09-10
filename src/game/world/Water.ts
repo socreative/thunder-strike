@@ -65,7 +65,8 @@ export function createWater(size: number, pal: WaterPalette, heights: THREE.Data
     const amp = float(w.amp).mul(vDeep);
     return { x: amp.mul(0.6 * w.dir[0]).mul(phase.cos()), y: amp.mul(phase.sin()), z: amp.mul(0.6 * w.dir[1]).mul(phase.cos()) };
   });
-  const vShorePhase = vDepth.mul(SHORE_K).sub(t.mul(SHORE_W));
+  // Depth plus time: a crest of constant phase then moves to shallower water, toward the shore.
+  const vShorePhase = vDepth.mul(SHORE_K).add(t.mul(SHORE_W));
   const vShore = float(SHORE_AMP).mul(shoreWeight(vDepth)).mul(vShorePhase.sin());
   const dispX = sum(vertexWaves.map((v) => v.x));
   const dispY = sum(vertexWaves.map((v) => v.y)).add(vShore);
@@ -91,7 +92,7 @@ export function createWater(size: number, pal: WaterPalette, heights: THREE.Data
   const gz = groundAt(xz.add(vec2(0, e))).sub(groundAt(xz.sub(vec2(0, e))));
   const gradLen = vec2(gx, gz).length().max(1e-3);
   const toShore = vec2(gx, gz).div(gradLen);
-  const shorePhase = depth.mul(SHORE_K).sub(t.mul(SHORE_W));
+  const shorePhase = depth.mul(SHORE_K).add(t.mul(SHORE_W));
   const shoreH = float(SHORE_AMP).mul(fShoreW).mul(shorePhase.sin());
   // Slope is exaggerated against the true (shallow) beach gradient so the rollers read from the air.
   const shoreSlope = float(SHORE_AMP * SHORE_K * 0.7).mul(fShoreW).mul(shorePhase.cos());

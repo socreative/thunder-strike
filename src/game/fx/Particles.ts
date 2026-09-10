@@ -424,16 +424,16 @@ export class Particles {
         y: groundY + 0.1 + Math.random() * 0.4,
         z: z + Math.sin(a) * r,
         vx: Math.cos(a) * out + tx * swirl + driftX * 0.3,
-        vy: 2.5 + Math.random() * 5 * strength,
+        vy: 1.2 + Math.random() * 2.5 * strength,
         vz: Math.sin(a) * out + tz * swirl + driftZ * 0.3,
-        life: 0.9 + Math.random() * 1.1,
-        size: 0.3 + Math.random() * 0.3,
-        sizeEnd: 0.22 + Math.random() * 0.22,
+        life: 0.7 + Math.random() * 0.8,
+        size: 0.18 + Math.random() * 0.16,
+        sizeEnd: 0.12 + Math.random() * 0.1,
         color: c,
         colorEnd: c,
-        alpha: 0.85,
-        drag: 1.6,
-        gravity: 5,
+        alpha: 0.6,
+        drag: 1.8,
+        gravity: 6,
       });
     }
   }

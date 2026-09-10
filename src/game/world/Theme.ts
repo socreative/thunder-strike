@@ -125,11 +125,11 @@ export const jungleTheme: Theme = {
     bankMargin: 8,
     clearSpawns: true,
     sets: [
-      { kind: "palm", count: 900, scale: [0.8, 1.35], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xd8e8c0, 0xc8d8a8], sway: 0.24 },
-      { kind: "broadleaf", count: 1300, scale: [0.8, 1.3], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xcfe0b0, 0xb8cc98, 0xe0e8c8], sway: 0.18 },
-      { kind: "fern", count: 1600, scale: [0.7, 1.5], castShadow: false, sink: 0.2, bankMargin: 3, sway: 0.75 },
+      { kind: "palm", count: 900, scale: [0.8, 1.35], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xd8e8c0, 0xc8d8a8], sway: 0.1 },
+      { kind: "broadleaf", count: 1300, scale: [0.8, 1.3], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xcfe0b0, 0xb8cc98, 0xe0e8c8], sway: 0.07 },
+      { kind: "fern", count: 1600, scale: [0.7, 1.5], castShadow: false, sink: 0.2, bankMargin: 3, sway: 0.4 },
       { kind: "rock", count: 250, scale: [0.6, 3.0], castShadow: true, sink: 0.35 },
-      { kind: "shrub", count: 400, scale: [0.7, 1.6], castShadow: false, sink: 0.3, sway: 0.5 },
+      { kind: "shrub", count: 400, scale: [0.7, 1.6], castShadow: false, sink: 0.3, sway: 0.25 },
     ],
   },
 };

@@ -281,7 +281,7 @@ export class Helicopter extends Entity {
         const leaves = world.data.theme.wash === "leaves";
         // Fractional counts still average out, so slow hovers stay lively.
         // Leaf litter is sparser than a sand ring: each fleck is opaque.
-        this.washCarry += (leaves ? 8 : 11) * closeness * dt * 60;
+        this.washCarry += (leaves ? 1.5 : 11) * closeness * dt * 60;
         const n = Math.floor(this.washCarry);
         this.washCarry -= n;
         if (n > 0) {

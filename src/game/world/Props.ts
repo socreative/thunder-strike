@@ -151,7 +151,7 @@ export class Props {
               const d = Math.sqrt(d2);
               // Strongest just outside the disc edge where the sheet hits, fading to the rim.
               const f = 1 - d / WASH_RADIUS;
-              targets.set(i, set.maxTilt * strength * f * (0.55 + 0.45 * f) + Math.sin(time * 7 + i) * 0.05 * strength * f);
+              targets.set(i, set.maxTilt * strength * f * (0.55 + 0.45 * f) + Math.sin(time * 7 + i) * 0.02 * strength * f);
             }
           }
         }

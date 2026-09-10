@@ -315,6 +315,8 @@ export class World {
       const dist = h.distanceXZ(pos);
       const falloff = 1 - 0.5 * Math.min(1, dist / (radius + h.radius));
       h.damage(damage * falloff, source ?? undefined);
+      // Blasts throw the aircraft away from their centre.
+      if (h === this.heli) this.heli.push(h.pos.x - pos.x, h.pos.z - pos.z, damage * falloff);
     }
   }
 

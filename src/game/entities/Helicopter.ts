@@ -34,6 +34,9 @@ export class Helicopter extends Entity {
   private pitch = 0;
   private bob = 0;
   private washCarry = 0;
+  /** Attitude jolt from a hit, decaying back to level. */
+  private kickPitch = 0;
+  private kickBank = 0;
   private spinners: { obj: THREE.Object3D; axis: "x" | "y"; mul: number }[] = [];
   private body = new THREE.Group();
   private gunSide = 1;
@@ -248,8 +251,10 @@ export class Helicopter extends Entity {
 
     // Visual attitude
     // Positive X rotation drops the nose (+Z), positive Z rotation dips the left side.
-    const targetPitch = clamp(fwdSpeed * 0.011 + (thrust - reverse) * 0.06, -0.3, 0.42);
-    const targetBank = clamp(-sideSpeed * 0.02 + turn * 0.16, -0.5, 0.5);
+    this.kickPitch = damp(this.kickPitch, 0, 3.5, dt);
+    this.kickBank = damp(this.kickBank, 0, 3.5, dt);
+    const targetPitch = clamp(fwdSpeed * 0.011 + (thrust - reverse) * 0.06 + this.kickPitch, -0.5, 0.55);
+    const targetBank = clamp(-sideSpeed * 0.02 + turn * 0.16 + this.kickBank, -0.7, 0.7);
     this.pitch = damp(this.pitch, targetPitch, 4, dt);
     this.bank = damp(this.bank, targetBank, 4, dt);
     this.object.rotation.set(0, this.heading, 0);
@@ -486,6 +491,31 @@ export class Helicopter extends Entity {
       (best as Pickup | Pow).collect(this);
       this.winchTarget = null;
     }
+  }
+
+  /**
+   * Kinetic shove from a hit: the airframe is thrown along the round's travel
+   * or away from a blast, and rolls and pitches with it. Scaled by damage, so
+   * a cannon round barely nudges while a missile heaves the aircraft sideways.
+   */
+  push(dirX: number, dirZ: number, damage: number): void {
+    if (!this.alive) return;
+    const len = Math.hypot(dirX, dirZ);
+    if (len < 1e-4) return;
+    const nx = dirX / len;
+    const nz = dirZ / len;
+    // Grows faster than the damage itself, so heavy hits heave rather than nudge.
+    const impulse = clamp(damage * 0.08 + damage * damage * 0.0012, 0, 12);
+    this.vel.x += nx * impulse;
+    this.vel.z += nz * impulse;
+    // Roll away from the side the shove came from, nose down or up with fore/aft shoves.
+    this.forward(tmpForward);
+    const fwd = nx * tmpForward.x + nz * tmpForward.z;
+    const side = nx * tmpForward.z - nz * tmpForward.x;
+    const jolt = clamp(damage * 0.004 + damage * damage * 0.00006, 0, 0.5);
+    this.kickPitch += fwd * jolt;
+    this.kickBank += -side * jolt;
+    this.world.shake(clamp(damage / 45, 0.1, 2.2));
   }
 
   protected onHit(amount: number): void {

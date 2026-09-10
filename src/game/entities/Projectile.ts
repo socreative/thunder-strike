@@ -1,4 +1,5 @@
 import * as THREE from "three/webgpu";
+import type { Helicopter } from "./Helicopter";
 import { Entity, type Team } from "./Entity";
 import { balance } from "../data/balance";
 
@@ -256,7 +257,10 @@ export class Projectile extends Entity {
     } else {
       hit.damage(this.spec.damage, this.owner ?? undefined);
       world.particles.spark(this.pos);
-      if (hit.kind === "helicopter") world.audio.play("hit");
+      if (hit.kind === "helicopter") {
+        world.audio.play("hit");
+        (hit as Helicopter).push(this.vel.x, this.vel.z, this.spec.damage);
+      }
     }
     this.kill();
   }

@@ -224,15 +224,23 @@ export class Particles {
 
   /* Effect recipes */
 
+  /** Ground height under a point; set by the world so fragments can bounce and airbursts can be told apart. */
+  groundAt: (x: number, z: number) => number = () => 0;
+
   /**
-   * Blast in layers: a flash and a ground shockwave ring, a boiling fireball
-   * of many small tongues that cool from white through orange to dark red, a
-   * buoyant column of dark smoke that greys as it climbs, glowing embers, and
-   * solid fragments that arc out on ballistic paths trailing smoke. Counts
-   * scale with `size`, which runs from about 1.4 for a rocket to 4.6 for a silo.
+   * Blast in layers. On the ground: a flash, a shockwave ring of dust, a
+   * boiling fireball, a buoyant column of dark smoke, embers, and solid
+   * fragments on ballistic arcs. In the air: a brighter, rounder burst, a
+   * pressure shell of grey smoke expanding in every direction, debris raining
+   * down on trails, and a lingering puff that drifts instead of rising.
+   * Counts scale with `size`, about 1.4 for a rocket to 4.6 for a silo.
    */
-  explosion(p: THREE.Vector3, size: number): void {
+  explosion(p: THREE.Vector3, size: number, airborne = false): void {
     const s = size;
+    if (airborne) {
+      this.airburst(p, s);
+      return;
+    }
     // Flash: a hot white core that swells and dies within a few frames.
     this.fire.spawn({ x: p.x, y: p.y + s * 0.4, z: p.z, life: 0.14, size: s * 5, sizeEnd: s * 9, color: 0xfff6dc, alpha: 1 });
     this.fire.spawn({ x: p.x, y: p.y + s * 0.6, z: p.z, life: 0.3, size: s * 3, sizeEnd: s * 6, color: 0xffc070, colorEnd: 0xff5a20, alpha: 0.7 });
@@ -309,18 +317,97 @@ export class Particles {
       });
     }
 
-    // Embers: glowing specks thrown high that fall and fade.
-    const emberN = Math.round(10 + s * 8);
-    for (let i = 0; i < emberN; i++) {
+    this.embers(p, s, false);
+    this.throwFragments(p, s, false);
+  }
+
+  /** Mid-air detonation: a missile shot down, or the aircraft itself. */
+  private airburst(p: THREE.Vector3, s: number): void {
+    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.12, size: s * 6, sizeEnd: s * 11, color: 0xfffaf0, alpha: 1 });
+    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.28, size: s * 3.5, sizeEnd: s * 7, color: 0xffd090, colorEnd: 0xff6a20, alpha: 0.75 });
+    // Round fireball: tongues in every direction, faster and shorter than a ground blast.
+    const fireN = Math.round(18 + s * 12);
+    for (let i = 0; i < fireN; i++) {
       const a = Math.random() * Math.PI * 2;
-      const sp = 6 + Math.random() * 14 * s * 0.6;
+      const el = Math.asin(Math.random() * 2 - 1);
+      const sp = (6 + Math.random() * 10) * s * 0.7;
       this.fire.spawn({
         x: p.x,
-        y: p.y + 0.5,
+        y: p.y,
         z: p.z,
-        vx: Math.cos(a) * sp,
-        vy: 8 + Math.random() * 16,
-        vz: Math.sin(a) * sp,
+        vx: Math.cos(a) * Math.cos(el) * sp,
+        vy: Math.sin(el) * sp,
+        vz: Math.sin(a) * Math.cos(el) * sp,
+        life: 0.25 + Math.random() * 0.4,
+        size: s * (0.5 + Math.random() * 0.8),
+        sizeEnd: s * (1.0 + Math.random() * 0.6),
+        color: 0xfff0c0,
+        colorEnd: 0xff5a18,
+        alpha: 0.95,
+        drag: 3.5,
+      });
+    }
+    // Pressure shell: a sphere of grey smoke thrown out fast and gone within a second or two.
+    const shellN = Math.round(20 + s * 10);
+    for (let i = 0; i < shellN; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const el = Math.asin(Math.random() * 2 - 1);
+      const sp = (14 + Math.random() * 10) * (0.7 + s * 0.2);
+      this.smoke.spawn({
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        vx: Math.cos(a) * Math.cos(el) * sp,
+        vy: Math.sin(el) * sp,
+        vz: Math.sin(a) * Math.cos(el) * sp,
+        life: 0.9 + Math.random() * 0.8,
+        size: s * 0.7,
+        sizeEnd: s * (2.4 + Math.random()),
+        color: 0x8a8580,
+        colorEnd: 0xb9b5b0,
+        alpha: 0.5,
+        drag: 4,
+        gravity: 1.5,
+      });
+    }
+    // The cloud that stays: a few dark puffs that hang, drift and sink slightly rather than rise.
+    const hangN = Math.round(4 + s * 2);
+    for (let i = 0; i < hangN; i++) {
+      this.smoke.spawn({
+        x: p.x + (Math.random() - 0.5) * s,
+        y: p.y + (Math.random() - 0.5) * s,
+        z: p.z + (Math.random() - 0.5) * s,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 1,
+        vz: (Math.random() - 0.5) * 2,
+        life: 3 + Math.random() * 2.5,
+        size: s * 1.2,
+        sizeEnd: s * (3.5 + Math.random()),
+        color: 0x3a3532,
+        colorEnd: 0x8a8683,
+        alpha: 0.6,
+        drag: 1.2,
+        gravity: 0.6,
+      });
+    }
+    this.embers(p, s, true);
+    this.throwFragments(p, s, true);
+  }
+
+  /** Glowing specks: thrown up from a ground blast, in every direction from an airburst. */
+  private embers(p: THREE.Vector3, s: number, sphere: boolean): void {
+    const n = Math.round(10 + s * 8);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const el = sphere ? Math.asin(Math.random() * 2 - 1) : 0.3 + Math.random() * 1.1;
+      const sp = 6 + Math.random() * 16 * s * 0.6;
+      this.fire.spawn({
+        x: p.x,
+        y: p.y + (sphere ? 0 : 0.5),
+        z: p.z,
+        vx: Math.cos(a) * Math.cos(el) * sp,
+        vy: Math.sin(el) * sp + (sphere ? 0 : 4),
+        vz: Math.sin(a) * Math.cos(el) * sp,
         life: 0.7 + Math.random() * 0.9,
         size: 0.45,
         sizeEnd: 0.12,
@@ -330,29 +417,50 @@ export class Particles {
         drag: 0.5,
       });
     }
+  }
 
-    // Fragments: solid debris on ballistic arcs, each trailing smoke.
-    const fragN = Math.min(Math.round(4 + s * 3), 40);
-    for (let i = 0; i < fragN; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const el = 0.5 + Math.random() * 0.9;
-      const sp = (12 + Math.random() * 14) * (0.7 + s * 0.2);
+  /**
+   * Debris. No two blasts throw the same pattern: a random number of pieces,
+   * one to three "jets" that most of them cluster around, the rest anywhere,
+   * speeds spread over a wide range so some tumble a few metres and others sail
+   * off, and only some of them burn enough to trail smoke.
+   */
+  private throwFragments(p: THREE.Vector3, s: number, sphere: boolean): void {
+    const n = Math.min(Math.round((3 + s * 2) * (0.6 + Math.random() * 1.1)), 44);
+    const jets: [number, number][] = [];
+    const jetN = 1 + Math.floor(Math.random() * 3);
+    for (let j = 0; j < jetN; j++) jets.push([Math.random() * Math.PI * 2, sphere ? Math.asin(Math.random() * 2 - 1) : 0.4 + Math.random() * 1.0]);
+    for (let i = 0; i < n; i++) {
+      let a: number;
+      let el: number;
+      if (Math.random() < 0.6) {
+        const [ja, je] = jets[Math.floor(Math.random() * jetN)];
+        a = ja + (Math.random() - 0.5) * 0.8;
+        el = je + (Math.random() - 0.5) * 0.6;
+      } else {
+        a = Math.random() * Math.PI * 2;
+        el = sphere ? Math.asin(Math.random() * 2 - 1) : 0.15 + Math.random() * 1.3;
+      }
+      // Log-uniform speeds: plenty of slow tumblers, a few that really fly.
+      const sp = Math.exp(Math.log(5) + Math.random() * Math.log(7)) * (0.7 + s * 0.2);
       this.fragments.push({
         x: p.x,
-        y: p.y + 0.6,
+        y: p.y + (sphere ? 0 : 0.6),
         z: p.z,
         vx: Math.cos(a) * Math.cos(el) * sp,
         vy: Math.sin(el) * sp,
         vz: Math.sin(a) * Math.cos(el) * sp,
-        life: 1.2 + Math.random() * 1.4,
-        size: 0.25 + Math.random() * 0.35 * s * 0.4,
+        life: 1.4 + Math.random() * 2.2,
+        size: 0.2 + Math.random() * 0.6 * (0.6 + s * 0.2),
         trail: 0,
+        smokes: Math.random() < 0.7,
+        bounces: 0,
       });
     }
   }
 
   /** Debris fragments in flight. Simulated here so each can leave a smoke trail. */
-  private fragments: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; size: number; trail: number }[] = [];
+  private fragments: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; size: number; trail: number; smokes: boolean; bounces: number }[] = [];
 
   private updateFragments(dt: number): void {
     const list = this.fragments;
@@ -370,11 +478,28 @@ export class Particles {
       f.x += f.vx * dt;
       f.y += f.vy * dt;
       f.z += f.vz * dt;
+      // Hitting the ground: bounce once or twice, skid, and stop burning.
+      const ground = this.groundAt(f.x, f.z) + f.size * 0.5;
+      if (f.y < ground) {
+        f.y = ground;
+        if (f.vy < -2 && f.bounces < 2) {
+          f.vy = -f.vy * (0.25 + Math.random() * 0.2);
+          f.vx *= 0.6;
+          f.vz *= 0.6;
+          f.bounces++;
+          this.dust.spawn({ x: f.x, y: f.y, z: f.z, life: 0.5, size: f.size * 2, sizeEnd: f.size * 5, color: this.dustStart, colorEnd: this.dustEnd, alpha: 0.45 });
+        } else {
+          f.vy = 0;
+          f.vx *= 0.85;
+          f.vz *= 0.85;
+        }
+        f.smokes = false;
+      }
       // The fragment itself: a dark speck redrawn each frame.
       this.dust.spawn({ x: f.x, y: f.y, z: f.z, life: 0.08, size: f.size, sizeEnd: f.size, color: 0x1e1c1a, alpha: 0.95 });
       // Its smoke trail, thin and short-lived so it reads as a streak.
       f.trail -= dt;
-      if (f.trail <= 0) {
+      if (f.smokes && f.trail <= 0) {
         // Dense enough that consecutive puffs overlap at the fragment's speed.
         f.trail = 0.014;
         this.smoke.spawn({

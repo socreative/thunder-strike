@@ -124,6 +124,7 @@ export class World {
 
     this.particles = new Particles();
     this.particles.setDustColors(theme.dust.start, theme.dust.end);
+    this.particles.groundAt = (x, z) => Math.max(this.terrain.heightAt(x, z), 0);
     this.scene.add(this.particles.group);
     this.scene.add(this.healthBars.sprite);
 
@@ -298,7 +299,9 @@ export class World {
    * own side, and "neutral" blasts (fuel tanks, wrecks) hurt everyone.
    */
   explode(pos: THREE.Vector3, radius: number, damage: number, team: Team, size = 1.5, source: Entity | null = null): void {
-    this.particles.explosion(pos, size);
+    // Blasts well clear of the ground burst differently: no dust ring, no rising column.
+    const airborne = pos.y - Math.max(this.terrain.heightAt(pos.x, pos.z), 0) > 5;
+    this.particles.explosion(pos, size, airborne);
     this.events.emit("explosion", { pos, size });
     this.audio.play(size >= 2.4 ? "explosion" : "explosionSmall", pos);
     // Light flash

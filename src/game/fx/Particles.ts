@@ -172,6 +172,8 @@ class Layer {
   }
 }
 
+const LEAF_COLORS = [0x5f8a3a, 0x8aa04a, 0x7a5a30, 0xa8b05a, 0x4d7330, 0x9c7a44];
+
 export class Particles {
   readonly smoke: Layer;
   readonly fire: Layer;
@@ -400,6 +402,38 @@ export class Particles {
         alpha: (0.12 + Math.random() * 0.1) * strength,
         drag: 2.4,
         gravity: 1.1,
+      });
+    }
+  }
+
+  /**
+   * Jungle downwash: leaf litter and grass torn off the floor. Small hard
+   * flecks in greens and browns spiral outward and up, then flutter down.
+   */
+  leafWash(x: number, groundY: number, z: number, strength: number, driftX: number, driftZ: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 2 + Math.sqrt(Math.random()) * 8;
+      const out = (3 + Math.random() * 6) * strength;
+      const swirl = (3 + Math.random() * 5) * strength;
+      const tx = -Math.sin(a);
+      const tz = Math.cos(a);
+      const c = LEAF_COLORS[(Math.random() * LEAF_COLORS.length) | 0];
+      this.dust.spawn({
+        x: x + Math.cos(a) * r,
+        y: groundY + 0.1 + Math.random() * 0.4,
+        z: z + Math.sin(a) * r,
+        vx: Math.cos(a) * out + tx * swirl + driftX * 0.3,
+        vy: 2.5 + Math.random() * 5 * strength,
+        vz: Math.sin(a) * out + tz * swirl + driftZ * 0.3,
+        life: 0.9 + Math.random() * 1.1,
+        size: 0.3 + Math.random() * 0.3,
+        sizeEnd: 0.22 + Math.random() * 0.22,
+        color: c,
+        colorEnd: c,
+        alpha: 0.85,
+        drag: 1.6,
+        gravity: 5,
       });
     }
   }

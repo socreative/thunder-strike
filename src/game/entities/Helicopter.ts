@@ -278,13 +278,19 @@ export class Helicopter extends Entity {
       const closeness = clamp(1 - (altitude - H.hoverHeight) / (H.hoverHeight * 0.8), 0, 1);
       if (closeness > 0.02) {
         const strength = (0.7 + (this.speed / H.maxSpeed) * 0.45) * closeness;
+        const leaves = world.data.theme.wash === "leaves";
         // Fractional counts still average out, so slow hovers stay lively.
-        this.washCarry += 11 * closeness * dt * 60;
+        // Leaf litter is sparser than a sand ring: each fleck is opaque.
+        this.washCarry += (leaves ? 8 : 11) * closeness * dt * 60;
         const n = Math.floor(this.washCarry);
         this.washCarry -= n;
-        if (n > 0) world.particles.rotorWash(this.pos.x, ground, this.pos.z, strength, this.vel.x, this.vel.z, n);
-      }
-    }
+        if (n > 0) {
+          if (leaves) world.particles.leafWash(this.pos.x, ground, this.pos.z, strength, this.vel.x, this.vel.z, n);
+          else world.particles.rotorWash(this.pos.x, ground, this.pos.z, strength, this.vel.x, this.vel.z, n);
+        }
+        world.props.sway(this.pos.x, this.pos.z, closeness, world.time, dt);
+      } else world.props.sway(this.pos.x, this.pos.z, 0, world.time, dt);
+    } else world.props.sway(this.pos.x, this.pos.z, 0, world.time, dt);
 
     // Weapons
     if (input.wasPressed("Digit1")) this.weapon = "gun";

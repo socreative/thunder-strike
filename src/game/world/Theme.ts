@@ -60,6 +60,8 @@ export interface PropSet {
   maxSlope?: number;
   /** Metres of clear ground kept between this kind and the water. */
   bankMargin?: number;
+  /** Maximum lean in radians under the rotor downwash; omit for rigid props. */
+  sway?: number;
 }
 
 export interface PropTheme {
@@ -81,6 +83,8 @@ export interface Theme {
   water: WaterPalette;
   overview: OverviewPalette;
   dust: { start: number; end: number };
+  /** What the downwash kicks up: a sand ring, or leaf litter and grass. */
+  wash: "dust" | "leaves";
   props: PropTheme;
 }
 
@@ -93,6 +97,7 @@ export const desertTheme: Theme = {
   water: { deep: 0x134a5f, shallow: 0x28869a, foam: 0xcfe6ea, foamAmount: 0.6, scale: 1 },
   overview: { water: [28, 70, 92], shallow: [28, 70, 92], landLow: [150, 120, 70], landHigh: [220, 180, 110] },
   dust: { start: 0xe8d3a8, end: 0xd2b98c },
+  wash: "dust",
   props: {
     minHeight: 2.2,
     bankMargin: 0,
@@ -114,16 +119,17 @@ export const jungleTheme: Theme = {
   water: { deep: 0x2f4a3a, shallow: 0x4f7a5a, foam: 0xb9c9b0, foamAmount: 0.25, scale: 2 },
   overview: { water: [24, 64, 58], shallow: [52, 104, 88], landLow: [44, 80, 38], landHigh: [104, 124, 64], bank: [138, 128, 92] },
   dust: { start: 0x8a7a55, end: 0x6b6a4a },
+  wash: "leaves",
   props: {
     minHeight: 1.5,
     bankMargin: 8,
     clearSpawns: true,
     sets: [
-      { kind: "palm", count: 900, scale: [0.8, 1.35], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xd8e8c0, 0xc8d8a8] },
-      { kind: "broadleaf", count: 1300, scale: [0.8, 1.3], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xcfe0b0, 0xb8cc98, 0xe0e8c8] },
-      { kind: "fern", count: 1600, scale: [0.7, 1.5], castShadow: false, sink: 0.2, bankMargin: 3 },
+      { kind: "palm", count: 900, scale: [0.8, 1.35], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xd8e8c0, 0xc8d8a8], sway: 0.24 },
+      { kind: "broadleaf", count: 1300, scale: [0.8, 1.3], castShadow: true, sink: 0.1, maxSlope: 0.8, tints: [0xffffff, 0xcfe0b0, 0xb8cc98, 0xe0e8c8], sway: 0.18 },
+      { kind: "fern", count: 1600, scale: [0.7, 1.5], castShadow: false, sink: 0.2, bankMargin: 3, sway: 0.75 },
       { kind: "rock", count: 250, scale: [0.6, 3.0], castShadow: true, sink: 0.35 },
-      { kind: "shrub", count: 400, scale: [0.7, 1.6], castShadow: false, sink: 0.3 },
+      { kind: "shrub", count: 400, scale: [0.7, 1.6], castShadow: false, sink: 0.3, sway: 0.5 },
     ],
   },
 };

@@ -70,7 +70,7 @@ export class World {
   private deathTimer = 0;
   private deathTotal = 0;
   private wreckage: HeliWreckage | null = null;
-  private props: Props;
+  readonly props: Props;
   private water: THREE.Mesh;
   private sky: THREE.Mesh;
   private decor: THREE.Group;

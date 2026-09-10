@@ -13,6 +13,28 @@ export interface Exclusion {
 
 const tmpNormal = new THREE.Vector3();
 const tmpColor = new THREE.Color();
+const tmpMat = new THREE.Matrix4();
+const tmpBase = new THREE.Matrix4();
+const tmpPivot = new THREE.Matrix4();
+const tmpTrans = new THREE.Matrix4();
+const tmpAxis = new THREE.Vector3();
+
+/** Radius of ground the downwash disturbs. */
+const WASH_RADIUS = 26;
+const SWAY_CELL = 16;
+
+/** One instanced mesh whose instances can lean under the rotor wash. */
+interface SwaySet {
+  mesh: THREE.InstancedMesh;
+  /** Resting matrices, copied once after placement. */
+  base: Float32Array;
+  /** Base-of-trunk world position per instance. */
+  pos: Float32Array;
+  maxTilt: number;
+  cells: Map<number, number[]>;
+  /** Instances currently leaning: index to current tilt. */
+  leaning: Map<number, number>;
+}
 
 /**
  * Instanced vegetation and rocks scattered over open ground. One mesh per
@@ -21,6 +43,9 @@ const tmpColor = new THREE.Color();
 export class Props {
   readonly group = new THREE.Group();
   private meshes: THREE.InstancedMesh[] = [];
+  private swaySets: SwaySet[] = [];
+  /** Development switch for measuring the cost of the downwash animation. */
+  swayEnabled = true;
 
   constructor(terrain: Terrain, exclusions: Exclusion[], seed: number, theme: PropTheme) {
     const rng = new Random(seed ^ 0x5eed);
@@ -67,7 +92,113 @@ export class Props {
       mesh.name = `props-${set.kind}`;
       this.meshes.push(mesh);
       this.group.add(mesh);
+      if (set.sway) this.swaySets.push(this.makeSwaySet(mesh, placed, set.sway));
     }
+  }
+
+  private makeSwaySet(mesh: THREE.InstancedMesh, count: number, maxTilt: number): SwaySet {
+    const arr = mesh.instanceMatrix.array as Float32Array;
+    const base = new Float32Array(arr.subarray(0, count * 16));
+    const pos = new Float32Array(count * 3);
+    const cells = new Map<number, number[]>();
+    for (let i = 0; i < count; i++) {
+      // Translation lives in the last column of the matrix.
+      const x = base[i * 16 + 12];
+      const y = base[i * 16 + 13];
+      const z = base[i * 16 + 14];
+      pos[i * 3] = x;
+      pos[i * 3 + 1] = y;
+      pos[i * 3 + 2] = z;
+      const key = cellKey(x, z);
+      const list = cells.get(key);
+      if (list) list.push(i);
+      else cells.set(key, [i]);
+    }
+    // The buffer is only ever partially rewritten from here on.
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    return { mesh, base, pos, maxTilt, cells, leaning: new Map() };
+  }
+
+  /**
+   * Lean vegetation away from the rotor wash centred at (x, z). Trees inside
+   * the disc tip over by up to their set's maximum, shivering slightly, and
+   * ease back upright once the aircraft has moved on. Only the touched
+   * instances are re-uploaded.
+   */
+  sway(x: number, z: number, strength: number, time: number, dt: number): void {
+    if (this.swaySets.length === 0 || !this.swayEnabled) return;
+    const ease = 1 - Math.exp(-6 * dt);
+    const relax = 1 - Math.exp(-3 * dt);
+    const r2 = WASH_RADIUS * WASH_RADIUS;
+    const cx0 = Math.floor((x - WASH_RADIUS) / SWAY_CELL);
+    const cx1 = Math.floor((x + WASH_RADIUS) / SWAY_CELL);
+    const cz0 = Math.floor((z - WASH_RADIUS) / SWAY_CELL);
+    const cz1 = Math.floor((z + WASH_RADIUS) / SWAY_CELL);
+    for (const set of this.swaySets) {
+      const { pos, leaning } = set;
+      // Anything in the disc wants to lean; anything leaning wants to stand up.
+      const targets = new Map<number, number>();
+      if (strength > 0.01) {
+        for (let cx = cx0; cx <= cx1; cx++) {
+          for (let cz = cz0; cz <= cz1; cz++) {
+            const list = set.cells.get(cx * 73856093 + cz * 19349663);
+            if (!list) continue;
+            for (const i of list) {
+              const dx = pos[i * 3] - x;
+              const dz = pos[i * 3 + 2] - z;
+              const d2 = dx * dx + dz * dz;
+              if (d2 > r2) continue;
+              const d = Math.sqrt(d2);
+              // Strongest just outside the disc edge where the sheet hits, fading to the rim.
+              const f = 1 - d / WASH_RADIUS;
+              targets.set(i, set.maxTilt * strength * f * (0.55 + 0.45 * f) + Math.sin(time * 7 + i) * 0.05 * strength * f);
+            }
+          }
+        }
+      }
+      for (const [i, tilt] of leaning) if (!targets.has(i)) targets.set(i, 0);
+      for (const [i, target] of targets) {
+        const cur = leaning.get(i) ?? 0;
+        const next = cur + (target - cur) * (target > cur ? ease : relax);
+        if (Math.abs(next) < 0.002 && target === 0) {
+          this.writeInstance(set, i, 0, x, z);
+          leaning.delete(i);
+        } else {
+          this.writeInstance(set, i, next, x, z);
+          leaning.set(i, next);
+        }
+      }
+    }
+  }
+
+  /** Rebuild one instance matrix as its resting pose rotated about the trunk base, away from (fx, fz). */
+  private writeInstance(set: SwaySet, i: number, tilt: number, fx: number, fz: number): void {
+    const attr = set.mesh.instanceMatrix;
+    const arr = attr.array as Float32Array;
+    if (tilt === 0) {
+      arr.set(set.base.subarray(i * 16, i * 16 + 16), i * 16);
+    } else {
+      const px = set.pos[i * 3];
+      const py = set.pos[i * 3 + 1];
+      const pz = set.pos[i * 3 + 2];
+      let dx = px - fx;
+      let dz = pz - fz;
+      const len = Math.hypot(dx, dz) || 1;
+      dx /= len;
+      dz /= len;
+      // Leaning away from the aircraft: rotate about the horizontal axis perpendicular to that direction.
+      tmpAxis.set(dz, 0, -dx);
+      tmpBase.fromArray(set.base, i * 16);
+      tmpPivot.makeRotationAxis(tmpAxis, tilt);
+      // T(p) * R * T(-p) * Base: rotate the resting pose about the trunk base.
+      tmpMat.makeTranslation(-px, -py, -pz);
+      tmpMat.premultiply(tmpPivot);
+      tmpMat.premultiply(tmpTrans.makeTranslation(px, py, pz));
+      tmpMat.multiply(tmpBase);
+      tmpMat.toArray(arr, i * 16);
+    }
+    attr.addUpdateRange(i * 16, 16);
+    attr.needsUpdate = true;
   }
 
   dispose(): void {
@@ -76,6 +207,10 @@ export class Props {
       (m.material as THREE.Material).dispose();
     }
   }
+}
+
+function cellKey(x: number, z: number): number {
+  return Math.floor(x / SWAY_CELL) * 73856093 + Math.floor(z / SWAY_CELL) * 19349663;
 }
 
 /* Geometry per kind. Trees bake their part colours into a colour attribute. */

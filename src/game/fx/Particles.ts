@@ -172,6 +172,12 @@ class Layer {
   }
 }
 
+/** Blend two hex colours; `t` toward the second. */
+function mixHex(a: number, b: number, t: number): number {
+  return tmpColor.setHex(a).lerp(tmpMix.setHex(b), Math.min(1, Math.max(0, t))).getHex();
+}
+const tmpMix = new THREE.Color();
+
 const LEAF_COLORS = [0x5f8a3a, 0x8aa04a, 0x7a5a30, 0xa8b05a, 0x4d7330, 0x9c7a44];
 
 export class Particles {
@@ -760,43 +766,154 @@ export class Particles {
     }
   }
 
-  /** Oily black smoke off a burning airframe, thick and slow to thin. */
-  blackSmoke(p: THREE.Vector3, size: number, driftX: number, driftZ: number): void {
-    this.smoke.spawn({
-      x: p.x + (Math.random() - 0.5) * size,
+  /**
+   * Smoke off a damaged airframe, laid down along the segment it just flew so
+   * the trail is continuous at speed. `heat` runs 0 (thin grey wisps) to 1
+   * (oily black column): it sets colour, size, life and how buoyant it is.
+   */
+  hullSmoke(from: THREE.Vector3, to: THREE.Vector3, heat: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const t = Math.random();
+      const x = from.x + (to.x - from.x) * t;
+      const y = from.y + (to.y - from.y) * t;
+      const z = from.z + (to.z - from.z) * t;
+      // Most puffs are dark cores; a few are lighter, torn edges around them.
+      const edge = Math.random() < 0.3;
+      const dark = edge ? 0x3a3835 : heat > 0.5 ? 0x0e0d0c : 0x2a2826;
+      const light = edge ? 0x8a8784 : heat > 0.5 ? 0x2b2927 : 0x6f6c68;
+      const size = (edge ? 0.5 : 0.7) * (0.6 + heat * 1.6) * (0.8 + Math.random() * 0.5);
+      this.smoke.spawn({
+        x: x + (Math.random() - 0.5) * 0.7,
+        y,
+        z: z + (Math.random() - 0.5) * 0.7,
+        vx: (Math.random() - 0.5) * 2.4,
+        vy: 1.5 + Math.random() * 2.5 + heat * 1.5,
+        vz: (Math.random() - 0.5) * 2.4,
+        life: 1.4 + Math.random() * 1.6 + heat * 1.6,
+        size,
+        sizeEnd: size * (3.2 + Math.random() * 1.4),
+        color: mixHex(0x8a8683, dark, heat * 1.35),
+        colorEnd: mixHex(0xb0adaa, light, heat * 1.35),
+        alpha: 0.35 + heat * 0.5,
+        drag: 1.3,
+        gravity: -1 - heat * 1.5,
+      });
+    }
+  }
+
+  /**
+   * Fire out of a damaged hull: a white-hot core that barely leaves the vent,
+   * orange tongues torn upward and back by the airflow, and every so often an
+   * ember that arcs away and dies.
+   */
+  hullFire(p: THREE.Vector3, size: number, driftX: number, driftZ: number): void {
+    this.fire.spawn({
+      x: p.x + (Math.random() - 0.5) * size * 0.4,
       y: p.y,
-      z: p.z + (Math.random() - 0.5) * size,
-      vx: (Math.random() - 0.5) * 2 + driftX * 0.5,
-      vy: 3 + Math.random() * 3,
-      vz: (Math.random() - 0.5) * 2 + driftZ * 0.5,
-      life: 2.2 + Math.random() * 1.8,
-      size: size * 0.9,
-      sizeEnd: size * 4,
-      color: 0x0f0e0d,
-      colorEnd: 0x2c2a27,
-      alpha: 0.85,
-      drag: 1.2,
-      gravity: -1.5,
+      z: p.z + (Math.random() - 0.5) * size * 0.4,
+      vx: driftX * 0.3,
+      vy: 1.5 + Math.random(),
+      vz: driftZ * 0.3,
+      life: 0.1 + Math.random() * 0.08,
+      size: size * 0.7,
+      sizeEnd: size * 0.3,
+      color: 0xfff6dc,
+      colorEnd: 0xffd080,
+      alpha: 1,
+    });
+    this.fire.spawn({
+      x: p.x + (Math.random() - 0.5) * size * 0.9,
+      y: p.y + 0.2,
+      z: p.z + (Math.random() - 0.5) * size * 0.9,
+      vx: (Math.random() - 0.5) * 3 + driftX * 0.7,
+      vy: 3 + Math.random() * 4,
+      vz: (Math.random() - 0.5) * 3 + driftZ * 0.7,
+      life: 0.3 + Math.random() * 0.35,
+      size: size * (1.0 + Math.random() * 0.8),
+      sizeEnd: size * 0.25,
+      color: 0xffb060,
+      colorEnd: 0x9a2408,
+      alpha: 0.9,
+      drag: 2.2,
+    });
+    if (Math.random() < 0.25) {
+      const a = Math.random() * Math.PI * 2;
+      this.fire.spawn({
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        vx: Math.cos(a) * (3 + Math.random() * 5) + driftX * 0.4,
+        vy: 4 + Math.random() * 6,
+        vz: Math.sin(a) * (3 + Math.random() * 5) + driftZ * 0.4,
+        life: 0.5 + Math.random() * 0.6,
+        size: 0.32,
+        sizeEnd: 0.08,
+        color: 0xffe0a0,
+        colorEnd: 0xff5a20,
+        alpha: 1,
+        gravity: 16,
+        drag: 0.8,
+      });
+    }
+  }
+
+  /** Burning fuel spilling off the airframe: a fast, hot drip that streaks down and snuffs out. */
+  fuelDrip(p: THREE.Vector3, driftX: number, driftZ: number): void {
+    this.fire.spawn({
+      x: p.x + (Math.random() - 0.5) * 1.2,
+      y: p.y - 0.6,
+      z: p.z + (Math.random() - 0.5) * 1.2,
+      vx: driftX * 0.5 + (Math.random() - 0.5) * 2,
+      vy: -2 - Math.random() * 3,
+      vz: driftZ * 0.5 + (Math.random() - 0.5) * 2,
+      life: 0.7 + Math.random() * 0.6,
+      size: 0.45,
+      sizeEnd: 0.1,
+      color: 0xffc070,
+      colorEnd: 0xff3a10,
+      alpha: 1,
+      gravity: 22,
+      drag: 0.4,
+    });
+    this.smoke.spawn({
+      x: p.x,
+      y: p.y - 0.4,
+      z: p.z,
+      vx: driftX * 0.4,
+      vy: -1,
+      vz: driftZ * 0.4,
+      life: 0.9,
+      size: 0.35,
+      sizeEnd: 1.4,
+      color: 0x1a1816,
+      colorEnd: 0x3a3634,
+      alpha: 0.5,
+      gravity: 6,
+      drag: 1,
     });
   }
 
-  /** Flames licking out of a damaged hull: short, bright, rising, torn off by the airflow. */
-  hullFire(p: THREE.Vector3, size: number, driftX: number, driftZ: number): void {
-    this.fire.spawn({
-      x: p.x + (Math.random() - 0.5) * size * 0.8,
-      y: p.y,
-      z: p.z + (Math.random() - 0.5) * size * 0.8,
-      vx: (Math.random() - 0.5) * 2 + driftX * 0.6,
-      vy: 2.5 + Math.random() * 3,
-      vz: (Math.random() - 0.5) * 2 + driftZ * 0.6,
-      life: 0.25 + Math.random() * 0.3,
-      size: size * (0.9 + Math.random() * 0.6),
-      sizeEnd: size * 0.3,
-      color: 0xffd080,
-      colorEnd: 0xff4a10,
-      alpha: 0.95,
-      drag: 2.5,
-    });
+  /** Electrical burst from shorted wiring: white-blue sparks scattering and a puff of pale smoke. */
+  electricSpark(p: THREE.Vector3): void {
+    for (let i = 0; i < 6; i++) {
+      this.fire.spawn({
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        vx: (Math.random() - 0.5) * 10,
+        vy: 1 + Math.random() * 6,
+        vz: (Math.random() - 0.5) * 10,
+        life: 0.15 + Math.random() * 0.2,
+        size: 0.35,
+        sizeEnd: 0.08,
+        color: 0xe8f4ff,
+        colorEnd: 0x7fb0ff,
+        alpha: 1,
+        gravity: 14,
+      });
+    }
+    this.fire.spawn({ x: p.x, y: p.y, z: p.z, life: 0.08, size: 2.2, sizeEnd: 0.8, color: 0xdff0ff, alpha: 0.8 });
+    this.smoke.spawn({ x: p.x, y: p.y, z: p.z, vy: 1.5, life: 0.9, size: 0.6, sizeEnd: 2.0, color: 0x9a9a9a, colorEnd: 0xc0c0c0, alpha: 0.4, drag: 1.5 });
   }
 
   /** A gas flare burning off a stack: a licking orange flame with a thin dark plume. */

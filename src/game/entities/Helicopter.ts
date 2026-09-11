@@ -42,9 +42,12 @@ export class Helicopter extends Entity {
   /** Hit flash on the player's own aircraft is kept gentle; it fills the screen centre. */
   protected flashStrength = 0.3;
   protected flashTint = new THREE.Color(0xff8a60);
-  private damageSmoke = 0;
-  private damageFire = 0;
   private lastTint = -1;
+  private readonly prevEmits = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  private readonly smokeCarry = [0, 0, 0];
+  private readonly fireCarry = [0, 0];
+  private sparkTimer = 0;
+  private dripCarry = 0;
   /** Attitude jolt from a hit, decaying back to level. */
   private kickPitch = 0;
   private kickBank = 0;
@@ -466,44 +469,58 @@ export class Helicopter extends Entity {
       this.lastTint = dmg;
       this.tintDamage(Math.max(0, (dmg - 0.3) / 0.7));
     }
-    if (dmg < 0.3) return;
-    // Engine bay behind the rotor mast, in world space.
+    if (dmg < 0.3) {
+      for (const p of this.prevEmits) p.set(0, 0, 0);
+      return;
+    }
     this.forward(tmpForward);
-    const ex = this.pos.x - tmpForward.x * 1.6;
-    const ez = this.pos.z - tmpForward.z * 1.6;
-    tmpEmit.set(ex, this.pos.y + 1.4, ez);
-    // Smoke: grey wisps at first, then thick black.
-    const smokeRate = dmg < 0.62 ? 3 + (dmg - 0.3) * 18 : 10 + (dmg - 0.62) * 34;
-    this.damageSmoke += smokeRate * dt;
-    while (this.damageSmoke >= 1) {
-      this.damageSmoke -= 1;
-      if (dmg < 0.62) {
-        world.particles.smoke.spawn({
-          x: tmpEmit.x + (Math.random() - 0.5) * 0.8,
-          y: tmpEmit.y,
-          z: tmpEmit.z + (Math.random() - 0.5) * 0.8,
-          vx: (Math.random() - 0.5) * 1.5 + this.vel.x * 0.3,
-          vy: 2 + Math.random() * 2,
-          vz: (Math.random() - 0.5) * 1.5 + this.vel.z * 0.3,
-          life: 1.2 + Math.random(),
-          size: 0.6,
-          sizeEnd: 2.4,
-          color: 0x777470,
-          colorEnd: 0x9a9793,
-          alpha: 0.4,
-          drag: 1.5,
-          gravity: -0.8,
-        });
-      } else {
-        world.particles.blackSmoke(tmpEmit, 0.9 + (dmg - 0.62) * 2.6, this.vel.x * 0.5, this.vel.z * 0.5);
+    tmpRight.set(-tmpForward.z, 0, tmpForward.x);
+    // Heat runs 0 at 30 percent damage to 1 at total loss; the second engine
+    // joins in above 0.4, the tail boom above 0.7.
+    const heat = (dmg - 0.3) / 0.7;
+    const sources = heat > 0.4 ? (heat > 0.7 ? 3 : 2) : 1;
+    for (let i = 0; i < sources; i++) {
+      const side = i === 0 ? 1 : i === 1 ? -1 : 0;
+      const back = i === 2 ? 5.2 : 1.4;
+      const up = i === 2 ? 0.9 : 1.5;
+      tmpEmit.copy(this.pos).addScaledVector(tmpForward, -back).addScaledVector(tmpRight, side * 1.05);
+      tmpEmit.y += up;
+      const prev = this.prevEmits[i];
+      if (prev.lengthSq() === 0 || prev.distanceTo(tmpEmit) > 30) prev.copy(tmpEmit);
+      // Smoke along the path this source travelled since last frame, denser with heat.
+      const localHeat = i === 2 ? heat * 0.6 : heat;
+      this.smokeCarry[i] += (5 + localHeat * 22) * dt;
+      const n = Math.floor(this.smokeCarry[i]);
+      this.smokeCarry[i] -= n;
+      if (n > 0) world.particles.hullSmoke(prev, tmpEmit, localHeat, n);
+      // Fire on the engines once the airframe is close to the end.
+      if (heat > 0.62 && i < 2) {
+        this.fireCarry[i] += (10 + (heat - 0.62) * 70) * dt;
+        const f = Math.floor(this.fireCarry[i]);
+        this.fireCarry[i] -= f;
+        for (let k = 0; k < f; k++) world.particles.hullFire(tmpEmit, 0.7 + (heat - 0.62) * 2.2, this.vel.x * 0.3, this.vel.z * 0.3);
+      }
+      prev.copy(tmpEmit);
+    }
+    // Shorted wiring: irregular sparks from the bay once badly hurt.
+    if (heat > 0.3) {
+      this.sparkTimer -= dt;
+      if (this.sparkTimer <= 0) {
+        this.sparkTimer = 0.4 + Math.random() * (2.2 - heat * 1.4);
+        tmpEmit.copy(this.pos).addScaledVector(tmpForward, -0.8).addScaledVector(tmpRight, (Math.random() - 0.5) * 2);
+        tmpEmit.y += 1.2;
+        world.particles.electricSpark(tmpEmit);
       }
     }
-    // Fire once the airframe is close to the end.
-    if (dmg > 0.75) {
-      this.damageFire += (8 + (dmg - 0.75) * 60) * dt;
-      while (this.damageFire >= 1) {
-        this.damageFire -= 1;
-        world.particles.hullFire(tmpEmit, 0.8 + (dmg - 0.75) * 3, this.vel.x * 0.3, this.vel.z * 0.3);
+    // Burning fuel dripping off the belly in the last stretch.
+    if (heat > 0.8) {
+      this.dripCarry += (3 + (heat - 0.8) * 25) * dt;
+      const d = Math.floor(this.dripCarry);
+      this.dripCarry -= d;
+      for (let k = 0; k < d; k++) {
+        tmpEmit.copy(this.pos).addScaledVector(tmpForward, -1 + Math.random() * 2);
+        tmpEmit.y -= 0.8;
+        world.particles.fuelDrip(tmpEmit, this.vel.x, this.vel.z);
       }
     }
   }

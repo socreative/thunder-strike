@@ -28,40 +28,6 @@ export function createRotorDisc(radius: number): THREE.Mesh {
   return disc;
 }
 
-/**
- * Soft ground decal standing in for the shadow of a spinning rotor: real
- * blades would freeze into a sharp cross in the shadow map, whereas the eye
- * sees a faint translucent disc. Positioned each frame along the sun's rays.
- */
-export function createRotorShadow(radius: number): THREE.Mesh {
-  const geo = new THREE.CircleGeometry(radius, 40);
-  // Radial falloff baked into a small alpha map: densest where the blades overlap
-  // at the hub, feathered to nothing at the tips.
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, "rgba(255,255,255,0.75)");
-  grad.addColorStop(0.15, "rgba(255,255,255,1)");
-  grad.addColorStop(0.7, "rgba(255,255,255,1)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const alpha = new THREE.CanvasTexture(canvas);
-  alpha.colorSpace = THREE.NoColorSpace;
-  const mat = new THREE.MeshBasicNodeMaterial({ color: 0x14120c, transparent: true, opacity: 0.22, depthWrite: false });
-  mat.alphaMap = alpha;
-  const decal = new THREE.Mesh(geo, mat);
-  decal.renderOrder = 3;
-  decal.castShadow = false;
-  decal.receiveShadow = false;
-  decal.frustumCulled = false;
-  decal.name = "rotor-shadow";
-  return decal;
-}
-
 /** A rotor found in a model, plus the pivot that spins it about its own axis. */
 export interface FoundRotor {
   pivot: THREE.Object3D;

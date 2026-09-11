@@ -5,7 +5,8 @@ import { clamp, damp } from "../core/MathUtil";
 import type { WeaponId } from "../core/Store";
 import type { Pickup } from "./Pickup";
 import type { Pow } from "./Pow";
-import { createRotorDisc, createRotorShadow, findRotorsByShape, splitRotorFromModel } from "../fx/Rotor";
+import { createRotorDisc, findRotorsByShape, splitRotorFromModel } from "../fx/Rotor";
+import { bakeHeliShadow } from "../fx/HeliShadow";
 import { Flare } from "./Flare";
 
 const H = balance.heli;
@@ -15,8 +16,6 @@ const WEAPON_ORDER: WeaponId[] = ["gun", "hydra", "hellfire"];
 const tmpForward = new THREE.Vector3();
 const tmpSunDir = new THREE.Vector3();
 const tmpEmit = new THREE.Vector3();
-const tmpNormal = new THREE.Vector3();
-const Z_AXIS = new THREE.Vector3(0, 0, 1);
 const tmpRight = new THREE.Vector3();
 const tmpMuzzle = new THREE.Vector3();
 const tmpDir = new THREE.Vector3();
@@ -38,7 +37,7 @@ export class Helicopter extends Entity {
   private pitch = 0;
   private bob = 0;
   private washCarry = 0;
-  private rotorShadow = createRotorShadow(7.8);
+  private blobShadow: THREE.Mesh | null = null;
   /** Hit flash on the player's own aircraft is kept gentle; it fills the screen centre. */
   protected flashStrength = 0.3;
   protected flashTint = new THREE.Color(0xff8a60);
@@ -83,14 +82,18 @@ export class Helicopter extends Entity {
 
   onSpawn(): void {
     this.buildModel();
-    // Spinning blades would freeze into a sharp cross on the ground, so nothing in a rotor casts;
-    // a soft decal projected along the sun stands in for the blurred disc instead.
-    for (const sp of this.spinners) {
-      sp.obj.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.isMesh) m.castShadow = false;
-      });
-    }
+    // The aircraft casts no real shadow: a soft decal baked from its own
+    // silhouette and projected along the sun stands in for the whole airframe.
+    this.object.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) m.castShadow = false;
+    });
+    this.blobShadow?.removeFromParent();
+    this.blobShadow = bakeHeliShadow(
+      this.body,
+      this.spinners.filter((s) => s.axis === "y").map((s) => s.obj),
+      26,
+    );
     this.world.scene.add(this.rope);
   }
 
@@ -525,17 +528,16 @@ export class Helicopter extends Entity {
     }
   }
 
-  /** Drop the rotor's soft shadow onto the ground where the sun's rays from the hub land. */
+  /** Lay the blob shadow on the ground where the sun's rays from the hub land, nose along the heading. */
   private placeRotorShadow(): void {
     const world = this.world;
-    const decal = this.rotorShadow;
+    const decal = this.blobShadow;
+    if (!decal) return;
     if (!decal.parent) world.scene.add(decal);
     decal.visible = this.alive && this.object.visible;
     if (!decal.visible) return;
-    // Light direction from the sun to its target; constant under cascades.
     tmpSunDir.copy(world.sun.target.position).sub(world.sun.position).normalize();
-    const hubY = this.pos.y + 2.2;
-    // March toward the ground once, then correct for the terrain height found there.
+    const hubY = this.pos.y + 1.5;
     let g = Math.max(world.terrain.heightAt(this.pos.x, this.pos.z), 0);
     let s = (hubY - g) / -tmpSunDir.y;
     let gx = this.pos.x + tmpSunDir.x * s;
@@ -545,15 +547,8 @@ export class Helicopter extends Entity {
     gx = this.pos.x + tmpSunDir.x * s;
     gz = this.pos.z + tmpSunDir.z * s;
     decal.position.set(gx, g + 0.4, gz);
-    world.terrain.normalAt(gx, gz, tmpNormal);
-    if (g <= 0.01) tmpNormal.set(0, 1, 0);
-    decal.quaternion.setFromUnitVectors(Z_AXIS, tmpNormal);
-    // The disc is stretched along the light's ground track, as a tilted circle's shadow is.
-    const stretch = 1 / Math.max(0.35, Math.abs(tmpSunDir.y));
-    const ang = Math.atan2(tmpSunDir.x, tmpSunDir.z);
-    decal.scale.set(1, 1, 1);
-    decal.rotateZ(-ang);
-    decal.scale.set(1, stretch * 0.75 + 0.25, 1);
+    // Flat on the ground, turned so the silhouette follows the fuselage.
+    decal.rotation.set(-Math.PI / 2, this.heading + Math.PI, 0, "YXZ");
   }
 
   /** Nearest enemy inside a forward cone for Hellfire guidance. */
@@ -705,9 +700,13 @@ export class Helicopter extends Entity {
 
   dispose(): void {
     super.dispose();
-    this.rotorShadow.removeFromParent();
-    this.rotorShadow.geometry.dispose();
-    (this.rotorShadow.material as THREE.Material).dispose();
+    if (this.blobShadow) {
+      this.blobShadow.removeFromParent();
+      this.blobShadow.geometry.dispose();
+      const mat = this.blobShadow.material as THREE.MeshBasicNodeMaterial;
+      mat.alphaMap?.dispose();
+      mat.dispose();
+    }
     this.rope.removeFromParent();
     this.ropeGeo.dispose();
   }

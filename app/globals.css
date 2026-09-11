@@ -362,6 +362,40 @@ button {
 .touch .alert.objective {
   padding: 6px 16px 8px;
 }
+/* Glass alerts: the frosted rim and specular of the control icons, tinted by
+   the alert colour underneath. `--tint` is the only thing each variant sets. */
+.alert.glass {
+  --tint: rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0.03) 100%),
+    var(--tint);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.alert.glass.incoming,
+.alert.glass.countdown {
+  --tint: rgba(255, 90, 60, 0.3);
+}
+.alert.glass.fuel {
+  --tint: rgba(242, 182, 74, 0.28);
+}
+.alert.glass.objective {
+  --tint: rgba(159, 212, 90, 0.22);
+}
+/* Aircraft lost: the same pill, large, over an undimmed view of the crash. */
+.alert.glass.lost {
+  --tint: rgba(255, 90, 60, 0.28);
+  color: var(--red);
+  font-size: 48px;
+  letter-spacing: 0.25em;
+  padding: 12px 40px 14px;
+  border-radius: 22px;
+  text-shadow: 0 0 30px rgba(255, 90, 60, 0.6), 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.touch .alert.glass.lost {
+  font-size: 30px;
+}
 .touch .alert-sub {
   font-size: 11px;
 }
@@ -392,6 +426,23 @@ button {
   border-left: 3px solid var(--amber);
   animation: fadein 0.2s ease-out;
 }
+.msg.glass {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-left: 3px solid var(--amber);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.02) 100%),
+    rgba(10, 14, 11, 0.38);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    0 6px 18px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  backdrop-filter: blur(10px) saturate(150%);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.msg.glass::before {
+  background: radial-gradient(ellipse 50% 60% at 20% 20%, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 70%);
+}
 .msg-prefix {
   color: var(--amber);
   letter-spacing: 0.15em;
@@ -414,7 +465,7 @@ button {
   pointer-events: auto;
 }
 .screen.dim {
-  background: rgba(4, 6, 5, 0.6);
+  background: rgba(4, 6, 5, 0.45);
 }
 .screen.splash {
   background:
@@ -464,6 +515,39 @@ button {
 }
 .card.small {
   width: min(380px, 92vw);
+}
+/* Glass cards over the game view: darker fill than the HUD icons so body text
+   stays readable, same bright rim and specular. Scrolling kept for phones. */
+.card.glass {
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.02) 100%),
+    rgba(10, 14, 11, 0.58);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -12px 22px rgba(255, 255, 255, 0.05),
+    0 30px 80px rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+.card.glass::before {
+  background: radial-gradient(ellipse 55% 30% at 25% 6%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 70%);
+}
+.card.glass.result.won {
+  border-color: rgba(159, 212, 90, 0.55);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 0 60px rgba(159, 212, 90, 0.08),
+    0 30px 80px rgba(0, 0, 0, 0.5);
+}
+.card.glass.result.lost {
+  border-color: rgba(255, 90, 60, 0.55);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 0 60px rgba(255, 90, 60, 0.1),
+    0 30px 80px rgba(0, 0, 0, 0.5);
 }
 .card p {
   line-height: 1.55;
@@ -591,14 +675,6 @@ button {
   text-align: left;
   width: 100%;
   font-size: 11px;
-}
-.flash-text {
-  font-family: var(--display);
-  font-size: 56px;
-  letter-spacing: 0.25em;
-  color: var(--red);
-  text-shadow: 0 0 30px rgba(255, 90, 60, 0.6);
-  animation: blink 0.5s steps(2) infinite;
 }
 .backend {
   position: absolute;

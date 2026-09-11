@@ -105,7 +105,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
     case "briefing":
       return (
         <div className="screen">
-          <div className="card briefing">
+          <div className="card briefing glass rect">
             <div className="eyebrow">MISSION BRIEFING</div>
             <h2 className="subtitle">{snap.missionName}</h2>
             {/* Two columns on a phone held sideways so the button stays in view. */}
@@ -133,7 +133,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
     case "paused":
       return (
         <div className="screen dim">
-          <div className="card small">
+          <div className="card small glass rect">
             <h2 className="subtitle">PAUSED</h2>
             <label className="volume">
               Master
@@ -168,7 +168,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
     case "dead":
       return (
         <div className="screen transparent">
-          <div className="flash-text">AIRCRAFT LOST</div>
+          <div className="alert glass rect lost">AIRCRAFT LOST</div>
         </div>
       );
 
@@ -178,7 +178,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
       const s = snap.stats;
       return (
         <div className="screen dim">
-          <div className="card">
+          <div className={`card glass rect result ${won ? "won" : "lost"}`}>
             <div className="eyebrow">{won ? "MISSION COMPLETE" : "MISSION FAILED"}</div>
             <h2 className={`subtitle ${won ? "good" : "bad"}`}>{won ? "Welcome home, pilot." : snap.lostReason || "All airframes lost."}</h2>
             <table className="stats">

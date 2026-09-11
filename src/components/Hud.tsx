@@ -117,18 +117,18 @@ export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; o
 
       <div className="hud-center">
         {snap.countdown && (
-          <div className={`alert countdown ${snap.countdown.remaining < 15 ? "urgent" : ""}`}>
+          <div className={`alert glass rect countdown ${snap.countdown.remaining < 15 ? "urgent" : ""}`}>
             {snap.countdown.label} {Math.floor(snap.countdown.remaining / 60)}:{String(Math.floor(snap.countdown.remaining % 60)).padStart(2, "0")}
           </div>
         )}
-        {snap.incoming && <div className="alert incoming">MISSILE INCOMING</div>}
+        {snap.incoming && <div className="alert glass rect incoming">MISSILE INCOMING</div>}
         {snap.banner && (
-          <div className="alert objective" key={snap.banner.text}>
+          <div className="alert glass rect objective" key={snap.banner.text}>
             {snap.banner.title}
             <span className="alert-sub">{snap.banner.text}</span>
           </div>
         )}
-        {snap.lowFuel && !snap.incoming && <div className="alert fuel">FUEL LOW</div>}
+        {snap.lowFuel && !snap.incoming && <div className="alert glass rect fuel">FUEL LOW</div>}
         {snap.winchLabel && (
           <div className="winch">
             <div className="winch-label">{snap.winchLabel}</div>
@@ -143,7 +143,7 @@ export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; o
 
       <div className="hud-messages">
         {snap.messages.slice(touch ? -2 : -4).map((m) => (
-          <div key={m.id} className="msg">
+          <div key={m.id} className="msg glass rect">
             <span className="msg-prefix">HQ</span> {m.text}
           </div>
         ))}

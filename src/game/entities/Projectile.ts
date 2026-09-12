@@ -3,6 +3,7 @@ import type { Helicopter } from "./Helicopter";
 import { clamp } from "../core/MathUtil";
 import { Entity, type Team } from "./Entity";
 import { balance } from "../data/balance";
+import type { Assets } from "../core/Assets";
 
 export type ProjectileKind = "gun" | "hydra" | "hellfire" | "shell" | "aa" | "rifle" | "sam";
 
@@ -91,6 +92,31 @@ const MODELLED: Partial<Record<ProjectileKind, { asset: string; length: number; 
 const tmpDir = new THREE.Vector3();
 const tmpTarget = new THREE.Vector3();
 const hits: Entity[] = [];
+
+/**
+ * One sample of every round, sharing the live geometry and materials. Drawing
+ * these once behind the loading screen compiles their pipelines there instead
+ * of during the first shot. Callers must detach rather than dispose them.
+ */
+export function projectileSamples(assets: Assets): THREE.Object3D[] {
+  const out: THREE.Object3D[] = [];
+  const v = getVisuals();
+  for (const kind of Object.keys(v) as ProjectileKind[]) {
+    const mesh = new THREE.Mesh(v[kind].geo, v[kind].mat);
+    mesh.castShadow = kind === "hellfire" || kind === "sam";
+    out.push(mesh);
+  }
+  for (const spec of Object.values(MODELLED)) {
+    const asset = spec && assets.get(spec.asset);
+    if (!asset) continue;
+    asset.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) m.castShadow = spec.shadow;
+    });
+    out.push(asset);
+  }
+  return out;
+}
 
 export class Projectile extends Entity {
   readonly vel = new THREE.Vector3();

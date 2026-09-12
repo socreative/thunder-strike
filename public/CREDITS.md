@@ -20,7 +20,7 @@ Models fetched by `scripts/fetch-assets.mjs`. Where a model is missing the game 
 - **Jungle Tent** by SyntheticMN, CC-BY 4.0, https://sketchfab.com/3d-models/jungle-tent-52332b0f55f24c739215342954e49f54
 - **Patrol Boat PBR MK2** by Savy, CC-BY 4.0, https://sketchfab.com/3d-models/patrol-boat-pbr-mk2-dbd87172b2934063aa93ffd0c6f85750
 - **Hellfire Missile** by xephoney, CC-BY 4.0, https://sketchfab.com/3d-models/hellfire-missile-208e1de6721e439cbb1666ec9a6517e5
-- **Spike LR2 anti-tank anti-personnel rocket** by s_ebo_l, CC-BY 4.0, https://sketchfab.com/3d-models/spike-lr2-anti-tank-anti-personnel-rocket-e47685a48cdb4e14883976fe1bf85ced. Flown as the rocket pod round. Reduced for the game to the body, seeker dome, collar and fins at about 1,100 triangles, with the PBR maps replaced by flat colours.
+- **Spike LR2 anti-tank anti-personnel rocket** by s_ebo_l, CC-BY 4.0, https://sketchfab.com/3d-models/spike-lr2-anti-tank-anti-personnel-rocket-e47685a48cdb4e14883976fe1bf85ced. Flown as the rocket pod round. Reduced for the game to the body, seeker dome, collar and fins at about 1,100 triangles in a single draw call, with the PBR maps replaced by colours baked into the vertices.
 
 Those four are downloaded manually from Sketchfab, then reduced for the web
 with `@gltf-transform/cli optimize --texture-compress webp` and a texture size

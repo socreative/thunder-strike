@@ -5,6 +5,7 @@ import { Assets } from "./core/Assets";
 import { Input } from "./core/Input";
 import type { Blip, GameSettings, Screen, Store, WeaponId } from "./core/Store";
 import { balance } from "./data/balance";
+import { projectileSamples } from "./entities/Projectile";
 import type { MissionData } from "./data/mission";
 import { MISSIONS, missionById } from "./data/missions";
 import { track } from "./core/Analytics";
@@ -14,6 +15,7 @@ import { World } from "./World";
 
 const STEP = 1 / 60;
 const zeroVel = new THREE.Vector3();
+const warmDir = new THREE.Vector3();
 const shadowCentre = new THREE.Vector3();
 const PUBLISH_HZ = 20;
 
@@ -142,6 +144,45 @@ export class Game {
     this.overview = world.terrain.renderOverview(this.mission.theme.id === "desert" ? 96 : 128);
     this.buildPost(world);
     this.publishMission();
+    this.warmPipelines(world);
+  }
+
+  /**
+   * Draw one of every round for a single frame while the loading screen is up.
+   * WebGPU compiles a material's pipeline the first time it is drawn, so the
+   * first rocket of a mission was paying for that in the middle of a fight.
+   * It has to go through the normal render path: pipelines are keyed to the
+   * render target, and the scene reaches the canvas through a post pass.
+   */
+  private warmPipelines(world: World): void {
+    const samples = projectileSamples(this.assets);
+    if (samples.length === 0) return;
+    const camera = this.rig.camera;
+    const group = new THREE.Group();
+    // Behind the camera: three still submits the draws because nothing is
+    // culled, the pipelines are built at that point, and the rasteriser throws
+    // the pixels away, so no frame ever shows a row of floating rockets.
+    camera.getWorldDirection(warmDir);
+    group.position.copy(camera.position).addScaledVector(warmDir, -40);
+    group.frustumCulled = false;
+    for (const s of samples) {
+      // Every descendant, not just the root: a culled child never reaches the
+      // pipeline cache, which is the whole point of the exercise.
+      s.traverse((o) => {
+        o.frustumCulled = false;
+      });
+      group.add(s);
+    }
+    world.scene.add(group);
+    try {
+      if (this.post) this.post.render();
+      else this.renderer.render(world.scene, camera);
+    } catch (err) {
+      console.warn("[thunder-strike] pipeline warm-up skipped", err);
+    }
+    world.scene.remove(group);
+    // Geometry and materials are the live ones, so only the wrappers go.
+    group.clear();
   }
 
   private buildPost(world: World): void {

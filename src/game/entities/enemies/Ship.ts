@@ -1,4 +1,5 @@
 import * as THREE from "three/webgpu";
+import { shoreBias } from "./water";
 import { Entity } from "../Entity";
 import { Wreck } from "../Wreck";
 import { balance } from "../../data/balance";
@@ -177,7 +178,11 @@ export class Ship extends Entity {
       const ax = this.pos.x + Math.sin(this.heading) * 25;
       const az = this.pos.z + Math.cos(this.heading) * 25;
       const r = this.world.terrain.riverInfo(ax, az, tmpHit);
-      if (r.sd > -8) want = Math.atan2(r.cx - this.pos.x, r.cz - this.pos.z);
+      if (Number.isFinite(r.sd)) {
+        if (r.sd > -8) want = Math.atan2(r.cx - this.pos.x, r.cz - this.pos.z);
+      } else {
+        want += shoreBias(this.world.terrain, this.pos.x, this.pos.z, this.heading, 34, 3);
+      }
     }
     const delta = angleDelta(this.heading, want);
     this.heading = turnToward(this.heading, want, this.spec.turnRate * dt);

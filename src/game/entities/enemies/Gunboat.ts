@@ -3,6 +3,7 @@ import { Entity } from "../Entity";
 import { Wreck } from "../Wreck";
 import { balance } from "../../data/balance";
 import { angleDelta, headingTo, turnToward } from "../../core/MathUtil";
+import { shoreBias } from "./water";
 import { Build, PALETTE as P } from "../../world/Detail";
 import type { RiverHit } from "../../world/Terrain";
 import { leadTarget } from "./aim";
@@ -152,7 +153,12 @@ export class Gunboat extends Entity {
     const ax = this.pos.x + Math.sin(this.heading) * 10;
     const az = this.pos.z + Math.cos(this.heading) * 10;
     const r = this.world.terrain.riverInfo(ax, az, tmpHit);
-    if (r.sd > -3) want = Math.atan2(r.cx - this.pos.x, r.cz - this.pos.z);
+    if (Number.isFinite(r.sd)) {
+      if (r.sd > -3) want = Math.atan2(r.cx - this.pos.x, r.cz - this.pos.z);
+    } else {
+      // Open water, no channel: read the seabed and bear away from the shoals.
+      want += shoreBias(this.world.terrain, this.pos.x, this.pos.z, this.heading, 16, 2);
+    }
     const delta = angleDelta(this.heading, want);
     this.heading = turnToward(this.heading, want, S.turnRate * dt);
     const v = S.speed * speedMul * (1 - Math.min(1, Math.abs(delta) / 1.2) * 0.5);

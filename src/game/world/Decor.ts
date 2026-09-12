@@ -209,6 +209,33 @@ export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE
 const STONE = 0x8d8a78;
 const STONE_DARK = 0x6a675a;
 const MOSS = 0x5f7a45;
+/* Tropical village: weathered planking, mangrove poles, palm thatch and netting. */
+const WOOD_PLANK = 0xb59468;
+const POLE = 0x7d6242;
+const THATCH = 0xc7a765;
+const THATCH_DARK = 0x9a7f49;
+const WALL_WOVEN = 0x8f7a5c;
+const NET = 0x6d6a55;
+/* A hull left on a reef long enough to go over entirely to rust. */
+const HULL_RUST = 0x9c7052;
+const HULL_BOOT = 0x4a352a;
+const DECK_RUST = 0x53392a;
+const FRAME_RUST = 0x5e4230;
+/** Old topside paint, mostly weathered off. */
+const HULL_PAINT = 0xc4bda6;
+
+/**
+ * A small open boat, used moored at a village pier and inside the pen. Built
+ * from a tapered hull with a raised bow, a thwart and a stubby outboard.
+ */
+function skiff(b: Build, x: number, z: number, ry: number, scale = 1): void {
+  const s = scale;
+  b.box(1.7 * s, 0.9 * s, 5.2 * s, WOOD_PLANK, { x, y: 0.1 * s, z, ry, mat: { roughness: 1 } });
+  b.box(1.5 * s, 0.3 * s, 4.6 * s, POLE, { x, y: 0.5 * s, z, ry, mat: { roughness: 1 } });
+  b.cone(0.85 * s, 1.6 * s, WOOD_PLANK, { x: x + Math.sin(ry) * 3.1 * s, y: 0.25 * s, z: z + Math.cos(ry) * 3.1 * s, ry, rx: -Math.PI / 2, seg: 4, mat: { roughness: 1, flat: true } });
+  b.box(1.5 * s, 0.22 * s, 0.5 * s, POLE, { x: x - Math.sin(ry) * 0.6 * s, y: 0.62 * s, z: z - Math.cos(ry) * 0.6 * s, ry });
+  b.cyl(0.2 * s, 0.24 * s, 0.9 * s, P.metalDark, { x: x - Math.sin(ry) * 2.5 * s, y: 0.55 * s, z: z - Math.cos(ry) * 2.5 * s, ry, seg: 6 });
+}
 
 /**
  * Mission set dressing that is neither a target nor a pickup: a runway cut
@@ -217,7 +244,8 @@ const MOSS = 0x5f7a45;
 function buildDecorItem(item: DecorItem, terrain: Terrain, flames: THREE.Vector3[]): THREE.Group {
   const b = new Build();
   // A dam stands in the channel and floes float, so those sit at the water line rather than the bed.
-  const onWater = item.kind === "dam" || item.kind === "floes" || item.kind === "rig" || item.kind === "buoys";
+  const onWater =
+    item.kind === "dam" || item.kind === "floes" || item.kind === "rig" || item.kind === "buoys" || item.kind === "village" || item.kind === "pen" || item.kind === "hulk";
   const y = onWater ? 0 : terrain.heightAt(item.x, item.z);
   switch (item.kind) {
     case "runway": {
@@ -509,9 +537,232 @@ function buildDecorItem(item: DecorItem, terrain: Terrain, flames: THREE.Vector3
       for (let i = 0; i < 3; i++) b.box(8, 0.4, 1.4, STONE, { y: 0.2 + i * 0.4, z: 13.8 + (2 - i) * 1.4 });
       break;
     }
+
+    case "village": {
+      // Fishing village on stilts over the shallows: huts on pole clusters
+      // either side of a plank walk, a pier out to water deep enough to moor
+      // in, drying nets and a few skiffs. Laid out from a seeded RNG so the
+      // spacing is irregular but the same every time the world is built.
+      const rng = new Random((item.x * 73856093) ^ (item.z * 19349663));
+      const huts = item.count ?? 9;
+      const spread = item.width ?? 46;
+      const len = item.length ?? 76;
+      const deck = 2.6;
+      // Main walk, on posts, running the length of the village.
+      b.box(3, 0.25, len, WOOD_PLANK, { y: deck, mat: { roughness: 1 } });
+      for (let z = -len / 2 + 2; z <= len / 2; z += 5.5) {
+        for (const sx of [-1.2, 1.2]) b.cyl(0.2, 0.24, deck + 2.4, POLE, { x: sx, y: deck - 1.2, z, seg: 6, mat: { roughness: 1 } });
+      }
+      for (let i = 0; i < huts; i++) {
+        const side = i % 2 ? 1 : -1;
+        const z = -len / 2 + 6 + (i / Math.max(1, huts - 1)) * (len - 12) + rng.range(-2, 2);
+        const x = side * (6 + rng.range(0, spread / 2 - 6));
+        const w = rng.range(5, 7);
+        const d = rng.range(5, 6.6);
+        const floor = deck + rng.range(-0.35, 0.5);
+        const ry = rng.range(-0.18, 0.18);
+        // Pole cluster, platform, walls and a thatched hip roof.
+        for (const [px, pz] of [
+          [-w / 2 + 0.6, -d / 2 + 0.6],
+          [w / 2 - 0.6, -d / 2 + 0.6],
+          [-w / 2 + 0.6, d / 2 - 0.6],
+          [w / 2 - 0.6, d / 2 - 0.6],
+        ] as [number, number][]) {
+          const wx = x + px * Math.cos(ry) - pz * Math.sin(ry);
+          const wz = z + px * Math.sin(ry) + pz * Math.cos(ry);
+          b.cyl(0.22, 0.28, floor + 2.6, POLE, { x: wx, y: floor - 1.3, z: wz, seg: 6, mat: { roughness: 1 } });
+        }
+        b.box(w, 0.3, d, WOOD_PLANK, { x, y: floor, z, ry, mat: { roughness: 1 } });
+        b.box(w - 0.8, 2.6, d - 0.8, WALL_WOVEN, { x, y: floor + 1.45, z, ry, mat: { roughness: 1 } });
+        b.box(1.1, 1.9, 0.2, 0x2a241c, { x, y: floor + 1.1, z: z + (d / 2 - 0.4), ry });
+        // A four-sided cone is a square pyramid with its corners on the axes, so
+        // it needs a quarter turn to sit square on the hut instead of diamond-wise.
+        b.box(w + 0.7, 0.2, d + 0.7, THATCH_DARK, { x, y: floor + 2.8, z, ry, mat: { roughness: 1 } });
+        b.cone((w + 0.7) * 0.72, 1.9, THATCH, { x, y: floor + 3.85, z, ry: ry + Math.PI / 4, seg: 4, mat: { roughness: 1, flat: true } });
+        b.box(0.35, 0.22, d + 0.8, THATCH_DARK, { x, y: floor + 4.7, z, ry, mat: { roughness: 1 } });
+        // Branch walk joining the hut to the main run.
+        const gap = Math.abs(x) - w / 2;
+        if (gap > 1) b.box(gap, 0.22, 1.6, WOOD_PLANK, { x: side * (Math.abs(x) - gap / 2 - w / 2 + 0.1), y: deck - 0.05, z, mat: { roughness: 1 } });
+      }
+      // Pier running out past the huts, with a hoist post and moored skiffs.
+      const pier = len / 2 + 26;
+      b.box(4, 0.28, 28, WOOD_PLANK, { y: deck, z: pier - 14, mat: { roughness: 1 } });
+      for (let z = len / 2; z <= pier; z += 5) for (const sx of [-1.6, 1.6]) b.cyl(0.22, 0.26, deck + 3.2, POLE, { x: sx, y: deck - 1.6, z, seg: 6, mat: { roughness: 1 } });
+      b.cyl(0.3, 0.34, 5, POLE, { x: 1.8, y: deck + 2.5, z: pier - 3, seg: 6 });
+      b.box(2.6, 0.2, 0.2, POLE, { x: 0.7, y: deck + 4.9, z: pier - 3 });
+      for (let i = 0; i < 3; i++) {
+        const sx = i % 2 ? 1 : -1;
+        const sz = len / 2 - 4 + i * 9;
+        skiff(b, sx * 4.4, sz, sx * 1.5 + rng.range(-0.3, 0.3));
+      }
+      // Drying nets on frames at the shoreward end.
+      for (let i = 0; i < 3; i++) {
+        const nx = (i - 1) * 7;
+        const nz = -len / 2 - 3;
+        for (const sx of [-1, 1]) b.cyl(0.16, 0.2, 4.4, POLE, { x: nx + sx * 2.4, y: 1.6, z: nz, seg: 5 });
+        b.box(5, 2.4, 0.12, NET, { x: nx, y: 2.6, z: nz, mat: { roughness: 1, side: THREE.DoubleSide } });
+      }
+      break;
+    }
+
+    case "pen": {
+      // Submarine pen driven into the shore: massive slab roof on the inner
+      // two thirds, an open channel at the mouth so the berth reads from the
+      // air, blast walls flanking it and a boat lying alongside. The mouth
+      // faces -Z before the item's heading.
+      const len = item.length ?? 46;
+      const wid = item.width ?? 30;
+      const roof = 13;
+      const half = wid / 2;
+      const mouth = -len / 2;
+      // Roof stops short of the mouth, leaving the front of the berth open.
+      const roofFront = mouth + 15;
+      for (const sx of [-1, 1]) {
+        // Side wall the full length, inner quay ledge and fenders along it.
+        b.box(5, roof + 1, len, P.concreteDark, { x: sx * (half + 2.5), y: (roof + 1) / 2 - 1, z: 0, mat: { roughness: 1 } });
+        b.box(4, 1.6, len - 4, P.concrete, { x: sx * (half - 2), y: 0.8, z: 0, mat: { roughness: 1 } });
+        for (let z = mouth + 5; z < len / 2 - 3; z += 7) b.cyl(0.35, 0.35, 1.2, 0x2a2723, { x: sx * (half - 4.1), y: 1.2, z, seg: 6, rz: Math.PI / 2 });
+        // Bollards along the open part of the quay.
+        for (let z = mouth + 4; z < roofFront; z += 6) b.cyl(0.3, 0.36, 1, P.metalDark, { x: sx * (half - 3.4), y: 2.1, z, seg: 6 });
+      }
+      // Back wall, roof slab over the inner berth, and its parapet.
+      b.box(wid + 10, roof + 1, 5, P.concreteDark, { y: (roof + 1) / 2 - 1, z: len / 2 + 2.5, mat: { roughness: 1 } });
+      b.box(wid + 10, 3.4, len / 2 - mouth / 2 - 15 + len / 2 + 5 - (len / 2 - roofFront), P.concrete, { y: roof + 1.7, z: (roofFront + len / 2 + 2.5) / 2, mat: { roughness: 1 } });
+      // Mouth of the covered part: piers and a deep lintel, chamfered like an arch.
+      for (const sx of [-1, 1]) {
+        b.box(6, roof, 6, P.concreteShadow, { x: sx * (half - 2), y: roof / 2 - 1, z: roofFront, mat: { roughness: 1 } });
+        // Angled blast wall running out from the open mouth.
+        b.box(2.4, 7, 18, P.concreteDark, { x: sx * (half + 7), y: 2.5, z: mouth - 8, ry: sx * 0.32, mat: { roughness: 1 } });
+      }
+      b.box(wid - 4, 3.2, 7, P.concreteShadow, { y: roof - 2.6, z: roofFront, mat: { roughness: 1 } });
+      b.box(wid - 9, 1.4, 7.4, P.concreteDark, { y: roof - 4.6, z: roofFront, mat: { roughness: 1 } });
+      // Roof works: parapet, panel seams, crane rail, vent cowls, stair tower.
+      const rz0 = roofFront + 3;
+      const rz1 = len / 2 + 5;
+      b.box(wid + 10, 1.3, 1, P.concreteDark, { y: roof + 4, z: rz1 });
+      b.box(wid + 10, 1.3, 1, P.concreteDark, { y: roof + 4, z: rz0 });
+      for (const sx of [-1, 1]) b.box(1, 1.3, rz1 - rz0, P.concreteDark, { x: sx * (half + 4.5), y: roof + 4, z: (rz0 + rz1) / 2 });
+      for (let z = rz0 + 6; z < rz1; z += 9) b.box(wid + 8, 0.12, 0.5, P.concreteShadow, { y: roof + 3.46, z });
+      for (const sx of [-1, 1]) b.box(0.6, 0.5, rz1 - rz0 - 4, P.rust, { x: sx * (half - 5), y: roof + 3.6, z: (rz0 + rz1) / 2, mat: { metalness: 0.4 } });
+      b.box(7, 1.8, 4, P.metalDark, { x: -half + 6, y: roof + 4.4, z: rz0 + 7, mat: { metalness: 0.4 } });
+      for (const [vx, vz] of [
+        [half - 8, rz1 - 6],
+        [half - 8, rz1 - 14],
+        [-half + 7, rz1 - 5],
+      ] as [number, number][]) {
+        b.cyl(1.4, 1.6, 4, P.metalDark, { x: vx, y: roof + 5.2, z: vz, seg: 8 });
+        b.cyl(1.9, 1.9, 0.5, P.metalDark, { x: vx, y: roof + 7.4, z: vz, seg: 8 });
+      }
+      b.box(5, 4.5, 5, P.concrete, { x: -half + 1, y: roof + 5.6, z: len / 2 - 4, mat: { roughness: 1 } });
+      b.box(5.6, 0.5, 5.6, P.concreteDark, { x: -half + 1, y: roof + 8, z: len / 2 - 4 });
+      b.box(3.4, 4, 0.4, P.rust, { y: 1, z: len / 2 - 0.2, mat: { metalness: 0.3 } });
+      // A boat lying in the open part of the berth, where it can be seen.
+      skiff(b, -half + 6, mouth + 8, 0.02, 2.3);
+      break;
+    }
+
+    case "lighthouse": {
+      // Tapered tower with a painted band, a railed gallery, a glazed lantern
+      // room and a keeper's cottage tucked against the base.
+      const h = item.length ?? 22;
+      b.cyl(6.4, 7.6, 1.4, P.concreteShadow, { y: 0.7, seg: 14, mat: { roughness: 1 } });
+      b.cyl(2.5, 4.2, h, P.white, { y: 1.4 + h / 2, seg: 14, mat: { roughness: 0.85 } });
+      b.cyl(3.05, 3.35, h * 0.2, P.hazard, { y: 1.4 + h * 0.46, seg: 14, mat: { roughness: 0.85 } });
+      for (let i = 0; i < 3; i++) b.box(0.9, 1.2, 0.25, P.glass, { y: 4 + i * (h / 3.4), z: 3.4 - i * 0.25, ry: i * 1.1, mat: { roughness: 0.3, metalness: 0.3 } });
+      // Gallery: a deck ring, its underside brackets and a railing.
+      const gy = 1.4 + h;
+      b.cyl(4.2, 4.2, 0.4, P.concrete, { y: gy, seg: 14, mat: { roughness: 1 } });
+      b.torus(4.1, 0.14, P.metalDark, { y: gy + 1.1, rx: Math.PI / 2, seg: 16 });
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        b.cyl(0.07, 0.07, 1.1, P.metalDark, { x: Math.cos(a) * 4.1, y: gy + 0.6, z: Math.sin(a) * 4.1, seg: 4 });
+        b.box(0.3, 0.5, 0.9, P.concreteDark, { x: Math.cos(a) * 3, y: gy - 0.45, z: Math.sin(a) * 3, ry: -a });
+      }
+      // Lantern room and the lamp itself.
+      b.cyl(2.5, 2.5, 3.4, P.glass, { y: gy + 1.9, seg: 12, mat: { roughness: 0.15, metalness: 0.4 } });
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        b.cyl(0.12, 0.12, 3.4, P.metalDark, { x: Math.cos(a) * 2.45, y: gy + 1.9, z: Math.sin(a) * 2.45, seg: 4 });
+      }
+      b.sphere(1.25, 0xffe9a8, { y: gy + 2.1, seg: 10, mat: { emissive: 0xffcc55, roughness: 0.4 } });
+      b.cone(2.9, 2.2, P.metalDark, { y: gy + 4.7, seg: 12, mat: { flat: true } });
+      b.cyl(0.12, 0.12, 1.6, P.metalDark, { y: gy + 6.5, seg: 4 });
+      // Keeper's cottage and the path to the door.
+      b.box(9, 3.4, 6.4, P.white, { x: -8.5, y: 1.7, z: 3, ry: 0.16, mat: { roughness: 0.9 } });
+      b.box(9.8, 0.5, 7.2, P.hazard, { x: -8.5, y: 3.6, z: 3, ry: 0.16, mat: { roughness: 0.9 } });
+      b.cone(6.2, 2.2, P.roof, { x: -8.5, y: 4.8, z: 3, ry: Math.PI / 4, seg: 4, mat: { roughness: 1, flat: true } });
+      b.box(1.1, 2, 0.3, P.woodDark, { x: -6, y: 1, z: 6.2, ry: 0.16 });
+      for (let i = 0; i < 4; i++) b.box(2.4, 0.3, 1.1, P.concrete, { x: -4 + i * 1.2, y: 0.15, z: 5.4 - i * 0.4 });
+      break;
+    }
+
+    case "hulk": {
+      // A freighter driven onto the reef and left: broken-backed, listing,
+      // derricks down, gone entirely to rust. The roll goes on the group so
+      // the caller's heading still turns her about the vertical.
+      const len = item.length ?? 54;
+      const beam = 11.5;
+      const gap = 5;
+      const hull = (z0: number, z1: number, y: number, tilt: number) => {
+        const l = z1 - z0;
+        const zc = (z0 + z1) / 2;
+        b.box(beam, 7.5, l, HULL_RUST, { y: y + 1.2, z: zc, rx: tilt, mat: { roughness: 0.95, flat: true } });
+        b.box(beam + 0.6, 1.2, l, HULL_BOOT, { y: y - 2.4, z: zc, rx: tilt, mat: { roughness: 1 } });
+        b.box(beam - 1.4, 0.5, l - 1, DECK_RUST, { y: y + 5, z: zc, rx: tilt, mat: { roughness: 1 } });
+        // Bulwarks down each side, which is what makes a deck read as a deck.
+        for (const sx of [-1, 1]) b.box(0.5, 1.3, l - 1, HULL_RUST, { x: sx * (beam / 2 - 0.3), y: y + 5.6, z: zc, rx: tilt, mat: { roughness: 0.95 } });
+      };
+      hull(-len / 2, -gap, 1.8, -0.07);
+      hull(gap, len / 2 - 7, -1.1, 0.06);
+      // Raked bow, forecastle and the stern counter.
+      b.box(beam - 2.6, 7, 8, HULL_RUST, { y: 3, z: -len / 2 - 3, rx: -0.2, mat: { roughness: 0.95, flat: true } });
+      b.cone(beam / 2 - 0.8, 6, HULL_RUST, { y: 2.9, z: -len / 2 - 6.5, rx: -Math.PI / 2, seg: 4, mat: { roughness: 0.95, flat: true } });
+      b.box(beam - 1.6, 1.6, 7, DECK_RUST, { y: 6.3, z: -len / 2 + 3, rx: -0.07, mat: { roughness: 1 } });
+      b.box(beam - 1.8, 6.5, 7, HULL_RUST, { y: -1.8, z: len / 2 - 4, rx: 0.14, mat: { roughness: 0.95, flat: true } });
+      // Cargo hatches on the forward deck, one of them stove in.
+      for (let i = 0; i < 2; i++) {
+        const z = -len / 2 + 11 + i * 11;
+        b.box(beam - 4, 0.9, 7, DECK_RUST, { y: 5.6 + i * 0.25, z, rx: -0.07, mat: { roughness: 1 } });
+        b.box(beam - 5.4, 0.4, 5.6, i ? 0x2b2622 : HULL_RUST, { y: 6.1 + i * 0.25, z, rx: -0.07, mat: { roughness: 1 } });
+      }
+      // The break amidships: a torn deck edge each side and a few standing frames.
+      for (let i = 0; i < 4; i++) {
+        const t = (i / 3 - 0.5) * 2;
+        b.box(0.7, 5.5 - Math.abs(t) * 1.8, 0.4, FRAME_RUST, { x: t * (beam / 2 - 1.2), y: 1.6 - Math.abs(t) * 0.5, z: -1 + i * 0.7, rz: t * 0.16, mat: { roughness: 1 } });
+      }
+      b.box(beam, 0.5, 3.4, FRAME_RUST, { y: 5.1, z: -gap - 0.8, rx: 0.42, mat: { roughness: 1 } });
+      b.box(beam, 0.5, 3.4, FRAME_RUST, { y: 2.3, z: gap + 0.8, rx: -0.46, mat: { roughness: 1 } });
+      // Deckhouse, bridge wings and funnel aft, all well gone.
+      const dz = len / 2 - 13;
+      b.box(9.5, 6, 8, P.white, { y: 3.1, z: dz, rx: 0.06, mat: { roughness: 1 } });
+      b.box(beam + 2, 0.5, 2.2, P.white, { y: 5.9, z: dz - 3, rx: 0.06, mat: { roughness: 1 } });
+      b.box(9.9, 0.6, 8.4, DECK_RUST, { y: 6.3, z: dz, rx: 0.06 });
+      for (let i = -1; i <= 1; i++) b.box(1.7, 1.1, 0.25, 0x24292b, { x: i * 2.8, y: 4.2, z: dz - 4.1, rx: 0.06 });
+      b.box(6, 3.4, 5, P.white, { y: 8, z: dz + 0.5, rx: 0.06, mat: { roughness: 1 } });
+      b.cyl(1.9, 2.2, 6.5, HULL_RUST, { y: 11.4, z: dz + 1, rz: 0.12, seg: 10, mat: { roughness: 0.95 } });
+      b.cyl(2.3, 2.3, 1, 0x2b2622, { y: 14.6, z: dz + 1, rz: 0.12, seg: 10 });
+      // Collapsed derricks and the mast lying over the rail.
+      b.strut(new THREE.Vector3(-1.5, 6.4, -len / 2 + 17), new THREE.Vector3(-8.5, 0.6, -len / 2 + 27), 0.38, FRAME_RUST, { roughness: 1 });
+      b.strut(new THREE.Vector3(2, 5.2, dz - 7), new THREE.Vector3(9, 0.2, dz - 13), 0.38, FRAME_RUST, { roughness: 1 });
+      b.cyl(0.55, 0.7, 8, FRAME_RUST, { x: -0.8, y: 8.6, z: -len / 2 + 16, rz: 0.1, seg: 6, mat: { roughness: 1 } });
+      // What is left of her paint, and rust weeping down the topsides.
+      for (const sx of [-1, 1]) {
+        b.box(0.18, 2.2, 9, HULL_PAINT, { x: sx * (beam / 2 + 0.04), y: 3.4, z: -len / 2 + 8, rx: -0.07, mat: { roughness: 1 } });
+        b.box(0.18, 1.6, 6, HULL_PAINT, { x: sx * (beam / 2 + 0.04), y: 0.6, z: dz - 2, rx: 0.06, mat: { roughness: 1 } });
+      }
+      // Rust weeping down the topsides.
+      for (let i = 0; i < 6; i++) {
+        const sx = i % 2 ? 1 : -1;
+        b.box(0.2, 3.4, 1.6, HULL_BOOT, { x: sx * (beam / 2 + 0.05), y: 1.6, z: -len / 2 + 6 + i * 7, mat: { roughness: 1 } });
+      }
+      break;
+    }
   }
   const g = b.finish();
   g.position.set(item.x, y, item.z);
+  // A wreck lies over on its side. Rolling about the hull's own long axis has
+  // to happen inside the heading, which the default XYZ euler order gives us.
+  if (item.kind === "hulk") g.rotation.z = 0.3;
   g.rotation.y = item.heading;
   g.name = `decor-${item.kind}`;
   return g;

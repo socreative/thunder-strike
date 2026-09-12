@@ -48,7 +48,9 @@ START MISSION opens a picker; both missions are always available, and the win sc
 
 The sea is a real spectral ocean, ported from Techartist's MIT-licensed [ocean-simulation](https://github.com/iamtechartist/ocean-simulation) into TSL so it runs on the WebGPU renderer and its WebGL fallback: a JONSWAP spectrum in three FFT cascades (`src/game/world/water/Cascade.ts`, about 45 small render passes a frame), a coastal travel-time field solved once from the seabed so crests slow, turn parallel to the beach and break in the shallows (`Coastal.ts`, `WaveField.ts`), and a 15 Hz surf-foam history advected along the shore (`Foam.ts`). Each theme sets its swell direction, peak wavelength and cascade gains in `Theme.ts`. Reflections, refraction and caustics from the original are deliberately left out.
 
-Missions are data: `src/game/data/mission*.ts` holds the layout, spawns, objectives and a theme (`src/game/world/Theme.ts`) covering ground, sky, water, fog, dust and vegetation. Terrain shape, coast and river come from a per-mission terrain config in `src/game/world/Terrain.ts`.
+**Operation Reef Knot.** An island chain in open ocean. The enemy network is spread thin across it: a radar on the high peak, a fuel and ammunition dump in a lagoon, a submarine pen cut into a cliff, and four patrol boats working the water between the islands. Blind the radar first, sink the boats, burn the dump, break the pen, then lift three downed aircrew off a reef in the north and bring them home. There is no friendly ground but the cay you launch from and the carrier standing off it, so fuel is the real enemy.
+
+Missions are data: `src/game/data/mission*.ts` holds the layout, spawns, objectives and a theme (`src/game/world/Theme.ts`) covering ground, sky, water, fog, dust and vegetation. Terrain shape, coast, river and islands come from a per-mission terrain config in `src/game/world/Terrain.ts`. The `atoll` shape is a seabed that never breaks the surface, so an archipelago is built entirely from its islands list.
 
 ## Project layout
 

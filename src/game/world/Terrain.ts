@@ -16,7 +16,7 @@ export interface RiverDef {
 }
 
 export interface TerrainConfig {
-  shape: "desert" | "jungle" | "arctic" | "gulf";
+  shape: "desert" | "jungle" | "arctic" | "gulf" | "atoll";
   /** Land falls into the sea west of this X, down to `floor`. */
   coast?: { edgeX: number; floor: number };
   river?: RiverDef;
@@ -75,7 +75,16 @@ export class Terrain {
     private readonly overview: OverviewPalette,
   ) {
     this.noise = new SimplexNoise(seed);
-    this.base = cfg.shape === "jungle" ? this.jungleHeight : cfg.shape === "arctic" ? this.arcticHeight : cfg.shape === "gulf" ? this.gulfHeight : this.desertHeight;
+    this.base =
+      cfg.shape === "jungle"
+        ? this.jungleHeight
+        : cfg.shape === "arctic"
+          ? this.arcticHeight
+          : cfg.shape === "gulf"
+            ? this.gulfHeight
+            : cfg.shape === "atoll"
+              ? this.atollHeight
+              : this.desertHeight;
     if (cfg.river) {
       this.riverBed = cfg.river.bed ?? -5;
       this.riverBank = cfg.river.bank ?? 14;
@@ -167,6 +176,14 @@ export class Terrain {
     // Steep arid coast: big folded ridges rising fast away from the water.
     const h = 5 + 16 * n.fbm(x * 0.003, z * 0.003, 4) + 4 * Math.abs(n.noise2(x * 0.011 - 2, z * 0.011 + 4));
     return Math.max(h, 1.5);
+  };
+
+  private atollHeight = (x: number, z: number): number => {
+    const n = this.noise;
+    // Open ocean floor. It never breaks the surface, so every scrap of land on
+    // an atoll map comes from the islands list. The shallower patches read as
+    // reef shoals: the water shades by depth and breaks surf over them.
+    return -13 + 5 * n.fbm(x * 0.004, z * 0.004, 3) + 2 * n.fbm(x * 0.02, z * 0.02, 2);
   };
 
   heightAt(x: number, z: number): number {

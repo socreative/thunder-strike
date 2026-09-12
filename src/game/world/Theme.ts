@@ -92,7 +92,7 @@ export interface PropTheme {
 }
 
 export interface Theme {
-  id: "desert" | "jungle" | "arctic" | "gulf";
+  id: "desert" | "jungle" | "arctic" | "gulf" | "atoll";
   /** Colour used for the mission picker swatch. */
   swatch: number;
   ground: GroundPalette;
@@ -192,6 +192,33 @@ export const gulfTheme: Theme = {
       { kind: "rock", count: 320, scale: [0.6, 3.6], castShadow: true, sink: 0.35, color: 0x8a7b66 },
       { kind: "shrub", count: 260, scale: [0.6, 1.4], castShadow: false, sink: 0.3, color: 0x7a7f58 },
       { kind: "palm", count: 120, scale: [0.8, 1.25], castShadow: true, sink: 0.1, maxSlope: 0.85, bankMargin: 6, tints: [0xffffff, 0xe8e0c8], sway: 0.1 },
+    ],
+  },
+};
+
+export const atollTheme: Theme = {
+  id: "atoll",
+  swatch: 0x46d6a4,
+  // Green interiors with a pale sand band at the water line: `wet` is the
+  // shoreline colour, so on these gentle domes it reads as the beach.
+  ground: { light: 0x6f9a4a, dark: 0x4a7436, rockA: 0x8d8375, rockB: 0x5c5448, wet: 0xe8dcb4, underwater: 0x2f8f86, ripple: 0.15 },
+  fog: { color: 0xd9e6e4, near: 260, far: 950 },
+  sky: { horizon: 0xe8f1ee, zenith: 0x4f9fd6, haze: 0xf2f8f6, sun: 0xfff6e0, hemiSky: 0x9ccfe4, hemiGround: 0x7a8a6a },
+  // Swell runs in from the north-west and wraps every island in the chain.
+  water: { deep: 0x0b4f6b, shallow: 0x35c0c0, foam: 0xf0fbfb, foamAmount: 0.55, scale: 1, bed: 0xe3d7ab, shore: 1.1, swellDir: [0.45, 1], windDir: [0.7, 1], peakWavelength: 55, gains: [1.3, 1.15, 1.05], surfaceWind: 1.05 },
+  overview: { water: [14, 62, 84], shallow: [58, 170, 170], landLow: [86, 122, 64], landHigh: [150, 170, 110], bank: [230, 216, 172] },
+  dust: { start: 0xe6dcc0, end: 0xcfc3a0 },
+  wash: "leaves",
+  props: {
+    minHeight: 1.6,
+    bankMargin: 0,
+    clearSpawns: true,
+    sets: [
+      { kind: "palm", count: 700, scale: [0.8, 1.3], castShadow: true, sink: 0.1, maxSlope: 0.82, tints: [0xffffff, 0xe0efc8, 0xcfe4b0], sway: 0.12 },
+      { kind: "broadleaf", count: 400, scale: [0.8, 1.25], castShadow: true, sink: 0.1, maxSlope: 0.82, tints: [0xffffff, 0xd4e8b8, 0xbfd8a4], sway: 0.08 },
+      { kind: "fern", count: 500, scale: [0.7, 1.4], castShadow: false, sink: 0.2, sway: 0.4 },
+      { kind: "shrub", count: 300, scale: [0.6, 1.4], castShadow: false, sink: 0.3, color: 0x6f8a4a, sway: 0.25 },
+      { kind: "rock", count: 260, scale: [0.6, 3.0], castShadow: true, sink: 0.35, color: 0x8d8375 },
     ],
   },
 };

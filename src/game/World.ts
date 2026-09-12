@@ -288,7 +288,12 @@ export class World {
         e = new Gunboat(s.heading ?? 0, s.waypoints);
         if (process.env.NODE_ENV !== "production") {
           for (const [wx, wz] of s.waypoints ?? []) {
-            if (this.terrain.riverDistance(wx, wz) > -4) console.warn(`[thunder-strike] gunboat waypoint ${wx},${wz} is too close to the bank`);
+            // On a river map a boat must stay in the channel; on open water
+            // there is no channel, so the seabed is what matters.
+            const sd = this.terrain.riverDistance(wx, wz);
+            if (Number.isFinite(sd) ? sd > -4 : this.terrain.heightAt(wx, wz) > -3) {
+              console.warn(`[thunder-strike] gunboat waypoint ${wx},${wz} is in shallow water`);
+            }
           }
         }
         break;

@@ -81,7 +81,7 @@ export interface ObjectiveDef {
 
 /** Non-interactive set dressing placed by the mission. */
 export interface DecorItem {
-  kind: "runway" | "dam" | "ruin" | "floes" | "crash" | "rig" | "buoys" | "quay";
+  kind: "runway" | "dam" | "ruin" | "floes" | "crash" | "rig" | "buoys" | "quay" | "village" | "pen" | "lighthouse" | "hulk";
   x: number;
   z: number;
   heading: number;

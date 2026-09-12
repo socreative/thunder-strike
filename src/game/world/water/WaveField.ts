@@ -28,6 +28,15 @@ export interface WaveFieldParams {
   time: UniformNode<"float", number>;
 }
 
+/** A slope evaluation together with the cascade samples it cost. */
+export interface SlopeResult {
+  slope: Node<"vec2">;
+  s0: Node<"vec4">;
+  s1: Node<"vec4">;
+  s2: Node<"vec4">;
+  d0: Node<"vec3">;
+}
+
 export interface WaveContext {
   c: Node<"vec4">;
   depth: Node<"float">;
@@ -121,9 +130,9 @@ export class WaveField {
   }
 
   /** Whitewater injected by unstable crests over the shelf. */
-  breakerPotential(p: V2, crest: F, compression: F): F {
-    const c = this.coastField(p);
-    const depth = this.coastalDepth(p);
+  breakerPotential(p: V2, crest: F, compression: F, ctx?: WaveContext): F {
+    const c = ctx ? ctx.c : this.coastField(p);
+    const depth = ctx ? ctx.depth : this.coastalDepth(p);
     const g = this.p.swellGain;
     const height = g.mul(1.5).mul(sqrt(c.a));
     const instability = smoothstep(0.48, 0.9, height.div(max(float(0.3), depth)));
@@ -141,6 +150,11 @@ export class WaveField {
   /** Mip level per cascade for a sample footprint in metres. */
   spectralLOD(footprint: F): F[] {
     return this.p.cascades.map((c) => max(float(0), log2(max(float(0.001), footprint.mul(c.size / c.length)))));
+  }
+
+  /** A context built from values already carried over from the vertex stage. */
+  contextFrom(p: V2, footprint: F, c: Node<"vec4">, depth: F): WaveContext {
+    return { c, depth, swellP: this.swellCoordinates(p, c), windP: this.windCoordinates(p), lod: this.spectralLOD(footprint) };
   }
 
   context(p: V2, footprint: F): WaveContext {
@@ -183,19 +197,33 @@ export class WaveField {
     return swellOut.add(wind.mul(shoreFade));
   }
 
-  /** Surface slope (dh/dx, dh/dz) at an undisplaced point, filtered to the footprint. */
-  waveSlope(p: V2, footprint: F, ctx: WaveContext = this.context(p, footprint)): V2 {
+  /**
+   * Surface slope (dh/dx, dh/dz) at an undisplaced point, filtered to the
+   * footprint, along with the samples it took. Every `sample()` clones its node
+   * and emits its own fetch, so nothing is shared unless it is handed back.
+   */
+  waveSlopeFull(p: V2, footprint: F, ctx: WaveContext = this.context(p, footprint)): SlopeResult {
     const { c, depth, swellP, windP, lod } = ctx;
     const g = this.p.swellGain;
-    const raw = this.sampleSlope(0, swellP, lod[0]).xy;
-    const dis = this.sampleDisp(0, swellP, lod[0]);
+    const s0 = this.sampleSlope(0, swellP, lod[0]);
+    const s1 = this.sampleSlope(1, windP, lod[1]);
+    const s2 = this.sampleSlope(2, windP, lod[2]);
+    const d0 = this.sampleDisp(0, swellP, lod[0]);
+    const raw = s0.xy;
+    const dis = d0;
     const compression = min(float(3.6), inverseSqrt(max(float(0.05), tanh(depth.mul(this.p.k0)))));
     let swell = raw.add(this.base.mul(dot(raw, this.base)).mul(compression.sub(1)));
     const steepening = float(1).sub(smoothstep(2, 12, depth)).mul(sqrt(c.a));
     const skew = clamp(dis.y.mul(0.35).sub(dot(dis.xz, this.base).mul(0.3)).div(max(float(0.2), g.mul(0.64))), -0.35, 0.8);
     swell = swell.mul(steepening.mul(skew).add(1));
     swell = this.turnSwell(swell, c.yz).mul(this.swellEnvelope(depth, c.a)).mul(this.energyRegion(p));
-    const sea = this.sampleSlope(1, windP, lod[1]).xy.mul(mix(0.38, 1, c.a)).add(this.sampleSlope(2, windP, lod[2]).xy.mul(mix(0.68, 1, c.a)));
-    return swell.add(this.turnWind(sea).mul(smoothstep(0.015, 0.8, depth)).mul(this.energyRegion(p)));
+    const sea = s1.xy.mul(mix(0.38, 1, c.a)).add(s2.xy.mul(mix(0.68, 1, c.a)));
+    const slope = swell.add(this.turnWind(sea).mul(smoothstep(0.015, 0.8, depth)).mul(this.energyRegion(p)));
+    return { slope, s0, s1, s2, d0 };
+  }
+
+  /** Slope alone, for callers that do not need the samples behind it. */
+  waveSlope(p: V2, footprint: F, ctx?: WaveContext): V2 {
+    return this.waveSlopeFull(p, footprint, ctx ?? this.context(p, footprint)).slope;
   }
 }

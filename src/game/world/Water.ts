@@ -46,6 +46,10 @@ export class WaterSystem {
   private readonly uWind = uniform(new THREE.Vector2(1, 0));
   private readonly uSwellGain = uniform(1);
   private readonly uSurfaceWind = uniform(1.15);
+  /** Foam drift, its noise offset and the whitecap gain: all clock and wind. */
+  private readonly uDrift = uniform(new THREE.Vector2());
+  private readonly uCells = uniform(new THREE.Vector2());
+  private readonly uStreakGain = uniform(0);
   /** Milliseconds spent in the last simulate call, for profiling. */
   lastSimMs = 0;
 
@@ -114,18 +118,25 @@ export class WaterSystem {
     mat.positionNode = positionLocal.add(vec3(disp.x, disp.y.add(tide), disp.z));
     const p = varying(lxz);
     const vHeight = varying(disp.y);
+    // The coastal field is one texel per 3.1 m against a 3 m grid, and the
+    // seabed only feeds smoothsteps spanning metres, so carrying both across
+    // from the vertex stage costs nothing and saves four fetches a pixel.
+    const vCoast = varying(wave.coastField(lxz));
+    const vDepth = varying(wave.coastalDepth(lxz));
+    const vRegion = varying(wave.energyRegion(lxz));
 
     /* Fragment stage. */
     const footprint = max(length(dFdx(p)), length(dFdy(p)));
-    const ctx = wave.context(p, footprint);
+    const ctx = wave.contextFrom(p, footprint, vCoast, vDepth);
     const { c, depth } = ctx;
-    const slope = wave.waveSlope(p, footprint, ctx);
+    const full = wave.waveSlopeFull(p, footprint, ctx);
+    const slope = full.slope;
     const nWorld = normalize(vec3(slope.x.negate(), 1, slope.y.negate()));
     mat.normalNode = transformNormalToView(nWorld);
 
-    const w0 = wave.sampleSlope(0, ctx.swellP, ctx.lod[0]);
-    const w1 = wave.sampleSlope(1, ctx.windP, ctx.lod[1]);
-    const w2 = wave.sampleSlope(2, ctx.windP, ctx.lod[2]);
+    const w0 = full.s0;
+    const w1 = full.s1;
+    const w2 = full.s2;
     const env = wave.swellEnvelope(depth, c.a);
     const variance = max(float(0), w0.a.sub(dot(w0.xy, w0.xy)))
       .mul(env)
@@ -140,16 +151,18 @@ export class WaterSystem {
     const historyRaw = this.foamNode.sample(clamp(historyUV, 0.001, 0.999)).mul(inside);
     const support = wave.coastalFoamSupport(depth);
     const history = { r: historyRaw.r.mul(support), g: historyRaw.g.mul(support) };
-    const crest = wave.sampleDisp(0, ctx.swellP, ctx.lod[0]).y;
+    const crest = full.d0.y;
     const steepness = length(slope);
     const compression = smoothstep(0.32, 0.7, steepness).mul(smoothstep(0.08, 0.5, crest));
-    const transformedCrest = crest.mul(env).mul(wave.energyRegion(p));
-    const breaker = clamp(wave.breakerPotential(p, transformedCrest, compression), 0, 1);
-    const drift = this.uWind.mul(t).mul(this.uSurfaceWind.mul(0.11).add(0.15));
-    const foamP = p.sub(drift).sub(c.yz.mul(t).mul(0.22));
+    const transformedCrest = crest.mul(env).mul(vRegion);
+    const breaker = clamp(wave.breakerPotential(p, transformedCrest, compression, ctx), 0, 1);
+    // `uDrift` and `uCells` are worked out on the CPU each frame. They depend
+    // only on the clock and the wind, so evaluating them per pixel was two
+    // sines and a handful of multiplies for a value the whole surface shares.
+    const foamP = p.sub(this.uDrift).sub(c.yz.mul(t).mul(0.22));
     const streakP = wave.windCoordinates(foamP);
     const streak = noise2(vec2(streakP.x.mul(0.12), streakP.y.mul(1.3)).add(vec2(0, sin(streakP.x.mul(0.023)).mul(0.8))));
-    const cells = fractalNoise(foamP.mul(1.9).add(vec2(sin(t.mul(0.23)), sin(t.mul(0.19).add(1.57))).mul(0.22)));
+    const cells = fractalNoise(foamP.mul(1.9).add(this.uCells));
     const laceDetail = mix(smoothstep(0.33, 0.7, cells), float(0.53), smoothstep(0.08, 0.45, footprint));
     const ageLace = mix(laceDetail, float(1), history.g.mul(0.7));
     const coastalFoam = smoothstep(0.09, 0.82, history.r).mul(mix(0.12, 0.82, ageLace)).mul(history.g.mul(0.2).add(1));
@@ -157,7 +170,7 @@ export class WaterSystem {
     const spectralFoam = clamp(w0.b.mul(0.12).add(w1.b.mul(0.8)), 0, 1)
       .mul(c.a)
       .mul(smoothstep(0.58, 0.84, streak))
-      .mul(mix(0.025, 0.4, smoothstep(0.45, 3.4, this.uSurfaceWind)))
+      .mul(this.uStreakGain)
       .mul(smoothstep(4, 14, depth));
     const lip = breaker.mul(mix(0.45, 1, laceDetail));
     const foamK = clamp(coastalFoam.mul(shoreMul).add(spectralFoam.mul(pal.foamAmount * 2.2)).add(lip.mul(0.26 * shoreMul)), 0, 0.94);
@@ -191,6 +204,12 @@ export class WaterSystem {
     this.time += dt;
     this.frame++;
     this.uTime.value = this.time;
+    const tt = this.time;
+    const wind = this.uSurfaceWind.value;
+    this.uDrift.value.set(this.uWind.value.x, this.uWind.value.y).multiplyScalar(tt * (wind * 0.11 + 0.15));
+    this.uCells.value.set(Math.sin(tt * 0.23) * 0.22, Math.sin(tt * 0.19 + 1.57) * 0.22);
+    const sw = Math.min(1, Math.max(0, (wind - 0.45) / (3.4 - 0.45)));
+    this.uStreakGain.value = 0.025 + (0.4 - 0.025) * (sw * sw * (3 - 2 * sw));
     const prevTarget = renderer.getRenderTarget();
     const prevAutoClear = renderer.autoClear;
     renderer.autoClear = false;

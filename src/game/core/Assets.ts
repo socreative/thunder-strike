@@ -11,6 +11,12 @@ export interface ModelSpec {
   yaw?: number;
   /** Lift so wheels or skids sit on the ground. */
   lift?: number;
+  /**
+   * Multiplier on the base colour, for a model whose textures were baked far
+   * darker than this game's daylight. Leave unset for anything that already
+   * reads correctly.
+   */
+  brighten?: number;
 }
 
 /** Models fetched by scripts/fetch-assets.mjs. Missing files fall back to primitives. */
@@ -20,7 +26,8 @@ export const MODEL_SPECS: ModelSpec[] = [
   { name: "lightTank", url: "/models/light-tank.glb", scale: 1, yaw: 0 },
   { name: "jeep", url: "/models/jeep.glb", scale: 1, yaw: 0 },
   { name: "truck", url: "/models/truck.glb", scale: 1, yaw: 0 },
-  { name: "boat", url: "/models/boat.glb", scale: 1, yaw: 0 },
+  // The patrol boat is textured for a night scene and comes out almost black.
+  { name: "boat", url: "/models/boat.glb", scale: 1, yaw: 0, brighten: 1.9 },
   { name: "carrier", url: "/models/carrier.glb", scale: 1, yaw: 0 },
   { name: "jet", url: "/models/jet.glb", scale: 1, yaw: 0 },
   { name: "tent", url: "/models/tent.glb", scale: 1, yaw: 0 },
@@ -49,11 +56,26 @@ export class Assets {
           if (!head.ok) throw new Error(`${spec.url} ${head.status}`);
           const gltf = await loader.loadAsync(spec.url);
           const root = gltf.scene;
+          const seen = new Set<THREE.Material>();
           root.traverse((o) => {
             const mesh = o as THREE.Mesh;
             if (mesh.isMesh) {
               mesh.castShadow = true;
               mesh.receiveShadow = true;
+              // Nothing here lights a mirror: the scene has a sun and a
+              // hemisphere light but no environment to reflect, so a fully
+              // metallic material has nothing to return and renders black.
+              // The patrol boat ships with its whole hull authored at metal
+              // 1.0, which is what this cap is for; models that use metal
+              // honestly sit far below it and are left alone.
+              for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+                const pbr = m as THREE.MeshStandardMaterial;
+                if (pbr.isMeshStandardMaterial && !seen.has(pbr)) {
+                  seen.add(pbr);
+                  pbr.metalness = Math.min(pbr.metalness, 0.25);
+                  if (spec.brighten) pbr.color.multiplyScalar(spec.brighten);
+                }
+              }
             }
           });
           // Normalise: centre on XZ, rest on y = 0, then apply the spec scale.

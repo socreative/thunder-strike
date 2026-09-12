@@ -56,7 +56,10 @@ export class Gunboat extends Entity {
       const s = S.length / Math.max(size.x, size.z);
       asset.scale.multiplyScalar(s);
       if (size.x > size.z) asset.rotation.y += Math.PI / 2;
-      asset.position.y = -size.y * s * 0.22;
+      // Draft: the loader rests a model on y = 0, so the hull has to be sunk
+      // to put its waterline at the surface. The model is measured to the top
+      // of its mast, so this is a small fraction of that.
+      asset.position.y = -size.y * s * 0.07;
       this.hull.add(asset);
       this.footprint = { hx: (Math.min(size.x, size.z) * s) / 2, hz: S.length / 2 };
       this.radius = Math.hypot(this.footprint.hx, this.footprint.hz);

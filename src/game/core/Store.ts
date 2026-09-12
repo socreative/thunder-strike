@@ -97,6 +97,8 @@ export interface Snapshot {
   blips: Blip[];
   mapSize: number;
   radarDown: boolean;
+  /** The large tactical map, opened with M. */
+  bigMap: boolean;
   stats: MissionStats;
   volume: number;
   musicVolume: number;
@@ -145,6 +147,7 @@ export const initialSnapshot: Snapshot = {
   blips: [],
   mapSize: 800,
   radarDown: false,
+  bigMap: false,
   stats: { kills: 0, rescued: 0, shotsFired: 0, damageTaken: 0, livesLost: 0, elapsed: 0 },
   volume: 0.7,
   aimAssist: true,

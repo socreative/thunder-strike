@@ -261,7 +261,9 @@ export class Game {
 
   private setScreen(s: Screen): void {
     this.screen = s;
-    this.store.set({ screen: s });
+    // The map belongs to the cockpit; leaving it puts the map away.
+    if (s !== "playing" && s !== "dead") this.store.set({ screen: s, bigMap: false });
+    else this.store.set({ screen: s });
   }
 
   /** First user gesture: unlock audio so the menu music can start. */
@@ -389,6 +391,11 @@ export class Game {
     this.rig.zoom(delta);
   }
 
+  /** Open or close the large tactical map. */
+  toggleBigMap(): void {
+    this.store.set({ bigMap: !this.store.get().bigMap });
+  }
+
   toggleMute(): void {
     this.audio.setMuted(!this.audio.muted);
     this.store.set({ muted: this.audio.muted });
@@ -408,7 +415,9 @@ export class Game {
     // frame so the unlocking keypress is not also treated as a menu choice.
     const wasReady = this.store.get().audioReady;
     if (input.interacted) this.unlockAudio();
-    if (input.take("KeyM")) this.toggleMute();
+    if (input.take("KeyN")) this.toggleMute();
+    // The map is a flight instrument, so it only opens while flying.
+    if (input.take("KeyM") && (this.screen === "playing" || this.screen === "dead")) this.toggleBigMap();
     this.updateMusic();
     switch (this.screen) {
       case "title":
@@ -433,7 +442,11 @@ export class Game {
         if (input.wasPressed("Escape")) this.setScreen("missions");
         break;
       case "playing":
-        if (input.wasPressed("Escape", "KeyP")) this.togglePause();
+        // Escape closes the map first, so it never pauses out from under it.
+        if (input.wasPressed("Escape", "KeyP")) {
+          if (this.store.get().bigMap) this.store.set({ bigMap: false });
+          else this.togglePause();
+        }
         break;
       case "paused":
         if (input.wasPressed("Escape", "KeyP", "Enter")) this.togglePause();

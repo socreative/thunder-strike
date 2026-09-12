@@ -112,8 +112,44 @@ export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; o
       )}
 
       <div className="hud-br">
-        <Minimap snap={snap} overview={overview} size={touch ? 104 : 184} />
+        <button className="minimap-button" onClick={() => game?.toggleBigMap()} aria-label="Open the map">
+          <Minimap snap={snap} overview={overview} size={touch ? 104 : 184} />
+        </button>
       </div>
+
+      {snap.bigMap && (
+        <div className="big-map-layer" onClick={() => game?.toggleBigMap()}>
+          <div className="big-map glass rect" onClick={(e) => e.stopPropagation()}>
+            <div className="big-map-head">
+              <span className="eyebrow">{snap.missionCodename} TACTICAL MAP</span>
+              <button className="btn link big-map-close" onClick={() => game?.toggleBigMap()}>
+                CLOSE
+              </button>
+            </div>
+            <Minimap snap={snap} overview={overview} size={560} />
+            <div className="map-key">
+              <span>
+                <i style={{ background: "#ffffff" }} /> landing zone
+              </span>
+              <span>
+                <i style={{ background: "#ffd24a" }} /> objective
+              </span>
+              <span>
+                <i style={{ background: "#ff5a3c" }} /> enemy
+              </span>
+              <span>
+                <i style={{ background: "#ff3cc8" }} /> missile site
+              </span>
+              <span>
+                <i style={{ background: "#6ad0ff" }} /> supplies
+              </span>
+              <span>
+                <i style={{ background: "#8dff7a" }} /> prisoner
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="hud-center">
         {snap.countdown && (

@@ -94,9 +94,10 @@ const GROUPS: Group[] = [
         <Key>Esc</Key>
         <Key>P</Key>
         <Key>M</Key>
+        <Key>N</Key>
       </div>
     ),
-    action: "Esc or P pauses, M mutes. Enter confirms on menus.",
+    action: "Esc or P pauses, M opens the map, N mutes. Enter confirms on menus.",
   },
 ];
 
@@ -144,7 +145,7 @@ const TOUCH_GROUPS: Group[] = [
   {
     title: "Game",
     keys: <Glyph kind="round">❚❚</Glyph>,
-    action: "The pause button sits at the top of the screen. Volume and mute live in the pause menu.",
+    action: "The pause button sits at the top of the screen. Tap the map to enlarge it. Volume and mute live in the pause menu.",
   },
 ];
 

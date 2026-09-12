@@ -286,6 +286,94 @@ button {
 .minimap canvas {
   display: block;
 }
+/* The minimap is a button so a thumb can open the big map; it must not look
+   like one. */
+.minimap-button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Large tactical map, opened with M or by tapping the minimap. */
+.big-map-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 6, 5, 0.45);
+  pointer-events: auto;
+  z-index: 5;
+}
+.big-map {
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.big-map .minimap {
+  padding: 0;
+  background: none;
+  border: 0;
+  backdrop-filter: none;
+}
+.big-map canvas {
+  width: min(72vmin, 560px);
+  height: min(72vmin, 560px);
+}
+.big-map-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  white-space: nowrap;
+}
+.big-map-close {
+  padding: 0;
+  font-size: 11px;
+}
+.map-key {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  max-width: min(72vmin, 560px);
+}
+.map-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.map-key i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.touch .big-map {
+  padding: 8px 10px 6px;
+  gap: 6px;
+}
+.touch .big-map canvas {
+  width: min(58vmin, 330px);
+  height: min(58vmin, 330px);
+}
+.touch .big-map-layer {
+  padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l);
+}
+.touch .map-key {
+  font-size: 10px;
+  gap: 4px 10px;
+  max-width: min(66vmin, 360px);
+}
+
 .minimap-caption {
   text-align: center;
   font-size: 10px;

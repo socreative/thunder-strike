@@ -243,7 +243,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
               missing the game builds a procedural placeholder instead.
             </p>
             <p>Water: the wave model is ported from Techartist&rsquo;s open source ocean-simulation (MIT), rewritten as WebGPU node materials: a JONSWAP spectrum, a three-cascade GPU FFT, a seabed travel-time field that bends the swell onto the shore, whitecaps and surf foam.</p>
-            <p>Music: &ldquo;Iron Sector Run&rdquo;, &ldquo;Jungle Advance&rdquo;, &ldquo;Arctic Front&rdquo; and &ldquo;March of the Sands&rdquo;, generated with Suno. The rotor is a recording by freesound_community via Pixabay; other sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.</p>
+            <p>Music: &ldquo;Iron Sector Run&rdquo;, &ldquo;Jungle Advance&rdquo;, &ldquo;Arctic Front&rdquo;, &ldquo;March of the Sands&rdquo; and &ldquo;Salt Air Stance&rdquo;, generated with Suno. The rotor is a recording by freesound_community via Pixabay; other sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.</p>
             <button className="btn primary" onClick={() => game?.backToTitle()}>
               BACK
             </button>

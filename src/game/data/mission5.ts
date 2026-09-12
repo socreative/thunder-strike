@@ -1,4 +1,5 @@
 import { ring, type MissionData } from "./mission";
+import { islandProfile } from "../world/Terrain";
 import { atollTheme } from "../world/Theme";
 
 /*
@@ -33,11 +34,8 @@ const ISLANDS = [KESTREL, TAMARIND, BLACKSAND, BASTION, MAHOGANY, SANDCAY, PILLA
  * the dome at its own distance from the peak or the dome eats it.
  */
 function pad(isl: Island, x: number, z: number): number {
-  const d = Math.hypot(x - isl.x, z - isl.z);
-  const t = Math.min(1, Math.max(0, (d - isl.r * 0.2) / (isl.r * 0.8)));
-  const k = Math.pow(1 - t * t * (3 - 2 * t), 0.85);
   // 1.15 is the top of the dome's noise range; the rest is margin.
-  return isl.h * k * 1.2;
+  return isl.h * islandProfile(isl.r, Math.hypot(x - isl.x, z - isl.z)) * 1.2;
 }
 
 const PEN = { x: 232, z: 30 };

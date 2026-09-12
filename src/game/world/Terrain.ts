@@ -58,6 +58,26 @@ const SHELF = -1.4;
 export const TILES = 10;
 
 /**
+ * Radial profile of an island: 1 at the crown, 0 at the nominal radius, and
+ * carrying on negative past it.
+ *
+ * The outer part is a straight grade, so the ground runs down through the
+ * water plane at a steady slope and keeps going until it meets the seabed.
+ * That is the whole trick behind a smooth shore, and it is the same one the
+ * river banks use with `LIP`: the waterline has to sit part way down a
+ * continuous slope. Where the land instead stops dead at its radius with the
+ * seabed a metre below, the shore is the contour of a step, and the contour of
+ * a step can only follow mesh edges, which drew every island as a polygon.
+ *
+ * Only the crown is rounded off, by the quadratic's falling derivative, so a
+ * pad on the top of an island still sits on ground that barely moves.
+ */
+export function islandProfile(radius: number, dw: number): number {
+  const q = (radius - dw) / (radius * 0.8);
+  return q >= 1 ? 1 : q * (2 - q);
+}
+
+/**
  * Analytic heightfield: noise hills, an optional coastline or river, and
  * flattened pads under each compound. The mesh samples the same function that
  * gameplay uses, so ground units always sit on the visible surface.
@@ -125,9 +145,10 @@ export class Terrain {
       }
     }
 
-    // An atoll is nearly all coastline, and a coarse grid turns every shore
-    // into a staircase, so those maps get a finer mesh than a map with one
-    // coast or a river running through it.
+    // An atoll is nearly all coastline. The shore is a smooth curve at any
+    // density now, but a finer mesh still resolves the small lobes and coves
+    // the radius warp puts into it, which a map with one coast or a river
+    // running through it has no use for.
     const segments = cfg.shape === "atoll" ? 560 : 220; // both divide by TILES
     const geo = new THREE.PlaneGeometry(this.size, this.size, segments, segments);
     geo.rotateX(-Math.PI / 2);
@@ -230,34 +251,36 @@ export class Terrain {
         if (d2 > reach * reach) continue;
         const d = Math.sqrt(d2);
         // Warp the radius rather than the height, which is what turns a circle
-        // into headlands and bays. The first term is noise read off a small
-        // circle, so it is smooth and periodic around the island; the second
-        // adds finer inlets. Both fade out toward the middle, leaving the
-        // ground under a mission's pads exactly where it was.
+        // into headlands and bays. The first two terms are noise read off
+        // circles in the noise field, so they are smooth and periodic around
+        // the island: broad bays from the small circle, a handful of finer
+        // points and coves from the wider one. The third pulls neighbouring
+        // islands in different directions. All of them fade out toward the
+        // middle, leaving the ground under a mission's pads where it was.
         const inv = 1 / Math.max(1e-3, d);
         const lobe = this.noise.noise2(dx * inv * 1.7 + isl.x * 0.05, dz * inv * 1.7 + isl.z * 0.05);
+        const curl = this.noise.noise2(dx * inv * 4.6 - isl.z * 0.07, dz * inv * 4.6 + isl.x * 0.07);
         const fine = this.noise.noise2(x * 0.016 + 40, z * 0.016 - 25);
-        const edge = smoothstep(0.25, 0.65, d / isl.r);
-        const dw = d - isl.r * edge * (0.19 * lobe + 0.09 * fine);
-        // Shelf first. Without it the land stops dead at the island's radius
-        // and the seabed drops away in one step, ringing every island with a
-        // cliff that the mesh renders as a sawtooth. The apron carries the
-        // bottom up from the deep to just under the surface, which is also
-        // what gives the swell something to shoal and break over.
+        // Read off a wider ramp than the warp is deep, so the radius stays
+        // monotonic in distance and the coast cannot fold back on itself.
+        const edge = smoothstep(0.15, 0.75, d / isl.r);
+        const dw = d - isl.r * edge * (0.17 * lobe + 0.07 * curl + 0.06 * fine);
+        // Shelf first: an apron carrying the bottom up from the deep to just
+        // under the surface, so the beach has something to run out onto and
+        // the swell has something to shoal and break over.
         // Only where no channel has been cut: a carved river's depth is
         // deliberate, and an apron would fill the water the boats work in.
         if (this.segs.length === 0) {
           const shelf = 1 - smoothstep(isl.r * 0.85, isl.r * 2, dw);
           if (shelf > 0) h = Math.max(h, h + (SHELF - h) * shelf);
         }
-        if (dw > isl.r) continue;
-        // A rounded hump with a little noise so it is not a perfect cone. The
-        // power curve holds the land up and then drops it away over the last
-        // few metres, so the water meets a beach rather than a mudflat whose
-        // edge wanders from one mesh quad to the next.
-        const k = Math.pow(1 - smoothstep(isl.r * 0.2, isl.r, dw), 0.85);
-        const bump = isl.h * k * (0.85 + 0.3 * this.noise.noise2(x * 0.05, z * 0.05));
-        h = Math.max(h, bump);
+        // The land, carried past its own radius and down to the seabed rather
+        // than cut off at the waterline. The height noise multiplies the
+        // profile, so it fades out as the profile does and leaves the
+        // shoreline exactly on the warped radius: a smooth curve, since every
+        // term the warp is built from varies smoothly around the island.
+        const land = isl.h * islandProfile(isl.r, dw) * (0.85 + 0.3 * this.noise.noise2(x * 0.05, z * 0.05));
+        if (land > h) h = land;
       }
     }
     return h;

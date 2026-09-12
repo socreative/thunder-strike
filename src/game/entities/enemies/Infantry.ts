@@ -1,6 +1,7 @@
 import * as THREE from "three/webgpu";
-import { Entity, box, cylinder, sharedMat } from "../Entity";
+import { Entity, box } from "../Entity";
 import { balance } from "../../data/balance";
+import { Build } from "../../world/Detail";
 import { leadTarget } from "./aim";
 
 const S = balance.enemies.infantry;
@@ -21,14 +22,16 @@ export class Infantry extends Entity {
     this.hp = this.maxHp = S.hp;
     this.radius = S.radius;
     this.barHeight = 3.2;
+    // Everything that does not move merges into one mesh. A soldier is small
+    // but there are dozens of them, and each mesh is drawn again per shadow
+    // cascade.
     const uniform = 0x6a5f3f;
-    const body = cylinder(0.42, 0.48, 1.3, uniform, 0, 1.25, 0, 8);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 6), sharedMat(0xd9a77c));
-    head.position.y = 2.2;
-    head.castShadow = true;
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), sharedMat(0x4a4e35));
-    helmet.position.y = 2.25;
-    const rifle = box(0.12, 0.12, 1.4, 0x222222, 0.4, 1.5, 0.5);
+    const b = new Build();
+    b.cyl(0.42, 0.48, 1.3, uniform, { y: 1.25, seg: 8 });
+    b.add(new THREE.SphereGeometry(0.34, 8, 6), 0xd9a77c, { y: 2.2 });
+    b.add(new THREE.SphereGeometry(0.4, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0x4a4e35, { y: 2.25 });
+    b.box(0.12, 0.12, 1.4, 0x222222, { x: 0.4, y: 1.5, z: 0.5 });
+    this.object.add(b.finish());
     for (const sx of [-0.22, 0.22]) {
       const leg = box(0.26, 1.0, 0.26, 0x3f4a3a, sx, 0.5, 0);
       leg.geometry.translate(0, -0.5, 0);
@@ -36,7 +39,6 @@ export class Infantry extends Entity {
       this.legs.push(leg);
       this.object.add(leg);
     }
-    this.object.add(body, head, helmet, rifle);
   }
 
   onSpawn(): void {

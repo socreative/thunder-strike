@@ -1,5 +1,6 @@
 import * as THREE from "three/webgpu";
-import { Entity, box, cylinder } from "./Entity";
+import { Build } from "../world/Detail";
+import { Entity } from "./Entity";
 import { balance } from "../data/balance";
 import type { PickupItem } from "../data/mission";
 import type { Helicopter } from "./Helicopter";
@@ -10,6 +11,7 @@ const W = balance.weapons;
 export class Pickup extends Entity {
   private t = Math.random() * 10;
   private baseY = 0;
+  private readonly beacon: THREE.Mesh;
 
   constructor(readonly item: PickupItem) {
     super();
@@ -18,25 +20,28 @@ export class Pickup extends Entity {
     this.targetable = false;
     this.showHealthBar = false;
     this.radius = 2;
+    // One merged mesh per crate: there are a dozen or more on every map.
+    const b = new Build();
     if (item === "fuel") {
-      const drum = cylinder(1.1, 1.1, 2.2, 0xb8332a, 0, 1.1, 0, 12);
-      this.object.add(drum);
-      this.object.add(cylinder(1.15, 1.15, 0.25, 0xe8e2d2, 0, 1.1, 0, 12));
-      this.object.add(cylinder(1.15, 1.15, 0.25, 0xe8e2d2, 0, 1.8, 0, 12));
+      b.cyl(1.1, 1.1, 2.2, 0xb8332a, { y: 1.1, seg: 12 });
+      b.cyl(1.15, 1.15, 0.25, 0xe8e2d2, { y: 1.1, seg: 12 });
+      b.cyl(1.15, 1.15, 0.25, 0xe8e2d2, { y: 1.8, seg: 12 });
     } else if (item === "ammo") {
-      this.object.add(box(2.6, 1.4, 1.8, 0x6b7a3d, 0, 0.7, 0));
-      this.object.add(box(2.7, 0.2, 0.3, 0x2c3325, 0, 1.45, 0));
-      this.object.add(box(0.3, 1.5, 1.9, 0x2c3325, 0.8, 0.75, 0));
-      this.object.add(box(0.3, 1.5, 1.9, 0x2c3325, -0.8, 0.75, 0));
+      b.box(2.6, 1.4, 1.8, 0x6b7a3d, { y: 0.7 });
+      b.box(2.7, 0.2, 0.3, 0x2c3325, { y: 1.45 });
+      b.box(0.3, 1.5, 1.9, 0x2c3325, { x: 0.8, y: 0.75 });
+      b.box(0.3, 1.5, 1.9, 0x2c3325, { x: -0.8, y: 0.75 });
     } else {
-      this.object.add(box(2.4, 1.6, 2.0, 0x9aa1a6, 0, 0.8, 0));
-      this.object.add(box(1.4, 0.3, 0.3, 0xd83a2e, 0, 1.62, 0));
-      this.object.add(box(0.3, 0.3, 1.4, 0xd83a2e, 0, 1.62, 0));
+      b.box(2.4, 1.6, 2.0, 0x9aa1a6, { y: 0.8 });
+      b.box(1.4, 0.3, 0.3, 0xd83a2e, { y: 1.62 });
+      b.box(0.3, 0.3, 1.4, 0xd83a2e, { y: 1.62 });
     }
+    this.object.add(b.finish());
     // Marker beacon so crates read from the air.
     const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicNodeMaterial({ color: item === "fuel" ? 0xff6a4a : item === "ammo" ? 0xffd04a : 0x6ad0ff }));
     beacon.position.y = 3.2;
     beacon.name = "beacon";
+    this.beacon = beacon;
     this.object.add(beacon);
   }
 
@@ -47,8 +52,7 @@ export class Pickup extends Entity {
   update(dt: number): void {
     this.t += dt;
     this.object.rotation.y = this.t * 0.5;
-    const beacon = this.object.getObjectByName("beacon");
-    if (beacon) beacon.position.y = 3.2 + Math.sin(this.t * 3) * 0.3;
+    this.beacon.position.y = 3.2 + Math.sin(this.t * 3) * 0.3;
     this.pos.y = this.baseY;
     this.syncObject();
   }

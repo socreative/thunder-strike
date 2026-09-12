@@ -5,6 +5,8 @@ import { Cascade } from "./water/Cascade";
 import type { CoastalField } from "./water/Coastal";
 import { FoamField, fractalNoise, noise2 } from "./water/Foam";
 import { WaveField } from "./water/WaveField";
+import { splitGrid } from "./Chunk";
+import { TILES } from "./Terrain";
 
 /** Vertex grid spacing in metres. Finer waves live in the slope textures. */
 const GRID_CELL = 3;
@@ -30,11 +32,13 @@ export interface WaterOptions {
  * skips that demo's reflections, refraction and caustics.
  */
 export class WaterSystem {
-  readonly mesh: THREE.Mesh;
+  /** The sea, cut into tiles so the frustum can reject most of it. */
+  readonly mesh: THREE.Group;
   readonly cascades: Cascade[];
   readonly wave: WaveField;
   readonly foam: FoamField;
   private readonly quad = new THREE.QuadMesh();
+  private readonly material: THREE.MeshStandardNodeMaterial;
   private readonly foamNode: ReturnType<typeof texture>;
   private time = 0;
   private frame = 0;
@@ -79,14 +83,22 @@ export class WaterSystem {
     this.foamNode = texture(this.foam.texture);
 
     const span = o.mapSize * 1.6;
-    const segments = Math.round(span / GRID_CELL);
+    // Rounded to a whole number of tiles so the grid divides evenly.
+    const segments = TILES * Math.round(span / GRID_CELL / TILES);
     const geo = new THREE.PlaneGeometry(span, span, segments, segments);
     geo.rotateX(-Math.PI / 2);
-    this.mesh = new THREE.Mesh(geo, this.buildMaterial(o, swellDir));
-    this.mesh.position.y = 0;
+    this.material = this.buildMaterial(o, swellDir);
+    this.mesh = new THREE.Group();
     this.mesh.name = "water";
-    this.mesh.frustumCulled = false;
-    this.mesh.receiveShadow = true;
+    // Tiles rather than one sheet: the sea covers 2.5 times the map and only a
+    // fifth of it is ever on screen. The padding is slack for the displacement,
+    // which happens after culling has already decided.
+    for (const chunk of splitGrid(geo, segments, TILES, 6)) {
+      const m = new THREE.Mesh(chunk, this.material);
+      m.receiveShadow = true;
+      this.mesh.add(m);
+    }
+    geo.dispose();
   }
 
   private buildMaterial(o: WaterOptions, swellDir: [number, number]): THREE.MeshStandardNodeMaterial {
@@ -197,8 +209,8 @@ export class WaterSystem {
   dispose(): void {
     for (const c of this.cascades) c.dispose();
     this.foam.dispose();
-    (this.mesh.material as THREE.Material).dispose();
-    this.mesh.geometry.dispose();
+    this.material.dispose();
+    for (const m of this.mesh.children) (m as THREE.Mesh).geometry.dispose();
   }
 }
 

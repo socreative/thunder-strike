@@ -87,6 +87,10 @@ export class Game {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
+    // `?bench=1` turns on GPU timestamp queries, which fill
+    // `renderer.info.render.timestamp` with real GPU milliseconds. It has to be
+    // set before init so the adapter is asked for the feature.
+    if (params.get("bench") === "1") (this.renderer as unknown as { trackTimestamp: boolean }).trackTimestamp = true;
     await this.renderer.init();
     if (this.disposed) return;
     const backend = (this.renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? "webgpu" : "webgl";

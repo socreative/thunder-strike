@@ -42,8 +42,11 @@ class Layer {
   private readonly alpha: Float32Array;
   private readonly grav: Float32Array;
   private readonly drag: Float32Array;
-  private cursor = 0;
-  aliveCount = 0;
+  /** Live particles are kept packed in [0, n), oldest first. */
+  private n = 0;
+  get aliveCount(): number {
+    return this.n;
+  }
 
   constructor(max: number, additive: boolean, renderOrder: number) {
     this.max = max;
@@ -83,17 +86,22 @@ class Layer {
     mat.fog = !additive;
 
     this.sprite = new THREE.Sprite(mat);
-    this.sprite.count = max;
+    this.sprite.count = 0;
     this.sprite.frustumCulled = false;
     this.sprite.renderOrder = renderOrder;
     this.sprite.name = additive ? "particles-additive" : "particles-normal";
   }
 
   spawn(o: ParticleOpts): void {
-    // Ring buffer: overwrite the oldest slot when full.
-    const i = this.cursor;
-    this.cursor = (this.cursor + 1) % this.max;
-    if (this.life[i] <= 0) this.aliveCount++;
+    // Append to the live run; when the pool is full the oldest particle, which
+    // is at the front, gives up its slot.
+    let i: number;
+    if (this.n < this.max) {
+      i = this.n;
+      this.n++;
+    } else {
+      i = 0;
+    }
     this.pos[i * 3] = o.x;
     this.pos[i * 3 + 1] = o.y;
     this.pos[i * 3 + 2] = o.z;
@@ -121,49 +129,72 @@ class Layer {
     const pa = this.posAttr.array as Float32Array;
     const sa = this.scaleAttr.array as Float32Array;
     const ca = this.colorAttr.array as Float32Array;
-    let alive = 0;
-    for (let i = 0; i < this.max; i++) {
-      let l = this.life[i];
-      if (l <= 0) {
-        sa[i] = 0;
-        ca[i * 4 + 3] = 0;
-        continue;
-      }
-      l -= dt;
-      this.life[i] = l;
-      if (l <= 0) {
-        sa[i] = 0;
-        ca[i * 4 + 3] = 0;
-        continue;
-      }
-      alive++;
-      const k = 1 - l / this.maxLife[i]; // 0 at birth, 1 at death
-      const dr = 1 - this.drag[i] * dt;
-      this.vel[i * 3] *= dr;
-      this.vel[i * 3 + 1] = this.vel[i * 3 + 1] * dr - this.grav[i] * dt;
-      this.vel[i * 3 + 2] *= dr;
-      this.pos[i * 3] += this.vel[i * 3] * dt;
-      this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
-      this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
-      pa[i * 3] = this.pos[i * 3];
-      pa[i * 3 + 1] = this.pos[i * 3 + 1];
-      pa[i * 3 + 2] = this.pos[i * 3 + 2];
-      sa[i] = this.size0[i] + (this.size1[i] - this.size0[i]) * k;
-      ca[i * 4] = this.col0[i * 3] + (this.col1[i * 3] - this.col0[i * 3]) * k;
-      ca[i * 4 + 1] = this.col0[i * 3 + 1] + (this.col1[i * 3 + 1] - this.col0[i * 3 + 1]) * k;
-      ca[i * 4 + 2] = this.col0[i * 3 + 2] + (this.col1[i * 3 + 2] - this.col0[i * 3 + 2]) * k;
+    // Walk the live run, dropping the dead and closing the gaps behind them.
+    // Compacting in place keeps the draw count equal to the number of live
+    // particles, and keeping it stable preserves the order transparent sprites
+    // blend in.
+    let w = 0;
+    for (let i = 0; i < this.n; i++) {
+      const l = this.life[i] - dt;
+      if (l <= 0) continue;
+      if (w !== i) this.move(w, i);
+      this.life[w] = l;
+      const k = 1 - l / this.maxLife[w]; // 0 at birth, 1 at death
+      const dr = 1 - this.drag[w] * dt;
+      this.vel[w * 3] *= dr;
+      this.vel[w * 3 + 1] = this.vel[w * 3 + 1] * dr - this.grav[w] * dt;
+      this.vel[w * 3 + 2] *= dr;
+      this.pos[w * 3] += this.vel[w * 3] * dt;
+      this.pos[w * 3 + 1] += this.vel[w * 3 + 1] * dt;
+      this.pos[w * 3 + 2] += this.vel[w * 3 + 2] * dt;
+      pa[w * 3] = this.pos[w * 3];
+      pa[w * 3 + 1] = this.pos[w * 3 + 1];
+      pa[w * 3 + 2] = this.pos[w * 3 + 2];
+      sa[w] = this.size0[w] + (this.size1[w] - this.size0[w]) * k;
+      ca[w * 4] = this.col0[w * 3] + (this.col1[w * 3] - this.col0[w * 3]) * k;
+      ca[w * 4 + 1] = this.col0[w * 3 + 1] + (this.col1[w * 3 + 1] - this.col0[w * 3 + 1]) * k;
+      ca[w * 4 + 2] = this.col0[w * 3 + 2] + (this.col1[w * 3 + 2] - this.col0[w * 3 + 2]) * k;
       // Quick fade in, long fade out.
       const fade = Math.min(1, k * 6) * (1 - k * k);
-      ca[i * 4 + 3] = this.alpha[i] * fade;
+      ca[w * 4 + 3] = this.alpha[w] * fade;
+      w++;
     }
-    this.aliveCount = alive;
+    this.n = w;
+    this.sprite.count = w;
+    if (w === 0) return;
+    // Upload only the live run rather than the whole pool.
+    this.posAttr.clearUpdateRanges();
+    this.scaleAttr.clearUpdateRanges();
+    this.colorAttr.clearUpdateRanges();
+    this.posAttr.addUpdateRange(0, w * 3);
+    this.scaleAttr.addUpdateRange(0, w);
+    this.colorAttr.addUpdateRange(0, w * 4);
     this.posAttr.needsUpdate = true;
     this.scaleAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
   }
 
+  /** Copy every field of one particle over another. */
+  private move(dst: number, src: number): void {
+    for (let c = 0; c < 3; c++) {
+      this.pos[dst * 3 + c] = this.pos[src * 3 + c];
+      this.vel[dst * 3 + c] = this.vel[src * 3 + c];
+      this.col0[dst * 3 + c] = this.col0[src * 3 + c];
+      this.col1[dst * 3 + c] = this.col1[src * 3 + c];
+    }
+    this.life[dst] = this.life[src];
+    this.maxLife[dst] = this.maxLife[src];
+    this.size0[dst] = this.size0[src];
+    this.size1[dst] = this.size1[src];
+    this.alpha[dst] = this.alpha[src];
+    this.grav[dst] = this.grav[src];
+    this.drag[dst] = this.drag[src];
+  }
+
   clear(): void {
     this.life.fill(0);
+    this.n = 0;
+    this.sprite.count = 0;
   }
 
   dispose(): void {

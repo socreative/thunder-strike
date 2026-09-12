@@ -1,6 +1,6 @@
 import * as THREE from "three/webgpu";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { sharedMat, type MatOpts } from "../entities/Entity";
+import { sharedVertexMat, type MatOpts } from "../entities/Entity";
 
 export interface Place {
   x?: number;
@@ -26,9 +26,11 @@ const tmpEuler = new THREE.Euler();
 const tmpPos = new THREE.Vector3();
 const tmpScale = new THREE.Vector3();
 
-function matKey(color: number, o: MatOpts): string {
-  return `${color}|${o.roughness ?? 0.8}|${o.metalness ?? 0.1}|${o.flat ? 1 : 0}|${o.emissive ?? 0}|${o.side ?? 0}`;
+function matKey(o: MatOpts): string {
+  return `${o.roughness ?? 0.8}|${o.metalness ?? 0.1}|${o.flat ? 1 : 0}|${o.emissive ?? 0}|${o.side ?? 0}`;
 }
+
+const tmpCol = new THREE.Color();
 
 /**
  * Collects primitives and merges them into one mesh per material. A structure
@@ -36,15 +38,18 @@ function matKey(color: number, o: MatOpts): string {
  * calls, which is what lets the ground models match the key art's fidelity.
  */
 export class Build {
-  private groups = new Map<string, { color: number; opts: MatOpts; geos: THREE.BufferGeometry[] }>();
+  private groups = new Map<string, { opts: MatOpts; geos: THREE.BufferGeometry[] }>();
 
   /** Add an arbitrary geometry. The builder takes ownership of it. */
   add(geo: THREE.BufferGeometry, color: number, p: Place = {}): this {
     const opts = p.mat ?? {};
-    const key = matKey(color, opts);
+    // Grouped by surface properties only. Colour rides along in the vertices,
+    // so a model with thirty tints still merges into one mesh instead of
+    // thirty, and that saving is paid again in every shadow cascade.
+    const key = matKey(opts);
     let g = this.groups.get(key);
     if (!g) {
-      g = { color, opts, geos: [] };
+      g = { opts, geos: [] };
       this.groups.set(key, g);
     }
     const s = p.s ?? 1;
@@ -63,6 +68,17 @@ export class Build {
     for (const name of Object.keys(geo.attributes)) {
       if (name !== "position" && name !== "normal" && name !== "uv") geo.deleteAttribute(name);
     }
+    // `Color.setHex` converts out of sRGB, so these match what the material
+    // would have produced from the same hex.
+    tmpCol.setHex(color);
+    const n = geo.attributes.position.count;
+    const cols = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      cols[i * 3] = tmpCol.r;
+      cols[i * 3 + 1] = tmpCol.g;
+      cols[i * 3 + 2] = tmpCol.b;
+    }
+    geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
     g.geos.push(geo);
     return this;
   }
@@ -294,7 +310,7 @@ export class Build {
       const merged = g.geos.length === 1 ? g.geos[0] : mergeGeometries(g.geos, false);
       if (!merged) continue;
       if (g.geos.length > 1) for (const geo of g.geos) geo.dispose();
-      const mesh = new THREE.Mesh(merged, sharedMat(g.color, g.opts));
+      const mesh = new THREE.Mesh(merged, sharedVertexMat(g.opts));
       mesh.castShadow = castShadow;
       mesh.receiveShadow = receiveShadow;
       group.add(mesh);

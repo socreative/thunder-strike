@@ -4,6 +4,7 @@ import { clamp, smoothstep } from "../core/MathUtil";
 import { balance } from "../data/balance";
 import type { FlatSpot } from "../data/mission";
 import { createTerrainMaterial } from "./TerrainMaterial";
+import { splitGrid } from "./Chunk";
 import type { GroundPalette, OverviewPalette } from "./Theme";
 
 /** A river as a centreline with a half-width at each control point. */
@@ -53,6 +54,8 @@ const tmpHit: RiverHit = { sd: Infinity, w: 0, cx: 0, cz: 0 };
 const LIP = -0.8;
 /** How far under the surface an island's shelf sits where it meets the beach. */
 const SHELF = -1.4;
+/** Tiles per axis the ground and the sea are cut into for culling. */
+export const TILES = 5;
 
 /**
  * Analytic heightfield: noise hills, an optional coastline or river, and
@@ -60,11 +63,13 @@ const SHELF = -1.4;
  * gameplay uses, so ground units always sit on the visible surface.
  */
 export class Terrain {
-  readonly mesh: THREE.Mesh;
+  /** The ground, cut into tiles so the frustum can reject most of it. */
+  readonly mesh: THREE.Group;
   readonly size = balance.map.size;
   private noise: SimplexNoise;
   private flats: Required<FlatSpot>[];
   private readonly base: (x: number, z: number) => number;
+  private readonly material: THREE.Material;
   private segs: RiverSeg[] = [];
   private riverBed = -5;
   private riverBank = 14;
@@ -123,7 +128,7 @@ export class Terrain {
     // An atoll is nearly all coastline, and a coarse grid turns every shore
     // into a staircase, so those maps get a finer mesh than a map with one
     // coast or a river running through it.
-    const segments = cfg.shape === "atoll" ? 420 : 220;
+    const segments = cfg.shape === "atoll" ? 420 : 220; // both divide by TILES
     const geo = new THREE.PlaneGeometry(this.size, this.size, segments, segments);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -135,9 +140,17 @@ export class Terrain {
     pos.needsUpdate = true;
     geo.computeVertexNormals();
 
-    this.mesh = new THREE.Mesh(geo, createTerrainMaterial(ground));
-    this.mesh.receiveShadow = true;
+    this.material = createTerrainMaterial(ground);
+    this.mesh = new THREE.Group();
     this.mesh.name = "terrain";
+    // Tiles of 1/10 of the map each. One mesh would be culled all or nothing,
+    // and the ground is never all on screen.
+    for (const chunk of splitGrid(geo, segments, TILES)) {
+      const m = new THREE.Mesh(chunk, this.material);
+      m.receiveShadow = true;
+      this.mesh.add(m);
+    }
+    geo.dispose();
   }
 
   private desertHeight = (x: number, z: number): number => {
@@ -375,7 +388,7 @@ export class Terrain {
   }
 
   dispose(): void {
-    this.mesh.geometry.dispose();
-    (this.mesh.material as THREE.Material).dispose();
+    for (const m of this.mesh.children) (m as THREE.Mesh).geometry.dispose();
+    this.material.dispose();
   }
 }

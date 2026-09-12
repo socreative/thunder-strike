@@ -189,6 +189,28 @@ export interface MatOpts {
 
 /** Shared materials so hundreds of props do not each compile a shader. */
 const matCache = new Map<string, THREE.MeshStandardNodeMaterial>();
+/**
+ * Material for geometry that carries its own colour per vertex, which is how
+ * `Build` merges a model of many tints into a single mesh.
+ */
+export function sharedVertexMat(opts: MatOpts = {}): THREE.MeshStandardNodeMaterial {
+  const key = `v|${opts.roughness ?? 0.8}|${opts.metalness ?? 0.1}|${opts.flat ? 1 : 0}|${opts.emissive ?? 0}|${opts.side ?? 0}`;
+  let m = matCache.get(key);
+  if (!m) {
+    m = new THREE.MeshStandardNodeMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      roughness: opts.roughness ?? 0.8,
+      metalness: opts.metalness ?? 0.1,
+      flatShading: opts.flat ?? false,
+      emissive: opts.emissive ?? 0x000000,
+    });
+    if (opts.side !== undefined) m.side = opts.side;
+    matCache.set(key, m);
+  }
+  return m;
+}
+
 export function sharedMat(color: number, opts: MatOpts = {}): THREE.MeshStandardNodeMaterial {
   const key = `${color}|${opts.roughness ?? 0.8}|${opts.metalness ?? 0.1}|${opts.flat ? 1 : 0}|${opts.emissive ?? 0}|${opts.side ?? 0}`;
   let m = matCache.get(key);

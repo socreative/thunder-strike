@@ -239,7 +239,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
             <p>A tribute to Desert Strike (Electronic Arts, 1992). Built with Three.js on the WebGPU renderer, TSL node materials and Next.js.</p>
             <p>
               Vehicle models: &ldquo;Low Poly Military Vehicles&rdquo; by Zsky, licensed CC-BY 4.0 via Poly Pizza, and a tank by Quaternius (CC0). Via Sketchfab, all CC-BY 4.0: &ldquo;AH-64 Apache&rdquo; by
-              Thomas Koenders, &ldquo;Gerald Ford Aircraft Carrier&rdquo; by Uxman, &ldquo;F-16 Fighter Jet&rdquo; by iedalton, &ldquo;Jungle Tent&rdquo; by SyntheticMN, &ldquo;Patrol Boat PBR MK2&rdquo; by Savy, &ldquo;Hellfire Missile&rdquo; by xephoney and &ldquo;Spike LR2 anti-tank anti-personnel rocket&rdquo; by s_ebo_l. Where a model is
+              Thomas Koenders, &ldquo;Gerald Ford Aircraft Carrier&rdquo; by Uxman, &ldquo;F-16 Fighter Jet&rdquo; by iedalton, &ldquo;Jungle Tent&rdquo; by SyntheticMN, &ldquo;Patrol Boat PBR MK2&rdquo; by Savy, &ldquo;Hellfire Missile&rdquo; by xephoney &ldquo;Spike LR2 anti-tank anti-personnel rocket&rdquo; by s_ebo_l and &ldquo;Missiles&rdquo; by Civorsky. Where a model is
               missing the game builds a procedural placeholder instead.
             </p>
             <p>Water: the wave model is ported from Techartist&rsquo;s open source ocean-simulation (MIT), rewritten as WebGPU node materials: a JONSWAP spectrum, a three-cascade GPU FFT, a seabed travel-time field that bends the swell onto the shore, whitecaps and surf foam.</p>

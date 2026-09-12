@@ -88,6 +88,7 @@ const Z = new THREE.Vector3(0, 0, 1);
 const MODELLED: Partial<Record<ProjectileKind, { asset: string; length: number; nose: number; shadow: boolean }>> = {
   hydra: { asset: "spike", length: 2.4, nose: 1, shadow: false },
   hellfire: { asset: "hellfire", length: 3.6, nose: 1, shadow: true },
+  sam: { asset: "sam", length: 4.6, nose: 1, shadow: true },
 };
 const tmpDir = new THREE.Vector3();
 const tmpTarget = new THREE.Vector3();

@@ -270,8 +270,10 @@ function buildDecorItem(item: DecorItem, terrain: Terrain, flames: THREE.Vector3
         const wz = item.z - lx * sinH + lz * cosH;
         if (terrain.heightAt(wx, wz) > -1.5) continue;
         const r = rng.range(3, 13);
-        b.cyl(r, r * 1.04, 0.4, rng.chance(0.6) ? 0xe9f0f4 : 0xd6e1e8, { x: lx, y: 0.1, z: lz, ry: rng.range(0, Math.PI), rx: rng.range(-0.02, 0.02), seg: rng.int(5, 7), mat: { roughness: 0.9, flat: true } });
-        if (r > 8 && rng.chance(0.5)) b.cyl(r * 0.35, r * 0.4, 0.5, 0xf4f8fa, { x: lx + rng.range(-r, r) * 0.3, y: 0.5, z: lz + rng.range(-r, r) * 0.3, seg: 6, mat: { roughness: 0.9, flat: true } });
+        // Thick slabs with freeboard above the highest swell crest and a
+        // skirt below the waterline, so waves lap the sides rather than wash over.
+        b.cyl(r, r * 1.04, 1.5, rng.chance(0.6) ? 0xe9f0f4 : 0xd6e1e8, { x: lx, y: 0.45, z: lz, ry: rng.range(0, Math.PI), rx: rng.range(-0.02, 0.02), seg: rng.int(5, 7), mat: { roughness: 0.9, flat: true } });
+        if (r > 8 && rng.chance(0.5)) b.cyl(r * 0.35, r * 0.4, 0.5, 0xf4f8fa, { x: lx + rng.range(-r, r) * 0.3, y: 1.4, z: lz + rng.range(-r, r) * 0.3, seg: 6, mat: { roughness: 0.9, flat: true } });
         placed++;
       }
       break;

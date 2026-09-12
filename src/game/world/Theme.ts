@@ -158,7 +158,7 @@ export const arcticTheme: Theme = {
   ground: { light: 0xeef2f5, dark: 0xd6dee6, rockA: 0x6b6f76, rockB: 0x3f434a, wet: 0xb9c6cf, underwater: 0x556b7a, ripple: 0.4 },
   fog: { color: 0xdfe6ec, near: 200, far: 720 },
   sky: { horizon: 0xe8eef2, zenith: 0x8fb0cc, haze: 0xf2f5f7, sun: 0xfff8ec, hemiSky: 0xbcd0e0, hemiGround: 0xd8dde2 },
-  water: { deep: 0x1c3340, shallow: 0x2f5566, foam: 0xe6f0f4, foamAmount: 0.45, scale: 1.2, bed: 0x7e8b94, swellDir: [1, 0.15], windDir: [1, -0.2], peakWavelength: 60, gains: [0.95, 0.6, 0.7], surfaceWind: 0.8 },
+  water: { deep: 0x1c3340, shallow: 0x2f5566, foam: 0xe6f0f4, foamAmount: 0.45, scale: 1.2, bed: 0x7e8b94, swellDir: [1, 0.15], windDir: [1, -0.2], peakWavelength: 60, gains: [0.55, 0.45, 0.6], surfaceWind: 0.7 },
   overview: { water: [24, 48, 64], shallow: [40, 80, 96], landLow: [205, 212, 220], landHigh: [245, 248, 250] },
   dust: { start: 0xf0f4f6, end: 0xd8e0e6 },
   wash: "dust",

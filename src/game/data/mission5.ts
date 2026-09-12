@@ -35,8 +35,9 @@ const ISLANDS = [KESTREL, TAMARIND, BLACKSAND, BASTION, MAHOGANY, SANDCAY, PILLA
 function pad(isl: Island, x: number, z: number): number {
   const d = Math.hypot(x - isl.x, z - isl.z);
   const t = Math.min(1, Math.max(0, (d - isl.r * 0.2) / (isl.r * 0.8)));
-  const k = 1 - t * t * (3 - 2 * t);
-  return isl.h * k * 1.15;
+  const k = Math.pow(1 - t * t * (3 - 2 * t), 0.85);
+  // 1.15 is the top of the dome's noise range; the rest is margin.
+  return isl.h * k * 1.2;
 }
 
 const PEN = { x: 232, z: 30 };
@@ -134,13 +135,13 @@ export const mission5: MissionData = {
     { type: "aa", x: 328, z: -292 },
 
     // Patrol boats, working the open water between the islands.
-    { type: "gunboat", x: -240, z: 200, heading: 0.6, tag: "patrol", waypoints: [[-240, 200], [-150, 230], [-90, 180], [-230, 120]] },
+    { type: "gunboat", x: -240, z: 200, heading: 0.6, tag: "patrol", waypoints: [[-240, 200], [-150, 235], [-85, 175], [-120, 40], [-260, 70]] },
     { type: "gunboat", x: -40, z: -60, heading: 1.8, tag: "patrol", waypoints: [[-40, -60], [20, -70], [-10, -30], [-80, -40]] },
-    { type: "gunboat", x: 180, z: -60, heading: 2.4, tag: "patrol", waypoints: [[180, -60], [240, -120], [300, -60], [330, -10]] },
-    { type: "gunboat", x: 120, z: 180, heading: 3.0, tag: "patrol", waypoints: [[120, 180], [60, 300], [-40, 260], [30, 150]] },
+    { type: "gunboat", x: 160, z: -80, heading: 2.4, tag: "patrol", waypoints: [[160, -80], [260, -160], [350, -110], [330, -40]] },
+    { type: "gunboat", x: 120, z: 180, heading: 3.0, tag: "patrol", waypoints: [[120, 180], [110, 300], [-40, 280], [10, 140]] },
     // Two more working close to the pen mouth, not part of the count.
-    { type: "gunboat", x: 190, z: 60, heading: 2.8, waypoints: [[190, 60], [150, 10], [185, -20]] },
-    { type: "gunboat", x: 160, z: 70, heading: 2.2, waypoints: [[160, 70], [130, 30], [175, 5]] },
+    { type: "gunboat", x: 170, z: 75, heading: 2.8, waypoints: [[170, 75], [120, 20], [170, -45]] },
+    { type: "gunboat", x: 145, z: 95, heading: 2.2, waypoints: [[145, 95], [95, 35], [140, -35]] },
 
     // Supplies. The map is nearly all water, so fuel outnumbers everything else.
     { type: "pickup", x: -286, z: 262, item: "fuel" },

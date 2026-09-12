@@ -103,6 +103,12 @@ export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE
   const lz = new THREE.Group();
   const y = terrain.heightAt(data.lz.x, data.lz.z);
   lz.position.set(data.lz.x, y + 0.05, data.lz.z);
+  /**
+   * Local height for anything standing away from the pad. The camp spreads
+   * past the level part of its flat, so tents, crates and lights have to find
+   * their own ground or they hang in the air over the slope.
+   */
+  const sit = (lx: number, lz2: number) => terrain.heightAt(data.lz.x + lx, data.lz.z + lz2) - y;
   const pad = new THREE.Mesh(new THREE.CircleGeometry(data.lz.r, 32), sharedMat(0x6d6a60, { roughness: 1 }));
   pad.rotation.x = -Math.PI / 2;
   pad.receiveShadow = true;
@@ -146,19 +152,23 @@ export function createDecor(data: MissionData, terrain: Terrain, spinners: THREE
       roof.castShadow = true;
       t.add(roof);
     }
-    t.position.set(x, 0, z);
+    t.position.set(x, sit(x, z), z);
     t.rotation.y = rot;
     return t;
   };
   // Two tidy rows facing each other across a street, clear of the pad, rather
   // than a random cluster.
   for (const [tx, tz, tr] of TENT_SPOTS) lz.add(tent(tx, tz, tr));
-  lz.add(box(2.5, 1.5, 1.8, 0x6b7a3d, 18, 0.75, -6), box(2.5, 1.5, 1.8, 0x6b7a3d, 18, 0.75, -3.5), box(2, 1.4, 1.6, 0x6b7a3d, 18.2, 2.2, -4.8));
-  lz.add(cylinder(0.1, 0.12, 9, 0x777777, 12, 4.5, 14, 6), box(3, 1.8, 0.1, 0x2c5ea0, 13.6, 8.2, 14));
+  const crateY = sit(18, -5);
+  lz.add(box(2.5, 1.5, 1.8, 0x6b7a3d, 18, crateY + 0.75, -6), box(2.5, 1.5, 1.8, 0x6b7a3d, 18, crateY + 0.75, -3.5), box(2, 1.4, 1.6, 0x6b7a3d, 18.2, crateY + 2.2, -4.8));
+  const flagY = sit(12, 14);
+  lz.add(cylinder(0.1, 0.12, 9, 0x777777, 12, flagY + 4.5, 14, 6), box(3, 1.8, 0.1, 0x2c5ea0, 13.6, flagY + 8.2, 14));
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     const light = new THREE.Mesh(new THREE.SphereGeometry(0.3, 6, 5), new THREE.MeshBasicNodeMaterial({ color: 0xffb060 }));
-    light.position.set(Math.cos(a) * (data.lz.r + 2), 0.4, Math.sin(a) * (data.lz.r + 2));
+    const lx = Math.cos(a) * (data.lz.r + 2);
+    const lzp = Math.sin(a) * (data.lz.r + 2);
+    light.position.set(lx, sit(lx, lzp) + 0.4, lzp);
     lz.add(light);
   }
   g.add(lz);

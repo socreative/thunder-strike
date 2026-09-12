@@ -1,5 +1,6 @@
 import * as THREE from "three/webgpu";
 import type { Helicopter } from "./Helicopter";
+import { clamp } from "../core/MathUtil";
 import { Entity, type Team } from "./Entity";
 import { balance } from "../data/balance";
 
@@ -247,14 +248,48 @@ export class Projectile extends Entity {
             const bottom = h.kind === "helicopter" ? h.pos.y - 3 : -10;
             if (sy > top + this.radius || sy < bottom) continue;
           }
-          // Detonate where contact happened, not where the step ended.
+          // Detonate where contact happened, not where the step ended, and
+          // on the target's body: the hit test is forgiving, the effect must not be.
           this.pos.set(sx, sy, sz);
+          this.snapToTarget(h);
           this.syncObject();
           this.detonate(h);
           return;
         }
       }
     }
+  }
+
+  /**
+   * Pull the impact point inside the target's footprint and between its
+   * base and its roof, so sparks and small blasts appear on the object
+   * rather than in the air beside or above it. Aircraft and missiles keep
+   * their real contact point.
+   */
+  private snapToTarget(h: Entity): void {
+    if (h.kind === "helicopter" || h.kind === "projectile") return;
+    const p = this.pos;
+    const dx = p.x - h.pos.x;
+    const dz = p.z - h.pos.z;
+    const f = h.footprint;
+    if (f) {
+      const a = h.object.rotation.y;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      const lx = clamp(dx * cos - dz * sin, -f.hx * 0.85, f.hx * 0.85);
+      const lz = clamp(dx * sin + dz * cos, -f.hz * 0.85, f.hz * 0.85);
+      p.x = h.pos.x + lx * cos + lz * sin;
+      p.z = h.pos.z - lx * sin + lz * cos;
+    } else {
+      const d = Math.hypot(dx, dz);
+      const r = h.radius * 0.8;
+      if (d > r) {
+        p.x = h.pos.x + (dx / d) * r;
+        p.z = h.pos.z + (dz / d) * r;
+      }
+    }
+    const ground = Math.max(this.world.terrain.heightAt(h.pos.x, h.pos.z), 0);
+    p.y = clamp(p.y, ground + 0.4, ground + heightOf(h) * 0.9);
   }
 
   private impactGround(water: boolean): void {

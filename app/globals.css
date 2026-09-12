@@ -388,7 +388,25 @@ button {
   letter-spacing: 0.2em;
   font-size: 22px;
   border: 2px solid currentColor;
-  animation: blink 0.5s steps(2) infinite;
+}
+
+/*
+ * Only the lettering pulses. Blinking the whole pill made its frosted panel
+ * strobe against the scene, which is a lot of movement for a warning that can
+ * sit on screen for a while.
+ */
+.alert-text {
+  display: block;
+}
+.alert.incoming .alert-text,
+.alert.fuel .alert-text,
+.alert.countdown.urgent .alert-text {
+  animation: alert-pulse 0.62s ease-in-out infinite alternate;
+}
+@keyframes alert-pulse {
+  to {
+    opacity: 0.5;
+  }
 }
 .alert.incoming {
   color: var(--red);
@@ -408,7 +426,7 @@ button {
   font-variant-numeric: tabular-nums;
 }
 .alert.countdown.urgent {
-  animation: blink 0.4s steps(2) infinite;
+  animation: none;
 }
 .touch .alert.countdown {
   font-size: 20px;
@@ -454,7 +472,7 @@ button {
    the alert colour underneath. `--tint` is the only thing each variant sets. */
 .alert.glass {
   --tint: rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.5);
   background:
     linear-gradient(150deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0.03) 100%),
@@ -478,7 +496,7 @@ button {
   font-size: 48px;
   letter-spacing: 0.25em;
   padding: 12px 40px 14px;
-  border-radius: 22px;
+  border-radius: 12px;
   text-shadow: 0 0 30px rgba(255, 90, 60, 0.6), 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 .touch .alert.glass.lost {

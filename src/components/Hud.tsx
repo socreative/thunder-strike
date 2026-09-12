@@ -154,17 +154,27 @@ export default function Hud({ snap, overview, touch, game }: { snap: Snapshot; o
       <div className="hud-center">
         {snap.countdown && (
           <div className={`alert glass rect countdown ${snap.countdown.remaining < 15 ? "urgent" : ""}`}>
-            {snap.countdown.label} {Math.floor(snap.countdown.remaining / 60)}:{String(Math.floor(snap.countdown.remaining % 60)).padStart(2, "0")}
+            <span className="alert-text">
+              {snap.countdown.label} {Math.floor(snap.countdown.remaining / 60)}:{String(Math.floor(snap.countdown.remaining % 60)).padStart(2, "0")}
+            </span>
           </div>
         )}
-        {snap.incoming && <div className="alert glass rect incoming">MISSILE INCOMING</div>}
+        {snap.incoming && (
+          <div className="alert glass rect incoming">
+            <span className="alert-text">MISSILE INCOMING</span>
+          </div>
+        )}
         {snap.banner && (
           <div className="alert glass rect objective" key={snap.banner.text}>
             {snap.banner.title}
             <span className="alert-sub">{snap.banner.text}</span>
           </div>
         )}
-        {snap.lowFuel && !snap.incoming && <div className="alert glass rect fuel">FUEL LOW</div>}
+        {snap.lowFuel && !snap.incoming && (
+          <div className="alert glass rect fuel">
+            <span className="alert-text">FUEL LOW</span>
+          </div>
+        )}
         {snap.winchLabel && (
           <div className="winch">
             <div className="winch-label">{snap.winchLabel}</div>

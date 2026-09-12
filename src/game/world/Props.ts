@@ -12,7 +12,6 @@ export interface Exclusion {
 }
 
 const tmpNormal = new THREE.Vector3();
-const tmpColor = new THREE.Color();
 const tmpMat = new THREE.Matrix4();
 const tmpBase = new THREE.Matrix4();
 const tmpPivot = new THREE.Matrix4();
@@ -22,6 +21,13 @@ const tmpAxis = new THREE.Vector3();
 /** Radius of ground the downwash disturbs. */
 const WASH_RADIUS = 26;
 const SWAY_CELL = 16;
+/**
+ * Props are split across this many tiles per axis. An instanced mesh is culled
+ * against one bounding sphere covering every instance in it, so scattering a
+ * set over the whole map made that sphere the map and the frustum test could
+ * never reject anything.
+ */
+const PROP_TILES = 4;
 
 /** One instanced mesh whose instances can lean under the rotor wash. */
 interface SwaySet {
@@ -43,6 +49,8 @@ interface SwaySet {
 export class Props {
   readonly group = new THREE.Group();
   private meshes: THREE.InstancedMesh[] = [];
+  /** Geometry and material are shared by every tile of a set, so they are disposed once. */
+  private shared: { geo: THREE.BufferGeometry; mat: THREE.Material }[] = [];
   private swaySets: SwaySet[] = [];
   /** Development switch for measuring the cost of the downwash animation. */
   swayEnabled = true;
@@ -64,8 +72,16 @@ export class Props {
     for (const set of theme.sets) {
       const { geo, mat } = buildKind(set.kind);
       if (set.color !== undefined) (mat as THREE.MeshStandardNodeMaterial).color.setHex(set.color);
-      const mesh = new THREE.InstancedMesh(geo, mat, set.count);
       const bankMargin = set.bankMargin ?? theme.bankMargin;
+      // Gather first, then hand each tile its own mesh, so a set scattered over
+      // the map is culled tile by tile rather than all or nothing.
+      const buckets: { m: THREE.Matrix4[]; c: THREE.Color[] }[] = [];
+      for (let i = 0; i < PROP_TILES * PROP_TILES; i++) buckets.push({ m: [], c: [] });
+      const tileOf = (x: number, z: number) => {
+        const tx = Math.min(PROP_TILES - 1, Math.max(0, Math.floor(((x + terrain.size / 2) / terrain.size) * PROP_TILES)));
+        const tz = Math.min(PROP_TILES - 1, Math.max(0, Math.floor(((z + terrain.size / 2) / terrain.size) * PROP_TILES)));
+        return tz * PROP_TILES + tx;
+      };
       let placed = 0;
       let tries = 0;
       while (placed < set.count && tries < set.count * 20) {
@@ -81,19 +97,28 @@ export class Props {
         dummy.rotation.set(rng.range(-0.15, 0.15), rng.range(0, Math.PI * 2), rng.range(-0.15, 0.15));
         dummy.scale.setScalar(s);
         dummy.updateMatrix();
-        mesh.setMatrixAt(placed, dummy.matrix);
-        if (set.tints) mesh.setColorAt(placed, tmpColor.setHex(set.tints[rng.int(0, set.tints.length - 1)]));
+        const b = buckets[tileOf(x, z)];
+        b.m.push(dummy.matrix.clone());
+        if (set.tints) b.c.push(new THREE.Color().setHex(set.tints[rng.int(0, set.tints.length - 1)]));
         placed++;
       }
-      mesh.count = placed;
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      mesh.castShadow = set.castShadow;
-      mesh.receiveShadow = true;
-      mesh.name = `props-${set.kind}`;
-      this.meshes.push(mesh);
-      this.group.add(mesh);
-      if (set.sway) this.swaySets.push(this.makeSwaySet(mesh, placed, set.sway));
+      for (const b of buckets) {
+        if (b.m.length === 0) continue;
+        const mesh = new THREE.InstancedMesh(geo, mat, b.m.length);
+        for (let i = 0; i < b.m.length; i++) {
+          mesh.setMatrixAt(i, b.m[i]);
+          if (set.tints) mesh.setColorAt(i, b.c[i]);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        mesh.castShadow = set.castShadow;
+        mesh.receiveShadow = true;
+        mesh.name = `props-${set.kind}`;
+        this.meshes.push(mesh);
+        this.group.add(mesh);
+        if (set.sway) this.swaySets.push(this.makeSwaySet(mesh, b.m.length, set.sway));
+      }
+      this.shared.push({ geo, mat });
     }
   }
 
@@ -203,9 +228,9 @@ export class Props {
   }
 
   dispose(): void {
-    for (const m of this.meshes) {
-      m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
+    for (const s of this.shared) {
+      s.geo.dispose();
+      s.mat.dispose();
     }
   }
 }

@@ -55,7 +55,7 @@ const LIP = -0.8;
 /** How far under the surface an island's shelf sits where it meets the beach. */
 const SHELF = -1.4;
 /** Tiles per axis the ground and the sea are cut into for culling. */
-export const TILES = 5;
+export const TILES = 10;
 
 /**
  * Analytic heightfield: noise hills, an optional coastline or river, and
@@ -128,7 +128,7 @@ export class Terrain {
     // An atoll is nearly all coastline, and a coarse grid turns every shore
     // into a staircase, so those maps get a finer mesh than a map with one
     // coast or a river running through it.
-    const segments = cfg.shape === "atoll" ? 420 : 220; // both divide by TILES
+    const segments = cfg.shape === "atoll" ? 560 : 220; // both divide by TILES
     const geo = new THREE.PlaneGeometry(this.size, this.size, segments, segments);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -209,8 +209,11 @@ export class Terrain {
     for (const f of this.flats) {
       const dx = x - f.x;
       const dz = z - f.z;
-      const d = Math.sqrt(dx * dx + dz * dz);
-      if (d > f.r) continue;
+      // Reject on the squared distance: this runs a few hundred thousand times
+      // per world build and once more for every gameplay height query.
+      const d2 = dx * dx + dz * dz;
+      if (d2 > f.r * f.r) continue;
+      const d = Math.sqrt(d2);
       const w = 1 - smoothstep(f.r * 0.55, f.r, d);
       h = h * (1 - w) + f.h * w;
     }
@@ -220,9 +223,12 @@ export class Terrain {
       for (const isl of islands) {
         const dx = x - isl.x;
         const dz = z - isl.z;
-        const d = Math.hypot(dx, dz);
-        // The warp below can push the coast out, so the early-out has to allow for it.
-        if (d > isl.r * 2.05) continue;
+        // The warp below can push the coast out, so the early-out has to allow
+        // for it. Squared first, since most islands are far from most points.
+        const reach = isl.r * 2.05;
+        const d2 = dx * dx + dz * dz;
+        if (d2 > reach * reach) continue;
+        const d = Math.sqrt(d2);
         // Warp the radius rather than the height, which is what turns a circle
         // into headlands and bays. The first term is noise read off a small
         // circle, so it is smooth and periodic around the island; the second

@@ -183,8 +183,16 @@ export class WaterSystem {
     const rms = Math.max(0.2, this.uSwellGain.value * 0.64);
     const relief = clamp(vHeight.div(rms), -1, 1);
     col = col.mul(relief.mul(0.12).add(1));
+    const bed = color(pal.bed ?? 0xc2ae86);
     const bottom = float(1).sub(smoothstep(0.15, 2.8, depth));
-    col = mix(col, color(pal.bed ?? 0xc2ae86), bottom.mul(0.6));
+    col = mix(col, bed, bottom.mul(0.6));
+    // The last half metre runs almost to the colour of the sand beneath it,
+    // which is what water that shallow over a pale bottom actually looks like.
+    // It also drops the contrast across the waterline, where the ground meets
+    // the sea along a straight edge per mesh quad and a hard step would read
+    // as a staircase.
+    const rim = float(1).sub(smoothstep(0.02, 0.75, depth));
+    col = mix(col, bed, rim.mul(0.72));
     col = mix(col, color(pal.foam), foamK);
     const viewDir = normalize(cameraPosition.sub(positionWorld));
     const schlick = pow(saturate(float(1).sub(dot(nWorld, viewDir))), 3);

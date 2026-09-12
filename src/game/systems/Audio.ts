@@ -486,7 +486,7 @@ export class Audio {
   private loopLength(track: string, buf: AudioBuffer): number {
     // Known trailing silence per track; default trims nothing.
     // Loop points sit on a bar line just before each track's tail begins.
-    const trims: Record<string, number> = { "iron-sector-run": 57.17, "jungle-advance": 86.66, "arctic-front": 188.23, "march-of-the-sands": 86.43 };
+    const trims: Record<string, number> = { "iron-sector-run": 57.17, "jungle-advance": 86.66, "arctic-front": 188.23, "march-of-the-sands": 86.43, "salt-air-stance": 136.695 };
     return Math.min(buf.duration, trims[track] ?? buf.duration);
   }
 

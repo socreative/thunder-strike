@@ -56,7 +56,7 @@ export const mission5: MissionData = {
     "There is no friendly ground out here but the cay you launch from and the carrier standing off it. Fuel and ammunition are cached on the islands. Watch the gauge: the water is very wide.",
   ],
   seed: 2003,
-  music: "jungle-advance",
+  music: "salt-air-stance",
   theme: atollTheme,
   terrain: {
     shape: "atoll",

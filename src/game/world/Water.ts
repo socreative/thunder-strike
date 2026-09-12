@@ -1,150 +1,208 @@
 import * as THREE from "three/webgpu";
-import type { Node } from "three/webgpu";
-import { cameraPosition, color, dot, float, mix, mx_noise_float, mx_noise_vec3, normalize, positionLocal, positionWorld, pow, saturate, smoothstep, texture, time, transformNormalToView, vec2, vec3 } from "three/tsl";
+import { cameraPosition, clamp, color, dFdx, dFdy, dot, float, length, max, mix, normalize, positionLocal, positionWorld, pow, saturate, sin, smoothstep, sqrt, step, texture, transformNormalToView, uniform, varying, vec2, vec3 } from "three/tsl";
 import type { WaterPalette } from "./Theme";
+import { Cascade } from "./water/Cascade";
+import type { CoastalField } from "./water/Coastal";
+import { FoamField, fractalNoise, noise2 } from "./water/Foam";
+import { WaveField } from "./water/WaveField";
 
-/** Vertex grid spacing in metres; the shortest swell below spans four cells. */
-const GRID_CELL = 4;
+/** Vertex grid spacing in metres. Finer waves live in the slope textures. */
+const GRID_CELL = 3;
+
+export interface WaterOptions {
+  /** Side of the square map in metres. */
+  mapSize: number;
+  pal: WaterPalette;
+  /** Seabed height in metres in the red channel. */
+  heights: THREE.Texture;
+  coast: CoastalField;
+  skyColor: number;
+  seed: number;
+}
 
 /**
- * Three Gerstner swells: direction, wavelength, amplitude and a speed factor.
- * Directions differ so the sum never marches in one line, and the shortest
- * wave carries the choppy detail the shading picks up.
+ * The sea: a JONSWAP spectrum in three FFT cascades, refracted along the
+ * coastal travel-time field, shoaling and breaking over the shelf, with
+ * Jacobian whitecaps offshore and an advected surf-foam history near the
+ * beach. The wave model is ported from Techartist's ocean-simulation (MIT);
+ * the shading keeps this game's palette-driven depth colours, the sand
+ * showing through the last metres and a sky tint at grazing angles, and
+ * skips that demo's reflections, refraction and caustics.
  */
-const SWELLS: { dir: [number, number]; length: number; amp: number; speed: number }[] = [
-  { dir: [0.82, 0.57], length: 46, amp: 0.42, speed: 1.0 },
-  { dir: [-0.35, 0.94], length: 27, amp: 0.26, speed: 1.15 },
-  { dir: [0.6, -0.8], length: 16, amp: 0.14, speed: 1.3 },
-];
+export class WaterSystem {
+  readonly mesh: THREE.Mesh;
+  readonly cascades: Cascade[];
+  readonly wave: WaveField;
+  readonly foam: FoamField;
+  private readonly quad = new THREE.QuadMesh();
+  private readonly foamNode: ReturnType<typeof texture>;
+  private time = 0;
+  private frame = 0;
+  private readonly uTime = uniform(0);
+  private readonly uWind = uniform(new THREE.Vector2(1, 0));
+  private readonly uSwellGain = uniform(1);
+  private readonly uSurfaceWind = uniform(1.15);
+  /** Milliseconds spent in the last simulate call, for profiling. */
+  lastSimMs = 0;
 
-/**
- * Water plane at y = 0 covering the whole map. The mesh is a real grid that
- * rides three Gerstner swells, so the waterline advances and retreats up the
- * beach with each wave. Colour follows the depth of the terrain beneath
- * (baked into a small height texture), the surface carries wave and ripple
- * normals for sun glints and a sky tint at grazing angles, foam breaks on
- * crests that steepen over the shallows and washes up the shore in bands, and
- * the sand shows through in the last couple of metres before the beach.
- */
-export function createWater(size: number, pal: WaterPalette, heights: THREE.DataTexture, mapSize: number, skyColor: number): THREE.Mesh {
-  const span = size * 1.6;
-  const segments = Math.round(span / GRID_CELL);
-  const geo = new THREE.PlaneGeometry(span, span, segments, segments);
-  geo.rotateX(-Math.PI / 2);
+  constructor(o: WaterOptions) {
+    const pal = o.pal;
+    const swellDir = unit(pal.swellDir ?? [1, 0]);
+    const windDir = unit(pal.windDir ?? swellDir);
+    const peak = pal.peakWavelength ?? 48;
+    const gains = pal.gains ?? [1.45, 1.25, 1.1];
+    const swellMul = pal.swell ?? 1;
+    this.uWind.value.set(windDir[0], windDir[1]);
+    this.uSwellGain.value = gains[0] * swellMul;
+    this.uSurfaceWind.value = pal.surfaceWind ?? 1.15;
 
-  const mat = new THREE.MeshStandardNodeMaterial();
-  const t = time;
+    // Swell tile long enough never to repeat across the map; wind sea and
+    // capillary tiles as in the source, the spectrum sized to the peak.
+    this.cascades = [
+      new Cascade({ length: 1024, minWave: 20, maxWave: 500, rms: (0.49 * peak) / 78, direction: Math.atan2(swellDir[1], swellDir[0]), size: 128, peakWavelength: peak, gain: gains[0] * swellMul, seed: o.seed }),
+      new Cascade({ length: 211, minWave: 2.5, maxWave: 30, rms: 0.16, direction: 0, size: 256, peakWavelength: peak, gain: gains[1], seed: o.seed + 1 }),
+      new Cascade({ length: 27.3, minWave: 0.25, maxWave: 3.8, rms: 0.017, direction: 0.3, size: 128, peakWavelength: peak, gain: gains[2], seed: o.seed + 2 }),
+    ];
+    this.wave = new WaveField({
+      cascades: this.cascades,
+      heights: o.heights,
+      coast: o.coast.texture,
+      mapSize: o.mapSize,
+      swellDir,
+      k0: (2 * Math.PI) / peak,
+      windDir: this.uWind,
+      swellGain: this.uSwellGain,
+      surfaceWind: this.uSurfaceWind,
+      time: this.uTime,
+    });
+    this.foam = new FoamField(this.wave, o.heights, o.mapSize, this.uTime);
+    this.foamNode = texture(this.foam.texture);
 
-  // Terrain height under a point, decoded from the 8-bit bake: h = r * 40 - 20.
-  const groundAt = (xz: Node<"vec2">) => texture(heights, xz.div(mapSize).add(0.5)).r.mul(40).sub(20);
-  const sum = (parts: Node<"float">[]) => parts.reduce((a, b) => a.add(b));
+    const span = o.mapSize * 1.6;
+    const segments = Math.round(span / GRID_CELL);
+    const geo = new THREE.PlaneGeometry(span, span, segments, segments);
+    geo.rotateX(-Math.PI / 2);
+    this.mesh = new THREE.Mesh(geo, this.buildMaterial(o, swellDir));
+    this.mesh.position.y = 0;
+    this.mesh.name = "water";
+    this.mesh.frustumCulled = false;
+    this.mesh.receiveShadow = true;
+  }
 
-  /*
-   * Two wave systems. Open-water swell is the Gerstner sum, alive only where
-   * the water is deep. Near the shore, waves are driven by depth itself: the
-   * phase is the depth, so every crest is an iso-depth contour, parallel to
-   * whatever shoreline it is approaching, and rolls landward as time runs.
-   * That is what refraction does to real swell, at a fraction of the cost.
-   */
-  const swellStrength = pal.swell ?? 1;
-  const SHORE_K = (2 * Math.PI) / 14;
-  const SHORE_W = 1.15;
-  const SHORE_AMP = 0.34;
-  const deepWeight = (d: Node<"float">) => smoothstep(1.5, 7, d).mul(swellStrength);
-  const shoreStrength = pal.shore ?? 1;
-  const shoreWeight = (d: Node<"float">) => smoothstep(0.25, 1.6, d).mul(smoothstep(9, 3.5, d)).mul(shoreStrength);
+  private buildMaterial(o: WaterOptions, swellDir: [number, number]): THREE.MeshStandardNodeMaterial {
+    const pal = o.pal;
+    const wave = this.wave;
+    const t = this.uTime;
+    const mat = new THREE.MeshStandardNodeMaterial();
 
-  /* Vertex stage. */
-  const lxz = positionLocal.xz;
-  const vDepth = groundAt(lxz).negate();
-  const vDeep = deepWeight(vDepth);
-  const vertexWaves = SWELLS.map((w) => {
-    const k = (2 * Math.PI) / w.length;
-    const omega = Math.sqrt(9.81 * k) * w.speed;
-    const phase = lxz.x.mul(w.dir[0] * k).add(lxz.y.mul(w.dir[1] * k)).sub(t.mul(omega));
-    const amp = float(w.amp).mul(vDeep);
-    return { x: amp.mul(0.6 * w.dir[0]).mul(phase.cos()), y: amp.mul(phase.sin()), z: amp.mul(0.6 * w.dir[1]).mul(phase.cos()) };
-  });
-  // Depth plus time: a crest of constant phase then moves to shallower water, toward the shore.
-  const vShorePhase = vDepth.mul(SHORE_K).add(t.mul(SHORE_W));
-  const vShore = float(SHORE_AMP).mul(shoreWeight(vDepth)).mul(vShorePhase.sin());
-  const dispX = sum(vertexWaves.map((v) => v.x));
-  const dispY = sum(vertexWaves.map((v) => v.y)).add(vShore);
-  const dispZ = sum(vertexWaves.map((v) => v.z));
-  mat.positionNode = positionLocal.add(vec3(dispX, dispY, dispZ));
+    /* Vertex stage: displace the grid, carry the undisplaced point and the swell height across. */
+    const lxz = positionLocal.xz;
+    const disp = wave.waveDisplacement(lxz, float(GRID_CELL * 1.3));
+    const tide = sin(t.mul(0.29)).mul(0.07).add(sin(t.mul(0.47).add(1.7)).mul(0.035));
+    mat.positionNode = positionLocal.add(vec3(disp.x, disp.y.add(tide), disp.z));
+    const p = varying(lxz);
+    const vHeight = varying(disp.y);
 
-  /* Fragment stage: the same waves evaluated at the world position for normals and foam. */
-  const xz = positionWorld.xz;
-  const ground = groundAt(xz);
-  const depth = ground.negate();
-  const fDeep = deepWeight(depth);
-  const fShoreW = shoreWeight(depth);
-  const fragWaves = SWELLS.map((w) => {
-    const k = (2 * Math.PI) / w.length;
-    const omega = Math.sqrt(9.81 * k) * w.speed;
-    const phase = xz.x.mul(w.dir[0] * k).add(xz.y.mul(w.dir[1] * k)).sub(t.mul(omega));
-    const amp = float(w.amp).mul(fDeep);
-    return { sx: amp.mul(w.dir[0] * k).mul(phase.cos()), sz: amp.mul(w.dir[1] * k).mul(phase.cos()), h: amp.mul(phase.sin()) };
-  });
-  // Shore waves travel down the depth gradient; two extra taps give its direction.
-  const e = 3;
-  const gx = groundAt(xz.add(vec2(e, 0))).sub(groundAt(xz.sub(vec2(e, 0))));
-  const gz = groundAt(xz.add(vec2(0, e))).sub(groundAt(xz.sub(vec2(0, e))));
-  const gradLen = vec2(gx, gz).length().max(1e-3);
-  const toShore = vec2(gx, gz).div(gradLen);
-  const shorePhase = depth.mul(SHORE_K).add(t.mul(SHORE_W));
-  const shoreH = float(SHORE_AMP).mul(fShoreW).mul(shorePhase.sin());
-  // Slope is exaggerated against the true (shallow) beach gradient so the rollers read from the air.
-  const shoreSlope = float(SHORE_AMP * SHORE_K * 0.7).mul(fShoreW).mul(shorePhase.cos());
-  const slopeX = sum(fragWaves.map((v) => v.sx)).add(toShore.x.mul(shoreSlope));
-  const slopeZ = sum(fragWaves.map((v) => v.sz)).add(toShore.y.mul(shoreSlope));
-  const height = sum(fragWaves.map((v) => v.h)).add(shoreH);
-  const ampSum = SWELLS.reduce((a, w) => a + w.amp, 0) * Math.max(0.3, swellStrength) + SHORE_AMP;
-  // Ripples on top: two scrolling octaves of vector noise.
-  const s1 = 0.07 * pal.scale;
-  const s2 = 0.22 * pal.scale;
-  const n1 = mx_noise_vec3(vec3(xz.mul(s1).add(vec2(t.mul(0.3), t.mul(0.18))), t.mul(0.12)));
-  const n2 = mx_noise_vec3(vec3(xz.mul(s2).add(vec2(t.mul(-0.5), t.mul(0.4))), t.mul(0.28)));
-  const ripple = n1.xy.mul(0.22).add(n2.xy.mul(0.14)).mul(smoothstep(0.2, 3, depth).mul(0.7).add(0.3));
-  const nWorld = normalize(vec3(slopeX.negate().mul(1.6).add(ripple.x), 1, slopeZ.negate().mul(1.6).add(ripple.y)));
-  mat.normalNode = transformNormalToView(nWorld);
+    /* Fragment stage. */
+    const footprint = max(length(dFdx(p)), length(dFdy(p)));
+    const ctx = wave.context(p, footprint);
+    const { c, depth } = ctx;
+    const slope = wave.waveSlope(p, footprint, ctx);
+    const nWorld = normalize(vec3(slope.x.negate(), 1, slope.y.negate()));
+    mat.normalNode = transformNormalToView(nWorld);
 
-  /* Colour. */
-  const deep = color(pal.deep);
-  const shallow = color(pal.shallow);
-  const foam = color(pal.foam);
-  const shoal = smoothstep(16, 1.2, depth);
-  let col = mix(deep, shallow, shoal);
-  // Crests catch light, troughs sit darker.
-  const relief = height.div(ampSum).mul(0.5).add(0.5);
-  col = col.mul(relief.mul(0.3).add(0.85));
-  const bottom = smoothstep(2.8, 0.15, depth);
-  col = mix(col, color(pal.bed ?? 0xc2ae86), bottom.mul(0.6));
+    const w0 = wave.sampleSlope(0, ctx.swellP, ctx.lod[0]);
+    const w1 = wave.sampleSlope(1, ctx.windP, ctx.lod[1]);
+    const w2 = wave.sampleSlope(2, ctx.windP, ctx.lod[2]);
+    const env = wave.swellEnvelope(depth, c.a);
+    const variance = max(float(0), w0.a.sub(dot(w0.xy, w0.xy)))
+      .mul(env)
+      .add(max(float(0), w1.a.sub(dot(w1.xy, w1.xy))).mul(pow(mix(0.38, 1, c.a), 2)))
+      .add(max(float(0), w2.a.sub(dot(w2.xy, w2.xy))).mul(pow(mix(0.68, 1, c.a), 2)));
+    // Unresolved slope energy widens the highlight instead of aliasing into sparkle.
+    const alpha = clamp(sqrt(variance.mul(0.32).add(0.02 * 0.02)), 0.009, 0.26);
 
-  /* Foam. */
-  const breakup = mx_noise_float(xz.mul(0.35).add(vec2(t.mul(0.4), t.mul(-0.2)))).mul(0.5).add(0.5);
-  // Whitecaps: the top of any crest, sparse offshore and heavy on the rollers coming in.
-  const crestness = smoothstep(0.55, 0.95, relief);
-  const breaking = fShoreW.mul(0.9).add(0.12);
-  const whitecap = crestness.mul(breaking).mul(smoothstep(0.3, 0.75, breakup)).mul(pal.foamAmount * 1.1);
-  // Surf: the crests of the shore waves themselves whiten as they run up the last metres.
-  const rollerFoam = smoothstep(0.45, 0.95, shorePhase.add(breakup.mul(1.2)).sin()).mul(smoothstep(3.0, 0.5, depth)).mul(shoreStrength);
-  const edge = smoothstep(0.9, 0.1, depth).mul(smoothstep(0.3, 0.7, breakup.add(height.mul(0.4)))).mul(shoreStrength * 0.5 + 0.5);
-  const foamK = saturate(whitecap.add(rollerFoam.mul(0.65)).add(edge));
-  col = mix(col, foam, foamK);
+    /* Surf and whitecaps. */
+    const historyUV = p.div(o.mapSize).add(0.5);
+    const inside = step(max(historyUV.x.sub(0.5).abs(), historyUV.y.sub(0.5).abs()), 0.498);
+    const historyRaw = this.foamNode.sample(clamp(historyUV, 0.001, 0.999)).mul(inside);
+    const support = wave.coastalFoamSupport(depth);
+    const history = { r: historyRaw.r.mul(support), g: historyRaw.g.mul(support) };
+    const crest = wave.sampleDisp(0, ctx.swellP, ctx.lod[0]).y;
+    const steepness = length(slope);
+    const compression = smoothstep(0.32, 0.7, steepness).mul(smoothstep(0.08, 0.5, crest));
+    const transformedCrest = crest.mul(env).mul(wave.energyRegion(p));
+    const breaker = clamp(wave.breakerPotential(p, transformedCrest, compression), 0, 1);
+    const drift = this.uWind.mul(t).mul(this.uSurfaceWind.mul(0.11).add(0.15));
+    const foamP = p.sub(drift).sub(c.yz.mul(t).mul(0.22));
+    const streakP = wave.windCoordinates(foamP);
+    const streak = noise2(vec2(streakP.x.mul(0.12), streakP.y.mul(1.3)).add(vec2(0, sin(streakP.x.mul(0.023)).mul(0.8))));
+    const cells = fractalNoise(foamP.mul(1.9).add(vec2(sin(t.mul(0.23)), sin(t.mul(0.19).add(1.57))).mul(0.22)));
+    const laceDetail = mix(smoothstep(0.33, 0.7, cells), float(0.53), smoothstep(0.08, 0.45, footprint));
+    const ageLace = mix(laceDetail, float(1), history.g.mul(0.7));
+    const coastalFoam = smoothstep(0.09, 0.82, history.r).mul(mix(0.12, 0.82, ageLace)).mul(history.g.mul(0.2).add(1));
+    const shoreMul = pal.shore ?? 1;
+    const spectralFoam = clamp(w0.b.mul(0.12).add(w1.b.mul(0.8)), 0, 1)
+      .mul(c.a)
+      .mul(smoothstep(0.58, 0.84, streak))
+      .mul(mix(0.025, 0.4, smoothstep(0.45, 3.4, this.uSurfaceWind)))
+      .mul(smoothstep(4, 14, depth));
+    const lip = breaker.mul(mix(0.45, 1, laceDetail));
+    const foamK = clamp(coastalFoam.mul(shoreMul).add(spectralFoam.mul(pal.foamAmount * 2.2)).add(lip.mul(0.26 * shoreMul)), 0, 0.94);
 
-  /* Sky at grazing angles. */
-  const viewDir = normalize(cameraPosition.sub(positionWorld));
-  const schlick = pow(saturate(float(1).sub(dot(nWorld, viewDir))), 3);
-  col = mix(col, color(skyColor), saturate(schlick.mul(0.6)));
+    /* Colour: depth palette, sand through the shallows, crests a touch lighter, foam, sky at grazing angles. */
+    const deep = color(pal.deep);
+    const shallow = color(pal.shallow);
+    const shoal = float(1).sub(smoothstep(1.2, 16, depth));
+    let col = mix(deep, shallow, shoal);
+    const rms = Math.max(0.2, this.uSwellGain.value * 0.64);
+    const relief = clamp(vHeight.div(rms), -1, 1);
+    col = col.mul(relief.mul(0.12).add(1));
+    const bottom = float(1).sub(smoothstep(0.15, 2.8, depth));
+    col = mix(col, color(pal.bed ?? 0xc2ae86), bottom.mul(0.6));
+    col = mix(col, color(pal.foam), foamK);
+    const viewDir = normalize(cameraPosition.sub(positionWorld));
+    const schlick = pow(saturate(float(1).sub(dot(nWorld, viewDir))), 3);
+    col = mix(col, color(o.skyColor), saturate(schlick.mul(0.6)));
+    mat.colorNode = col;
+    // Thin crests let a little light through from behind.
+    mat.emissiveNode = shallow.mul(smoothstep(0.35, 1, relief).mul(smoothstep(0.12, 1.4, depth)).mul(0.08));
+    mat.roughnessNode = mix(clamp(sqrt(alpha), 0.08, 0.6), float(0.8), foamK);
+    mat.metalnessNode = float(0.02);
+    void swellDir;
+    return mat;
+  }
 
-  mat.colorNode = col;
-  mat.roughnessNode = mix(float(0.14), float(0.75), foamK);
-  mat.metalnessNode = float(0.02);
+  /** Run the spectrum, FFT and foam passes for this frame. Call before rendering the scene. */
+  simulate(renderer: THREE.WebGPURenderer, dt: number): void {
+    const t0 = performance.now();
+    this.time += dt;
+    this.frame++;
+    this.uTime.value = this.time;
+    const prevTarget = renderer.getRenderTarget();
+    const prevAutoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    this.cascades.forEach((c, i) => {
+      // The long swell changes slowly; it runs on alternate frames with a double step.
+      if (i === 0 && this.frame % 2 !== 0) return;
+      c.update(renderer, this.quad, i === 0 ? dt * 2 : dt, this.time);
+    });
+    this.wave.refresh();
+    if (this.foam.update(renderer, this.quad, dt)) this.foamNode.value = this.foam.texture;
+    renderer.setRenderTarget(prevTarget);
+    renderer.autoClear = prevAutoClear;
+    this.lastSimMs = performance.now() - t0;
+  }
 
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.y = 0;
-  mesh.name = "water";
-  mesh.frustumCulled = false;
-  return mesh;
+  dispose(): void {
+    for (const c of this.cascades) c.dispose();
+    this.foam.dispose();
+    (this.mesh.material as THREE.Material).dispose();
+    this.mesh.geometry.dispose();
+  }
+}
+
+function unit(v: [number, number]): [number, number] {
+  const l = Math.hypot(v[0], v[1]) || 1;
+  return [v[0] / l, v[1] / l];
 }

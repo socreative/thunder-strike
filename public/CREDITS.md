@@ -29,6 +29,10 @@ game builds a procedural stand-in instead.
 The models above are licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
 Quaternius models are CC0 (public domain).
 
+## Water
+
+The sea's wave model (JONSWAP spectrum, three-cascade GPU FFT, seabed travel-time field for refraction and shoaling, Jacobian whitecaps and the advected surf-foam history) is ported from [ocean-simulation](https://github.com/iamtechartist/ocean-simulation) by Techartist, MIT License, rewritten from GLSL into three.js TSL node materials. The upstream licence is kept in `LICENSES/ocean-simulation.txt`.
+
 ## Music
 
 "Iron Sector Run", "Jungle Advance", "Arctic Front" and "March of the Sands", generated with Suno by the project author.

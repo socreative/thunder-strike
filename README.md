@@ -46,6 +46,8 @@ START MISSION opens a picker; both missions are always available, and the win sc
 
 **Operation Narrow Water.** Strait of Hormuz. Two tankers steam north up a marked lane while minelayers seed it, gunboats sortie from a naval base and anti-ship batteries fire from the cliffs. Take the island radar, sink the minelayers, sweep the mines, keep at least one tanker alive to the northern exit (both, for full marks), silence the batteries and destroy the base.
 
+The sea is a real spectral ocean, ported from Techartist's MIT-licensed [ocean-simulation](https://github.com/iamtechartist/ocean-simulation) into TSL so it runs on the WebGPU renderer and its WebGL fallback: a JONSWAP spectrum in three FFT cascades (`src/game/world/water/Cascade.ts`, about 45 small render passes a frame), a coastal travel-time field solved once from the seabed so crests slow, turn parallel to the beach and break in the shallows (`Coastal.ts`, `WaveField.ts`), and a 15 Hz surf-foam history advected along the shore (`Foam.ts`). Each theme sets its swell direction, peak wavelength and cascade gains in `Theme.ts`. Reflections, refraction and caustics from the original are deliberately left out.
+
 Missions are data: `src/game/data/mission*.ts` holds the layout, spawns, objectives and a theme (`src/game/world/Theme.ts`) covering ground, sky, water, fog, dust and vegetation. Terrain shape, coast and river come from a per-mission terrain config in `src/game/world/Terrain.ts`.
 
 ## Project layout

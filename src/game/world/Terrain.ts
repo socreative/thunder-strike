@@ -286,31 +286,40 @@ export class Terrain {
     return img;
   }
 
-  /**
-   * Height baked to an 8-bit texture for shaders: r = (h + 20) / 40. Water
-   * reads it to colour by depth and to foam along the shore.
-   */
-  heightTexture(resolution: number): THREE.DataTexture {
-    const data = new Uint8Array(resolution * resolution * 4);
+  /** Heights sampled on a square grid across the map, row-major with z as the row. */
+  heightSamples(resolution: number): Float32Array {
+    const data = new Float32Array(resolution * resolution);
     const half = this.size / 2;
     for (let py = 0; py < resolution; py++) {
       for (let px = 0; px < resolution; px++) {
         const x = -half + (px / (resolution - 1)) * this.size;
         const z = -half + (py / (resolution - 1)) * this.size;
-        const h = this.heightAt(x, z);
-        const i = (py * resolution + px) * 4;
-        const v = Math.round(clamp((h + 20) / 40, 0, 1) * 255);
-        data[i] = v;
-        data[i + 1] = v;
-        data[i + 2] = v;
-        data[i + 3] = 255;
+        data[py * resolution + px] = this.heightAt(x, z);
       }
     }
-    const tex = new THREE.DataTexture(data, resolution, resolution, THREE.RGBAFormat, THREE.UnsignedByteType);
+    return data;
+  }
+
+  /**
+   * Height in metres baked to a half-float texture, red channel, for the
+   * water: depth colouring, shoaling and the surf all read it.
+   */
+  heightTexture(samples: Float32Array, resolution: number): THREE.DataTexture {
+    const data = new Uint16Array(resolution * resolution * 4);
+    const one = THREE.DataUtils.toHalfFloat(1);
+    for (let i = 0; i < resolution * resolution; i++) {
+      const v = THREE.DataUtils.toHalfFloat(samples[i]);
+      data[i * 4] = v;
+      data[i * 4 + 1] = v;
+      data[i * 4 + 2] = v;
+      data[i * 4 + 3] = one;
+    }
+    const tex = new THREE.DataTexture(data, resolution, resolution, THREE.RGBAFormat, THREE.HalfFloatType);
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.minFilter = THREE.LinearFilter;
     tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
     tex.colorSpace = THREE.NoColorSpace;
     tex.needsUpdate = true;
     return tex;

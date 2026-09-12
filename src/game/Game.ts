@@ -192,7 +192,7 @@ export class Game {
     }
     this.mission = data;
     const place = { desert: "the province", jungle: "the valley", arctic: "the ice", gulf: "the strait" }[data.theme.id];
-    this.store.set({ loadLabel: `building ${place}`, loadProgress: 0.85 });
+    this.store.set({ loadLabel: `building ${place}, tracing the swell`, loadProgress: 0.85 });
     this.setScreen("loading");
     setTimeout(() => {
       if (this.disposed) return;
@@ -467,6 +467,8 @@ export class Game {
       this.publish(false);
     }
 
+    // The sea's FFT and foam passes run at the top of the frame, outside the scene render.
+    if (this.screen !== "paused") world.water.simulate(this.renderer, Math.min(dt, 0.1));
     if (this.post) this.post.render();
     else this.renderer.render(world.scene, this.rig.camera);
   }

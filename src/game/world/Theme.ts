@@ -36,10 +36,20 @@ export interface WaterPalette {
   scale: number;
   /** Colour of the bottom showing through the shallows. */
   bed?: number;
-  /** Strength of the open-water swell; rivers want almost none. */
+  /** Multiplier on the swell gain; rivers want almost none. */
   swell?: number;
-  /** Strength of the shore-following rollers and their surf. */
+  /** Multiplier on surf foam and breaker whitewater. */
   shore?: number;
+  /** Direction the swell travels in, x then z; the coastal field seeds the edges it comes from. */
+  swellDir?: [number, number];
+  /** Direction the wind sea travels in; defaults to the swell direction. */
+  windDir?: [number, number];
+  /** Peak wavelength of the JONSWAP spectrum in metres. */
+  peakWavelength?: number;
+  /** Amplitude gains for the swell, wind sea and capillary cascades. */
+  gains?: [number, number, number];
+  /** Surface wind strength; drives whitecap coverage and foam drift. */
+  surfaceWind?: number;
 }
 
 export interface OverviewPalette {
@@ -102,7 +112,7 @@ export const desertTheme: Theme = {
   ground: { light: 0xe0c07f, dark: 0xc59d5c, rockA: 0x8f6f4c, rockB: 0x5f4a35, wet: 0x8f7d59, underwater: 0x4e6a5e, ripple: 1 },
   fog: { color: 0xe2d0ad, near: 260, far: 900 },
   sky: { horizon: 0xe6d3b0, zenith: 0x6f9fc9, haze: 0xf3e4c4, sun: 0xfff0d6, hemiSky: 0x9fb9d6, hemiGround: 0x8a6b45 },
-  water: { deep: 0x134a5f, shallow: 0x28869a, foam: 0xcfe6ea, foamAmount: 0.6, scale: 1, bed: 0xc9b58c },
+  water: { deep: 0x134a5f, shallow: 0x28869a, foam: 0xcfe6ea, foamAmount: 0.6, scale: 1, bed: 0xc9b58c, swellDir: [1, 0.25], windDir: [1, 0.45], peakWavelength: 48, gains: [1.45, 1.25, 1.1], surfaceWind: 1.15 },
   overview: { water: [28, 70, 92], shallow: [28, 70, 92], landLow: [150, 120, 70], landHigh: [220, 180, 110] },
   dust: { start: 0xe8d3a8, end: 0xd2b98c },
   wash: "dust",
@@ -124,7 +134,7 @@ export const jungleTheme: Theme = {
   ground: { light: 0x5d8a3c, dark: 0x3a5f2c, rockA: 0x5f5a4a, rockB: 0x3b3a30, wet: 0x5a4d35, underwater: 0x3d5541, ripple: 0 },
   fog: { color: 0xb7c9b0, near: 220, far: 760 },
   sky: { horizon: 0xd6dfcf, zenith: 0x7f9fb8, haze: 0xe4e9dc, sun: 0xfff6e2, hemiSky: 0xaebfcf, hemiGround: 0x3d5a2e },
-  water: { deep: 0x2f4a3a, shallow: 0x4f7a5a, foam: 0xb9c9b0, foamAmount: 0.25, scale: 2, bed: 0x6d6a4a, swell: 0.15, shore: 0.3 },
+  water: { deep: 0x2f4a3a, shallow: 0x4f7a5a, foam: 0xb9c9b0, foamAmount: 0.25, scale: 2, bed: 0x6d6a4a, swell: 0.3, shore: 0.3, swellDir: [1, 0.3], windDir: [0.6, 1], peakWavelength: 30, gains: [0.9, 0.7, 0.9], surfaceWind: 0.6 },
   overview: { water: [24, 64, 58], shallow: [52, 104, 88], landLow: [44, 80, 38], landHigh: [104, 124, 64], bank: [138, 128, 92] },
   dust: { start: 0x8a7a55, end: 0x6b6a4a },
   wash: "leaves",
@@ -148,7 +158,7 @@ export const arcticTheme: Theme = {
   ground: { light: 0xeef2f5, dark: 0xd6dee6, rockA: 0x6b6f76, rockB: 0x3f434a, wet: 0xb9c6cf, underwater: 0x556b7a, ripple: 0.4 },
   fog: { color: 0xdfe6ec, near: 200, far: 720 },
   sky: { horizon: 0xe8eef2, zenith: 0x8fb0cc, haze: 0xf2f5f7, sun: 0xfff8ec, hemiSky: 0xbcd0e0, hemiGround: 0xd8dde2 },
-  water: { deep: 0x1c3340, shallow: 0x2f5566, foam: 0xe6f0f4, foamAmount: 0.45, scale: 1.2, bed: 0x7e8b94 },
+  water: { deep: 0x1c3340, shallow: 0x2f5566, foam: 0xe6f0f4, foamAmount: 0.45, scale: 1.2, bed: 0x7e8b94, swellDir: [1, 0.15], windDir: [1, -0.2], peakWavelength: 60, gains: [0.95, 0.6, 0.7], surfaceWind: 0.8 },
   overview: { water: [24, 48, 64], shallow: [40, 80, 96], landLow: [205, 212, 220], landHigh: [245, 248, 250] },
   dust: { start: 0xf0f4f6, end: 0xd8e0e6 },
   wash: "dust",
@@ -170,7 +180,7 @@ export const gulfTheme: Theme = {
   ground: { light: 0xd8c39a, dark: 0xb59a6b, rockA: 0x8c7d68, rockB: 0x5c5045, wet: 0xb7a582, underwater: 0x4c8a8c, ripple: 0.5 },
   fog: { color: 0xe8dcc4, near: 240, far: 900 },
   sky: { horizon: 0xf1e6cf, zenith: 0x7fb2d6, haze: 0xf6eedc, sun: 0xfff2dc, hemiSky: 0xa8c4d8, hemiGround: 0x8a7a5c },
-  water: { deep: 0x0f6b7a, shallow: 0x2fa3ad, foam: 0xe4f4f4, foamAmount: 0.5, scale: 1, bed: 0xd5c39c },
+  water: { deep: 0x0f6b7a, shallow: 0x2fa3ad, foam: 0xe4f4f4, foamAmount: 0.5, scale: 1, bed: 0xd5c39c, swellDir: [0.15, -1], windDir: [0.35, -1], peakWavelength: 42, gains: [1.2, 1.1, 1.0], surfaceWind: 1.0 },
   overview: { water: [18, 92, 104], shallow: [52, 150, 160], landLow: [176, 154, 112], landHigh: [222, 204, 164] },
   dust: { start: 0xe4d2ac, end: 0xcdb98f },
   wash: "dust",

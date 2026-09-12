@@ -33,7 +33,8 @@ import { Props, type Exclusion } from "./world/Props";
 import { CSMShadowNode } from "three/addons/csm/CSMShadowNode.js";
 import { createSky, createSun } from "./world/Sky";
 import { Terrain } from "./world/Terrain";
-import { createWater } from "./world/Water";
+import { WaterSystem } from "./world/Water";
+import { buildCoastalField } from "./world/water/Coastal";
 
 export type Phase = "playing" | "dead" | "won" | "lost";
 
@@ -80,8 +81,9 @@ export class World {
   private deathTotal = 0;
   private wreckage: HeliWreckage | null = null;
   readonly props: Props;
-  private water: THREE.Mesh;
+  readonly water: WaterSystem;
   private heightTex: THREE.DataTexture;
+  private coastTex: THREE.DataTexture;
   private sky: THREE.Mesh;
   private decor: THREE.Group;
   private decorSpinners: THREE.Object3D[] = [];
@@ -110,9 +112,23 @@ export class World {
     this.terrain = new Terrain(data.seed, data.flats, data.terrain, theme.ground, theme.overview);
     this.grid = new SpatialGrid(this.terrain.size + 200, balance.map.cellSize);
     this.scene.add(this.terrain.mesh);
-    this.heightTex = this.terrain.heightTexture(256);
-    this.water = createWater(this.terrain.size, theme.water, this.heightTex, this.terrain.size, theme.sky.zenith);
-    this.scene.add(this.water);
+    // Seabed for the sea: one sample grid feeds the shader texture and the
+    // coastal travel-time solve that bends the swell toward the shore.
+    const HEIGHT_RES = 512;
+    const samples = this.terrain.heightSamples(HEIGHT_RES);
+    this.heightTex = this.terrain.heightTexture(samples, HEIGHT_RES);
+    const size = this.terrain.size;
+    const bedAt = (x: number, z: number) => {
+      const ix = Math.max(0, Math.min(HEIGHT_RES - 1, Math.round(((x + size / 2) / size) * (HEIGHT_RES - 1))));
+      const iz = Math.max(0, Math.min(HEIGHT_RES - 1, Math.round(((z + size / 2) / size) * (HEIGHT_RES - 1))));
+      return samples[iz * HEIGHT_RES + ix];
+    };
+    const coastT0 = performance.now();
+    const coast = buildCoastalField({ bedAt, extent: size, resolution: 256, direction: unitDir(theme.water.swellDir ?? [1, 0]), peakWavelength: theme.water.peakWavelength ?? 48 });
+    console.info(`[thunder-strike] coastal field solved in ${(performance.now() - coastT0).toFixed(0)} ms`);
+    this.water = new WaterSystem({ mapSize: size, pal: theme.water, heights: this.heightTex, coast, skyColor: theme.sky.zenith, seed: data.seed });
+    this.coastTex = coast.texture;
+    this.scene.add(this.water.mesh);
     this.sky = createSky(1800, theme.sky);
     this.scene.add(this.sky);
     this.scene.fog = new THREE.Fog(theme.fog.color, theme.fog.near, theme.fog.far);
@@ -648,9 +664,9 @@ export class World {
     this.props.dispose();
     this.particles.dispose();
     this.healthBars.dispose();
-    (this.water.material as THREE.Material).dispose();
-    this.water.geometry.dispose();
+    this.water.dispose();
     this.heightTex.dispose();
+    this.coastTex.dispose();
     (this.sky.material as THREE.Material).dispose();
     this.sky.geometry.dispose();
     this.decor.traverse((o) => {
@@ -659,4 +675,9 @@ export class World {
     });
     this.scene.clear();
   }
+}
+
+function unitDir(v: [number, number]): [number, number] {
+  const l = Math.hypot(v[0], v[1]) || 1;
+  return [v[0] / l, v[1] / l];
 }

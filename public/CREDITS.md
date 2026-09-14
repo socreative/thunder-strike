@@ -45,4 +45,4 @@ Helicopter rotor loop cut from a recording by freesound_community (Pixabay Conte
 
 ## Artwork
 
-Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.
+Title artwork, logo and the six mission thumbnails on the picker generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.

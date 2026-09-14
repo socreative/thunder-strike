@@ -1,3 +1,5 @@
+import type { ScoreRow } from "./Score";
+
 export type Screen =
   | "loading"
   | "title"
@@ -9,7 +11,8 @@ export type Screen =
   | "won"
   | "lost"
   | "credits"
-  | "controls";
+  | "controls"
+  | "leaderboard";
 
 export type WeaponId = "gun" | "hydra" | "hellfire";
 export type Backend = "webgpu" | "webgl" | null;
@@ -44,6 +47,15 @@ export interface MissionStats {
   damageTaken: number;
   livesLost: number;
   elapsed: number;
+}
+
+export type SubmitState = "idle" | "sending" | "done" | "error";
+
+export interface LeaderboardState {
+  /** Mission whose board is showing. */
+  mission: string;
+  rows: ScoreRow[];
+  state: "idle" | "loading" | "ready" | "error";
 }
 
 export interface MissionCard {
@@ -100,6 +112,12 @@ export interface Snapshot {
   /** The large tactical map, opened with M. */
   bigMap: boolean;
   stats: MissionStats;
+  /** Score for the mission just completed, and the state of posting it. */
+  score: number;
+  pilot: string;
+  submit: SubmitState;
+  yourRank: number | null;
+  leaderboard: LeaderboardState;
   volume: number;
   musicVolume: number;
   /** Rounds bend a little toward the nearest target in front. */
@@ -149,6 +167,11 @@ export const initialSnapshot: Snapshot = {
   radarDown: false,
   bigMap: false,
   stats: { kills: 0, rescued: 0, shotsFired: 0, damageTaken: 0, livesLost: 0, elapsed: 0 },
+  score: 0,
+  pilot: "",
+  submit: "idle",
+  yourRank: null,
+  leaderboard: { mission: "", rows: [], state: "idle" },
   volume: 0.7,
   aimAssist: true,
   musicVolume: 0.55,

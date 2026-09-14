@@ -9,6 +9,7 @@ import { projectileSamples } from "./entities/Projectile";
 import type { MissionData } from "./data/mission";
 import { MISSIONS, missionById } from "./data/missions";
 import { track } from "./core/Analytics";
+import { DEFAULT_NAME, sanitizeName, scoreFor, type ScoreRow } from "./core/Score";
 import { Audio } from "./systems/Audio";
 import { CameraRig } from "./systems/CameraRig";
 import { World } from "./World";
@@ -31,6 +32,21 @@ function readSetting(key: string, fallback: boolean): boolean {
 function writeSetting(key: string, value: boolean): void {
   try {
     window.localStorage.setItem(`thunder-strike.${key}`, value ? "1" : "0");
+  } catch {
+    /* private mode or storage disabled */
+  }
+}
+
+function readText(key: string, fallback: string): string {
+  try {
+    return window.localStorage.getItem(`thunder-strike.${key}`) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeText(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(`thunder-strike.${key}`, value);
   } catch {
     /* private mode or storage disabled */
   }
@@ -312,6 +328,60 @@ export class Game {
     this.setScreen("credits");
   }
 
+  /* Leaderboard */
+
+  private leaderboardReturn: Screen = "title";
+
+  /** Open the board, from the title or the results card, for the given or current mission. */
+  showLeaderboard(missionId?: string): void {
+    if (this.screen !== "leaderboard") this.leaderboardReturn = this.screen;
+    this.setScreen("leaderboard");
+    void this.loadLeaderboard(missionId ?? this.mission.id);
+  }
+
+  hideLeaderboard(): void {
+    if (this.screen !== "leaderboard") return;
+    this.setScreen(this.leaderboardReturn === "leaderboard" ? "title" : this.leaderboardReturn);
+  }
+
+  async loadLeaderboard(missionId: string): Promise<void> {
+    this.store.set({ leaderboard: { mission: missionId, rows: [], state: "loading" } });
+    try {
+      const res = await fetch(`/api/scores/${encodeURIComponent(missionId)}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = (await res.json()) as { rows: ScoreRow[] };
+      if (this.store.get().leaderboard.mission !== missionId) return; // switched tabs meanwhile
+      this.store.set({ leaderboard: { mission: missionId, rows: data.rows, state: "ready" } });
+    } catch (err) {
+      console.warn("[thunder-strike] leaderboard unavailable", err);
+      if (this.store.get().leaderboard.mission === missionId) this.store.set({ leaderboard: { mission: missionId, rows: [], state: "error" } });
+    }
+  }
+
+  /** Post the finished mission's stats under a call sign; the server scores them. */
+  async submitScore(rawName: string): Promise<void> {
+    const world = this.world;
+    if (!world || world.phase !== "won" || this.store.get().submit === "sending") return;
+    const name = sanitizeName(rawName);
+    writeText("pilot", name);
+    this.store.set({ submit: "sending", pilot: name });
+    const missionId = this.mission.id;
+    try {
+      const res = await fetch(`/api/scores/${encodeURIComponent(missionId)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, stats: world.stats }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = (await res.json()) as { score: number; rank: number | null; rows: ScoreRow[] };
+      this.store.set({ submit: "done", score: data.score, yourRank: data.rank, leaderboard: { mission: missionId, rows: data.rows, state: "ready" } });
+      track("score_submitted", { mission: missionId, score: data.score, rank: data.rank ?? 0 });
+    } catch (err) {
+      console.warn("[thunder-strike] score not posted", err);
+      this.store.set({ submit: "error" });
+    }
+  }
+
   private controlsReturn: Screen = "paused";
 
   /** Controls overlay, reachable from the pause menu and the title screen. */
@@ -454,10 +524,13 @@ export class Game {
         break;
       case "won":
       case "lost":
-        if (input.wasPressed("Enter")) this.restart();
+        if (input.wasPressed("Enter") && this.store.get().submit !== "sending") this.restart();
         break;
       case "credits":
         if (input.wasPressed("Escape", "Enter")) this.setScreen("title");
+        break;
+      case "leaderboard":
+        if (input.wasPressed("Escape", "Enter")) this.hideLeaderboard();
         break;
       case "controls":
         if (input.wasPressed("Escape", "Enter")) this.hideControls();
@@ -485,6 +558,7 @@ export class Game {
       else if (world.phase === "won") {
         this.setScreen("won");
         this.audio.setRotor(false, 0);
+        this.store.set({ score: scoreFor(world.stats), submit: "idle", yourRank: null, pilot: readText("pilot", DEFAULT_NAME) });
         track("mission_complete", { mission: this.mission.id, seconds: Math.round(world.stats.elapsed), kills: world.stats.kills, rescued: world.stats.rescued, lives_lost: world.stats.livesLost });
       } else if (world.phase === "lost") {
         this.setScreen("lost");

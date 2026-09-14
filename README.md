@@ -34,6 +34,12 @@ Open the deployed site in Safari, then Share, Add to Home Screen. Launched from 
 
 Hover slowly over a crate or a POW and the winch engages on its own. Bring POWs back to the landing zone on the beach, which also refuels and repairs the aircraft.
 
+## Leaderboard
+
+Each mission has its own board. Completing a mission scores it from the results: a completion bonus, points per kill and per rescue, a bonus for finishing inside thirty minutes, minus damage taken and a penalty for every airframe lost (`src/game/core/Score.ts`). The results card asks for a call sign and posts the run; the board is also reachable from the title screen.
+
+Scores live in Upstash Redis, provisioned through the Vercel Marketplace, as one sorted set per mission: the run is the member and the score is the sort key, so the top twenty is one command and the board is trimmed to a hundred rows. The two Route Handlers in `app/api/scores/[mission]/route.ts` read the board and accept a run; the server recomputes the score from the posted stats with the same formula the client used. Without the store's environment variables the endpoints answer 503 and the game shows the board as unreachable, so a local checkout without `vercel env pull` still plays. There is no anti-cheat: the stats come from the browser and are only clamped to sane ranges.
+
 ## Missions
 
 START MISSION opens a picker; every mission is always available, and the win screen offers the next one.

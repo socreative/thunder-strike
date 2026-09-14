@@ -37,6 +37,14 @@ const AXIS_KEYS: Record<Axis, { pos: string[]; neg: string[] }> = {
 
 const clamp1 = (v: number) => (v > 1 ? 1 : v < -1 ? -1 : v);
 
+/** True when the key event came from a text field rather than the game. */
+function isTyping(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  if (!t || !t.tagName) return false;
+  const tag = t.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable;
+}
+
 /**
  * Keyboard state with per-frame edge detection plus wheel accumulation, and a
  * touch layer on top: a screen-space stick vector and virtual keys for the
@@ -62,6 +70,8 @@ export class Input {
   interacted = false;
 
   private onKeyDown = (e: KeyboardEvent) => {
+    // A text field (the call sign on the results card) keeps its keystrokes.
+    if (isTyping(e)) return;
     if (GAME_KEYS.has(e.code)) e.preventDefault();
     if (e.repeat) return;
     this.interacted = true;
@@ -70,6 +80,7 @@ export class Input {
   };
 
   private onKeyUp = (e: KeyboardEvent) => {
+    if (isTyping(e)) return;
     this.down.delete(e.code);
   };
 

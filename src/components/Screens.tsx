@@ -3,12 +3,60 @@
 import type { Snapshot } from "@/src/game/core/Store";
 import type { Game } from "@/src/game/Game";
 import Image from "next/image";
+import { useState } from "react";
+import { NAME_MAX } from "@/src/game/core/Score";
 import ControlsOverlay from "./ControlsOverlay";
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
   const r = Math.floor(s % 60);
   return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+/** Call sign entry on the results card. Enter submits; the game ignores keys typed here. */
+function ScoreForm({ snap, game }: { snap: Snapshot; game: Game | null }) {
+  const [name, setName] = useState(snap.pilot);
+  const sending = snap.submit === "sending";
+  if (snap.submit === "done") {
+    return (
+      <div className="score-posted">
+        {snap.yourRank ? (
+          <>
+            Posted as <b>{snap.pilot}</b>, ranked <b>#{snap.yourRank}</b> on {snap.missionName}.
+          </>
+        ) : (
+          <>
+            Posted as <b>{snap.pilot}</b>.
+          </>
+        )}
+      </div>
+    );
+  }
+  return (
+    <form
+      className="score-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void game?.submitScore(name);
+      }}
+    >
+      <input
+        className="callsign"
+        value={name}
+        maxLength={NAME_MAX}
+        placeholder="CALL SIGN"
+        autoComplete="off"
+        spellCheck={false}
+        disabled={sending}
+        onChange={(e) => setName(e.target.value.toUpperCase())}
+        aria-label="Call sign"
+      />
+      <button type="submit" className="btn primary compact" disabled={sending}>
+        {sending ? "POSTING" : snap.submit === "error" ? "RETRY" : "POST SCORE"}
+      </button>
+      {snap.submit === "error" && <span className="score-error">The board could not be reached.</span>}
+    </form>
+  );
 }
 
 export default function Screens({ snap, game, error, touch }: { snap: Snapshot; game: Game | null; error: string | null; touch: boolean }) {
@@ -64,6 +112,9 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
                 </button>
                 <button className="btn" onClick={() => game?.showControls()}>
                   CONTROLS
+                </button>
+                <button className="btn" onClick={() => game?.showLeaderboard(snap.missions[0]?.id)}>
+                  LEADERBOARD
                 </button>
                 <button className="btn link" onClick={() => game?.showCredits()}>
                   CREDITS
@@ -209,6 +260,18 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
                 </tr>
               </tbody>
             </table>
+            {won && (
+              <>
+                <div className="score-line">
+                  <span className="eyebrow">SCORE</span>
+                  <span className="score-value">{snap.score.toLocaleString("en-GB")}</span>
+                </div>
+                <ScoreForm key={snap.missionId + snap.stats.elapsed} snap={snap} game={game} />
+                <button className="btn" onClick={() => game?.showLeaderboard()}>
+                  LEADERBOARD
+                </button>
+              </>
+            )}
             {won && snap.missions.length > 1 && (
               <button className="btn primary" onClick={() => game?.selectMission(game.nextMissionId())}>
                 NEXT MISSION
@@ -228,6 +291,59 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
     case "controls":
       return <ControlsOverlay onClose={() => game?.hideControls()} touch={touch} />;
 
+    case "leaderboard": {
+      const lb = snap.leaderboard;
+      const current = snap.missions.find((m) => m.id === lb.mission);
+      return (
+        <div className="screen splash">
+          <div className="card menu-card leaderboard-card">
+            <div className="eyebrow">LEADERBOARD</div>
+            <div className="lb-tabs">
+              {snap.missions.map((m, i) => (
+                <button key={m.id} className={`lb-tab ${m.id === lb.mission ? "active" : ""}`} onClick={() => game?.loadLeaderboard(m.id)}>
+                  <span className="swatch" style={{ background: `#${m.swatch.toString(16).padStart(6, "0")}` }} />
+                  {String(i + 1).padStart(2, "0")} {m.codename}
+                </button>
+              ))}
+            </div>
+            <h2 className="subtitle lb-title">{current?.name ?? ""}</h2>
+            {lb.state === "loading" && <p className="muted">Reading the board.</p>}
+            {lb.state === "error" && <p className="muted">The board could not be reached.</p>}
+            {lb.state === "ready" && lb.rows.length === 0 && <p className="muted">No scores posted yet. Fly it and be first.</p>}
+            {lb.state === "ready" && lb.rows.length > 0 && (
+              <table className="stats lb">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>PILOT</th>
+                    <th>SCORE</th>
+                    <th>TIME</th>
+                    <th>KILLS</th>
+                    <th>POW</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lb.rows.map((r) => (
+                    <tr key={`${r.at}-${r.name}`} className={r.you ? "you" : ""}>
+                      <td>{r.rank}</td>
+                      <td>{r.name}</td>
+                      <td>{r.score.toLocaleString("en-GB")}</td>
+                      <td>{formatTime(r.elapsed)}</td>
+                      <td>{r.kills}</td>
+                      <td>{r.rescued}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <button className="btn primary" onClick={() => game?.hideLeaderboard()}>
+              BACK
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     case "credits":
       return (
         <div className="screen splash">
@@ -243,7 +359,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
               missing the game builds a procedural placeholder instead.
             </p>
             <p>Water: the wave model is ported from Techartist&rsquo;s open source ocean-simulation (MIT), rewritten as WebGPU node materials: a JONSWAP spectrum, a three-cascade GPU FFT, a seabed travel-time field that bends the swell onto the shore, whitecaps and surf foam.</p>
-            <p>Music: &ldquo;Iron Sector Run&rdquo;, &ldquo;Jungle Advance&rdquo;, &ldquo;Arctic Front&rdquo;, &ldquo;March of the Sands&rdquo; and &ldquo;Salt Air Stance&rdquo;, generated with Suno. The rotor is a recording by freesound_community via Pixabay; other sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.</p>
+            <p>Music: &ldquo;Iron Sector Run&rdquo;, &ldquo;Jungle Advance&rdquo;, &ldquo;Arctic Front&rdquo;, &ldquo;March of the Sands&rdquo;, &ldquo;Salt Air Stance&rdquo; and &ldquo;Swamp March&rdquo;, generated with Suno. The rotor is a recording by freesound_community via Pixabay; other sound effects are synthesised in the browser with the Web Audio API. Title artwork and logo generated with Nano Banana Pro; app icon generated with Nano Banana Pro via Higgsfield.</p>
             <button className="btn primary" onClick={() => game?.backToTitle()}>
               BACK
             </button>

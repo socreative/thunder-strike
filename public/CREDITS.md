@@ -37,7 +37,7 @@ The sea's wave model (JONSWAP spectrum, three-cascade GPU FFT, seabed travel-tim
 
 ## Music
 
-"Iron Sector Run", "Jungle Advance", "Arctic Front", "March of the Sands" and "Salt Air Stance", generated with Suno by the project author. Encoded from the masters as Opus at 160 kbps and MP3 at 256 kbps; the browser takes Opus wherever it can.
+"Iron Sector Run", "Jungle Advance", "Arctic Front", "March of the Sands", "Salt Air Stance" and "Swamp March", generated with Suno by the project author. Encoded from the masters as Opus at 160 kbps and MP3 at 256 kbps; the browser takes Opus wherever it can.
 
 ## Sound
 

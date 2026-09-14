@@ -54,7 +54,7 @@ export const mission6: MissionData = {
     "Three gunboats work the channel through the middle of the marsh, and the station itself is walled and under flak, with armour on the causeway between it and the northern crypt. Break the laboratory last, then return to the landing zone. Fuel is cached on the dry ground; there is no dry ground anywhere else.",
   ],
   seed: 6606,
-  music: "jungle-advance",
+  music: "swamp-march",
   theme: swampTheme,
   terrain: {
     shape: "swamp",

@@ -59,6 +59,20 @@ function ScoreForm({ snap, game }: { snap: Snapshot; game: Game | null }) {
   );
 }
 
+/**
+ * Square key-art thumbnail for a picker card, from public/missions/<id>.webp.
+ * A mission without art yet shows its theme swatch in the same frame.
+ */
+function MissionThumb({ id, name, swatch }: { id: string; name: string; swatch: number }) {
+  const [missing, setMissing] = useState(false);
+  const colour = `#${swatch.toString(16).padStart(6, "0")}`;
+  return (
+    <span className="mission-thumb" style={{ background: colour }}>
+      {!missing && <Image src={`/missions/${id}.webp`} alt={name} width={512} height={512} unoptimized onError={() => setMissing(true)} />}
+    </span>
+  );
+}
+
 export default function Screens({ snap, game, error, touch }: { snap: Snapshot; game: Game | null; error: string | null; touch: boolean }) {
   const backendBadge = snap.backend && (
     <div className={`backend ${snap.backend}`}>{snap.backend === "webgpu" ? "WebGPU" : "WebGL 2 fallback: WebGPU is not available in this browser"}</div>
@@ -137,7 +151,7 @@ export default function Screens({ snap, game, error, touch }: { snap: Snapshot; 
             <div className="mission-cards">
               {snap.missions.map((m, i) => (
                 <button key={m.id} className={`mission-card ${i === snap.missionCursor ? "active" : ""}`} onClick={() => game?.selectMission(m.id)}>
-                  <span className="swatch" style={{ background: `#${m.swatch.toString(16).padStart(6, "0")}` }} />
+                  <MissionThumb id={m.id} name={m.name} swatch={m.swatch} />
                   <span className="mission-code">
                     {String(i + 1).padStart(2, "0")} {m.codename}
                   </span>

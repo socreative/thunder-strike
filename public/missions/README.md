@@ -1,0 +1,1 @@
+Square key art per mission, 512x512 WebP, named by mission id (sandglass, greenfang, whitesilence, narrowwater, reefknot, blackwater). The picker falls back to the theme swatch when a file is missing.

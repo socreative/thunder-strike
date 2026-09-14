@@ -824,23 +824,28 @@ button {
 
 /* Mission picker */
 .missions-card {
-  width: min(760px, 94vw) !important;
+  width: min(880px, 94vw) !important;
 }
 .mission-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   width: 100%;
 }
+@media (max-width: 720px) {
+  .mission-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Key art on top, then the code, name and one-line summary under it. */
 .mission-card {
   display: grid;
-  grid-template-columns: 14px 1fr;
-  grid-template-rows: auto auto auto;
-  column-gap: 12px;
-  row-gap: 4px;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto auto auto;
+  row-gap: 5px;
   align-items: start;
   text-align: left;
-  padding: 14px 16px;
+  padding: 10px 10px 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--panel-border);
   cursor: pointer;
@@ -853,13 +858,34 @@ button {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--amber);
 }
-.mission-card .swatch {
-  grid-row: 1 / span 3;
-  width: 14px;
+.mission-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 6px;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 8px 20px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s;
+}
+.mission-thumb img {
+  display: block;
+  width: 100%;
   height: 100%;
-  min-height: 60px;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  object-fit: cover;
+}
+.mission-card:hover .mission-thumb,
+.mission-card.active .mission-thumb {
+  transform: scale(1.02);
+}
+.mission-card .mission-code {
+  padding: 0 4px;
+}
+.mission-card .mission-name,
+.mission-card .mission-summary {
+  padding: 0 4px;
 }
 .mission-code {
   letter-spacing: 0.3em;
@@ -868,14 +894,18 @@ button {
 }
 .mission-name {
   font-family: var(--display);
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 0.06em;
   color: var(--ink);
 }
 .mission-summary {
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11.5px;
+  line-height: 1.4;
   color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .touch .mission-cards {
   gap: 8px;
@@ -1619,4 +1649,32 @@ button {
 }
 .touch .leaderboard-card .stats.lb {
   font-size: 12px;
+}
+
+/* Short viewports (a phone held sideways): art beside the text, not above it. */
+@media (max-height: 560px) {
+  .mission-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .mission-card {
+    grid-template-columns: 64px 1fr;
+    grid-template-rows: auto auto auto;
+    column-gap: 10px;
+    row-gap: 2px;
+    padding: 8px 10px;
+  }
+  .mission-thumb {
+    grid-row: 1 / span 3;
+    width: 64px;
+    margin-bottom: 0;
+    border-radius: 8px;
+  }
+  .mission-card .mission-name {
+    font-size: 15px;
+  }
+  .mission-card .mission-summary {
+    -webkit-line-clamp: 2;
+    font-size: 10.5px;
+  }
 }

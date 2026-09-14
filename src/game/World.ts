@@ -32,6 +32,7 @@ import type { Audio } from "./systems/Audio";
 import { Mission } from "./systems/Mission";
 import { createDecor } from "./world/Decor";
 import { Props, type Exclusion } from "./world/Props";
+import { Marsh } from "./world/Marsh";
 import { CSMShadowNode } from "three/addons/csm/CSMShadowNode.js";
 import { createSky, createSun } from "./world/Sky";
 import { Terrain } from "./world/Terrain";
@@ -92,7 +93,8 @@ export class World {
   /** Points that burn steadily, such as a rig's flare stack. */
   readonly decorFlames: THREE.Vector3[] = [];
   private flameTimer = 0;
-  private mistTimer = 0;
+  /** Mist over the pools and the dead that rise out of them; only on maps that ask for it. */
+  private marsh: Marsh | null = null;
   private hemi: THREE.HemisphereLight;
   private flashDecay = 0;
   private incoming = false;
@@ -161,6 +163,8 @@ export class World {
 
     for (const s of data.spawns) this.spawnFromDef(s);
     this.flush();
+
+    if (theme.ambient?.mist) this.marsh = new Marsh(this);
 
     this.mission = new Mission(this, data);
     this.message(`${data.name}. Objectives are on your left. Good hunting.`);
@@ -564,18 +568,7 @@ export class World {
         for (const f of this.decorFlames) this.particles.flareStack(f);
       }
     }
-    // Ground mist lying on the water around the aircraft.
-    if (this.data.theme.ambient?.mist && this.heli.alive) {
-      this.mistTimer -= dt;
-      if (this.mistTimer <= 0) {
-        this.mistTimer = 0.1;
-        const a = Math.random() * Math.PI * 2;
-        const r = 20 + Math.sqrt(Math.random()) * 80;
-        const x = this.heli.pos.x + Math.cos(a) * r;
-        const z = this.heli.pos.z + Math.sin(a) * r;
-        if (this.terrain.heightAt(x, z) < 0.3) this.particles.mist(x, 0.4, z, this.data.theme.fog.color);
-      }
-    }
+    if (this.marsh && this.heli.alive) this.marsh.update(dt);
     this.particles.update(dt);
     this.healthBars.update(this.entities, this.time);
     this.shakeAmount = Math.max(0, this.shakeAmount - dt * 4);

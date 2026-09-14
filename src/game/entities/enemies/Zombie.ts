@@ -27,6 +27,11 @@ export class Zombie extends Entity {
   /** Where in the ring around the aircraft this one heads for, so a horde fans out. */
   private readonly fan = Math.random() * Math.PI * 2;
   private readonly lurch = Math.random() * Math.PI * 2;
+  /** Seconds left of surfacing; while set, the walker is coming up out of the water. */
+  private emergeT = 0;
+  /** Depth the head starts at when surfacing. */
+  private static readonly EMERGE = 1.8;
+  private static readonly SINK = 2.8;
 
   constructor(readonly officer = false) {
     super();
@@ -95,6 +100,17 @@ export class Zombie extends Entity {
     this.wander.set(this.home.x + Math.cos(a) * r, 0, this.home.z + Math.sin(a) * r);
   }
 
+  /**
+   * Start under the surface and come up over a couple of seconds. Called by
+   * the marsh for the dead it raises out of the pools; the walker neither
+   * moves nor claws until its boots find the bottom.
+   */
+  emerge(): void {
+    this.emergeT = Zombie.EMERGE;
+    this.arms[0].rotation.x = -1.2;
+    this.arms[1].rotation.x = -1.2;
+  }
+
   /** Stand on the ground, or wade with the head above water where the ground is under it. */
   private settle(): void {
     this.pos.y = Math.max(this.world.terrain.heightAt(this.pos.x, this.pos.z), S.wadeDepth);
@@ -134,6 +150,21 @@ export class Zombie extends Entity {
     const world = this.world;
     this.tickFlash(dt);
     this.t += dt;
+    if (this.emergeT > 0) {
+      // Surfacing: rise on an eased curve, arms first, the water churning above.
+      this.emergeT -= dt;
+      const k = Math.max(0, this.emergeT / Zombie.EMERGE);
+      this.settle();
+      this.pos.y -= Zombie.SINK * k * k;
+      const reach = -1.2 + (1 - k) * 0.85;
+      this.arms[0].rotation.x = reach;
+      this.arms[1].rotation.x = reach;
+      this.object.rotation.x = 0.12 - k * 0.3;
+      if (Math.random() < dt * 6) world.particles.bubble(this.pos.x + (Math.random() - 0.5) * 1.4, this.pos.z + (Math.random() - 0.5) * 1.4, 0.6);
+      this.syncObject();
+      world.grid.update(this);
+      return;
+    }
     const heli = world.heli;
     const hunting = heli.alive && world.phase === "playing";
     const d = hunting ? this.distanceXZ(heli) : Infinity;

@@ -968,22 +968,77 @@ export class Particles {
     }
   }
 
-  /** A patch of ground mist: a wide, faint sheet that barely moves and fades over several seconds. */
-  mist(x: number, y: number, z: number, color: number): void {
+  /**
+   * Ground mist over still water, in three layers: a wide sheet that hugs the
+   * surface, thinner wisps drifting through it, and the occasional strand
+   * lifting off. All read the fog colour so the mist and the distance haze
+   * are the same stuff.
+   */
+  mistSheet(x: number, y: number, z: number, color: number, wind: THREE.Vector2): void {
+    this.smoke.spawn({
+      x,
+      y,
+      z,
+      vx: wind.x * 0.35 + (Math.random() - 0.5) * 0.3,
+      vy: 0.03,
+      vz: wind.y * 0.35 + (Math.random() - 0.5) * 0.3,
+      life: 7 + Math.random() * 4,
+      size: 12 + Math.random() * 6,
+      sizeEnd: 26,
+      color,
+      alpha: 0.07,
+      drag: 0.3,
+    });
+  }
+
+  mistWisp(x: number, y: number, z: number, color: number, wind: THREE.Vector2): void {
+    this.smoke.spawn({
+      x,
+      y,
+      z,
+      vx: wind.x * 0.6 + (Math.random() - 0.5) * 0.8,
+      vy: 0.25 + Math.random() * 0.25,
+      vz: wind.y * 0.6 + (Math.random() - 0.5) * 0.8,
+      life: 3 + Math.random() * 2,
+      size: 2.4 + Math.random() * 1.6,
+      sizeEnd: 6.5,
+      color,
+      alpha: 0.11,
+      drag: 0.6,
+    });
+  }
+
+  /** A strand of mist rising off the water, thin and slow. */
+  mistStrand(x: number, y: number, z: number, color: number): void {
     this.smoke.spawn({
       x,
       y,
       z,
       vx: (Math.random() - 0.5) * 0.4,
-      vy: 0.05,
+      vy: 0.7 + Math.random() * 0.5,
       vz: (Math.random() - 0.5) * 0.4,
-      life: 4 + Math.random() * 2,
-      size: 6 + Math.random() * 3,
-      sizeEnd: 12,
+      life: 3 + Math.random() * 2,
+      size: 0.8,
+      sizeEnd: 3.2,
       color,
-      alpha: 0.12,
-      drag: 0.5,
+      alpha: 0.14,
+      drag: 0.4,
     });
+  }
+
+  /**
+   * Marsh gas breaking the surface: a pale bubble that lifts and bursts into
+   * a few dark drops. `strength` runs the size up as a pool starts to boil.
+   */
+  bubble(x: number, z: number, strength = 1): void {
+    const s = 0.35 + strength * 0.5;
+    this.dust.spawn({ x, y: 0.1, z, vy: 0.9 + strength, life: 0.4, size: s, sizeEnd: s * 1.7, color: 0xc9d2b8, colorEnd: 0x6a7460, alpha: 0.8, drag: 2 });
+    const n = 2 + Math.round(strength * 3);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = 1 + Math.random() * 1.5 * strength;
+      this.dust.spawn({ x, y: 0.3, z, vx: Math.cos(a) * v, vy: 2 + Math.random() * 2 * strength, vz: Math.sin(a) * v, life: 0.5 + Math.random() * 0.3, size: 0.12, sizeEnd: 0.05, color: 0x3a3f2c, alpha: 0.9, gravity: 9 });
+    }
   }
 
   /** A marsh light: a small pale green point wandering slowly upward before it goes out. */

@@ -106,7 +106,7 @@ export interface Theme {
   /** Colour used for the mission picker swatch. */
   swatch: number;
   /** Standing effects the world runs for this map. */
-  ambient?: { mist?: boolean };
+  ambient?: { mist?: boolean; risers?: boolean };
   ground: GroundPalette;
   fog: { color: number; near: number; far: number };
   sky: SkyPalette;
@@ -238,7 +238,7 @@ export const atollTheme: Theme = {
 export const swampTheme: Theme = {
   id: "swamp",
   swatch: 0x556b2f,
-  ambient: { mist: true },
+  ambient: { mist: true, risers: true },
   // Sedge and mud. The ground sits close to the water nearly everywhere, so
   // the damp band is kept to the last metre or the whole map turns to mud.
   ground: { light: 0x6b7a3e, dark: 0x45522c, rockA: 0x555a48, rockB: 0x33352c, wet: 0x4a3d2a, wetBand: [0.1, 0.9], underwater: 0x2e3320, ripple: 0 },

@@ -74,6 +74,13 @@ export const balance = {
      * every rescue. `blockDepth` is water too deep to wade.
      */
     zombie: { hp: 24, speed: 2.6, radius: 1, sense: 70, grabRange: 7, grabDamage: 3, grabEvery: 1.0, wadeDepth: -1.0, blockDepth: -1.2, maxAlive: 45 },
+    /**
+     * The dead that come up out of the pools themselves. A rise is picked
+     * from the mist patches between `near` metres of the aircraft, boils for
+     * `warn` seconds, then the walker surfaces; `maxAlive` is their own cap
+     * under the map-wide one.
+     */
+    marsh: { riseEvery: [8, 14] as [number, number], warn: 2.6, near: [30, 95] as [number, number], maxAlive: 12, lzClear: 120 },
     zombieOfficer: { hp: 40, range: 48, reload: 2.2 },
     crypt: { hp: 260, radius: 6, spawnEvery: 6, maxChildren: 8, wakeRange: 180, burst: 5 },
   },

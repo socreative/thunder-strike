@@ -36,7 +36,7 @@ Hover slowly over a crate or a POW and the winch engages on its own. Bring POWs 
 
 ## Missions
 
-START MISSION opens a picker; both missions are always available, and the win screen offers the other one.
+START MISSION opens a picker; every mission is always available, and the win screen offers the next one.
 
 **Operation Sandglass.** Coastal desert. Destroy the coastal radar to reveal the full map, clear three SAM sites, level the prison and fly its four POWs back to the LZ, destroy the headquarters bunker, then return to the landing zone.
 
@@ -49,6 +49,8 @@ START MISSION opens a picker; both missions are always available, and the win sc
 The sea is a real spectral ocean, ported from Techartist's MIT-licensed [ocean-simulation](https://github.com/iamtechartist/ocean-simulation) into TSL so it runs on the WebGPU renderer and its WebGL fallback: a JONSWAP spectrum in three FFT cascades (`src/game/world/water/Cascade.ts`, about 45 small render passes a frame), a coastal travel-time field solved once from the seabed so crests slow, turn parallel to the beach and break in the shallows (`Coastal.ts`, `WaveField.ts`), and a 15 Hz surf-foam history advected along the shore (`Foam.ts`). Each theme sets its swell direction, peak wavelength and cascade gains in `Theme.ts`. Reflections, refraction and caustics from the original are deliberately left out.
 
 **Operation Reef Knot.** An island chain in open ocean. The enemy network is spread thin across it: a radar on the high peak, a fuel and ammunition dump in a lagoon, a submarine pen cut into a cliff, and four patrol boats working the water between the islands. Blind the radar first, sink the boats, burn the dump, break the pen, then lift three downed aircrew off a reef in the north and bring them home. There is no friendly ground but the cay you launch from and the carrier standing off it, so fuel is the real enemy.
+
+**Operation Black Water.** A bayou of pools and mud banks under cypress, with one channel winding through it and a few hummocks that stay dry. A wartime research station on the highest of them has been reopened, and its old garrison has been coming up out of three concrete crypts. The dead wade, shamble toward the aircraft and keep coming while a crypt stands, but they can only claw at the skids while the aircraft hangs slow enough to winch; the officers among them still carry rifles. Blind the radio mast, burn the three crypts, lift six surveyors off the two dry banks of a stilt village, sink the three channel gunboats, destroy the laboratory inside its walls and flak, then return to the landing zone.
 
 Missions are data: `src/game/data/mission*.ts` holds the layout, spawns, objectives and a theme (`src/game/world/Theme.ts`) covering ground, sky, water, fog, dust and vegetation. Terrain shape, coast, river and islands come from a per-mission terrain config in `src/game/world/Terrain.ts`. The `atoll` shape is a seabed that never breaks the surface, so an archipelago is built entirely from its islands list.
 

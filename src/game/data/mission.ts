@@ -24,7 +24,11 @@ export type SpawnType =
   | "generator"
   | "pickup"
   | "pow"
-  | "carrier";
+  | "carrier"
+  /** Risen infantry; `variant: 1` is an armed officer. */
+  | "zombie"
+  /** Bunker that keeps raising zombies until it is destroyed; `count` come out when it falls. */
+  | "crypt";
 
 export type PickupItem = "fuel" | "ammo" | "armor";
 
@@ -81,7 +85,7 @@ export interface ObjectiveDef {
 
 /** Non-interactive set dressing placed by the mission. */
 export interface DecorItem {
-  kind: "runway" | "dam" | "ruin" | "floes" | "crash" | "rig" | "buoys" | "quay" | "village" | "pen" | "lighthouse" | "hulk";
+  kind: "runway" | "dam" | "ruin" | "floes" | "crash" | "rig" | "buoys" | "quay" | "village" | "pen" | "lighthouse" | "hulk" | "graves";
   x: number;
   z: number;
   heading: number;

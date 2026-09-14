@@ -55,8 +55,14 @@ export class Pow extends Entity {
         const dx = heli.pos.x - this.pos.x;
         const dz = heli.pos.z - this.pos.z;
         const inv = 1 / Math.max(0.001, Math.hypot(dx, dz));
-        this.pos.x += dx * inv * 5 * dt;
-        this.pos.z += dz * inv * 5 * dt;
+        const nx = this.pos.x + dx * inv * 5 * dt;
+        const nz = this.pos.z + dz * inv * 5 * dt;
+        // Stops at the water's edge: the winch will not run over water, so a
+        // survivor who waded in after the aircraft could never be lifted.
+        if (world.terrain.heightAt(nx, nz) >= 0.2) {
+          this.pos.x = nx;
+          this.pos.z = nz;
+        }
       }
     } else {
       this.arm.rotation.z = -0.2;

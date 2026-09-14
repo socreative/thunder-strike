@@ -17,7 +17,7 @@ export interface RiverDef {
 }
 
 export interface TerrainConfig {
-  shape: "desert" | "jungle" | "arctic" | "gulf" | "atoll";
+  shape: "desert" | "jungle" | "arctic" | "gulf" | "atoll" | "swamp";
   /** Land falls into the sea west of this X, down to `floor`. */
   coast?: { edgeX: number; floor: number };
   river?: RiverDef;
@@ -111,7 +111,9 @@ export class Terrain {
             ? this.gulfHeight
             : cfg.shape === "atoll"
               ? this.atollHeight
-              : this.desertHeight;
+              : cfg.shape === "swamp"
+                ? this.swampHeight
+                : this.desertHeight;
     if (cfg.river) {
       this.riverBed = cfg.river.bed ?? -5;
       this.riverBank = cfg.river.bank ?? 14;
@@ -139,17 +141,22 @@ export class Terrain {
     }
     this.flats = flats.map((f) => ({ ...f, h: f.h ?? this.base(f.x, f.z) }));
     if (process.env.NODE_ENV !== "production") {
-      for (const f of this.flats) {
+      for (let k = 0; k < flats.length; k++) {
+        const f = this.flats[k];
         const onIsland = cfg.islands?.some((i) => Math.hypot(f.x - i.x, f.z - i.z) < i.r);
         if (!onIsland && this.riverDistance(f.x, f.z) < f.r) console.warn(`[thunder-strike] flat at ${f.x},${f.z} overlaps the river`);
+        // On ground that dips under the water in places, a pad that takes its
+        // height from the noise can level a pool and drown its compound.
+        if (flats[k].h === undefined && f.h < 0.5) console.warn(`[thunder-strike] flat at ${f.x},${f.z} sits at ${f.h.toFixed(2)} m; give it an explicit h`);
       }
     }
 
     // An atoll is nearly all coastline. The shore is a smooth curve at any
     // density now, but a finer mesh still resolves the small lobes and coves
     // the radius warp puts into it, which a map with one coast or a river
-    // running through it has no use for.
-    const segments = cfg.shape === "atoll" ? 560 : 220; // both divide by TILES
+    // running through it has no use for. A swamp is pools and mud banks all
+    // over, so it wants a finer mesh too. All of these divide by TILES.
+    const segments = cfg.shape === "atoll" ? 560 : cfg.shape === "swamp" ? 440 : 220;
     const geo = new THREE.PlaneGeometry(this.size, this.size, segments, segments);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -223,6 +230,20 @@ export class Terrain {
     // an atoll map comes from the islands list. The shallower patches read as
     // reef shoals: the water shades by depth and breaks surf over them.
     return -13 + 5 * n.fbm(x * 0.004, z * 0.004, 3) + 2 * n.fbm(x * 0.02, z * 0.02, 2);
+  };
+
+  private swampHeight = (x: number, z: number): number => {
+    const n = this.noise;
+    // Marsh: broad, low undulation with no floor, so about a third of the
+    // ground lies under the water plane as pools and channels between mud
+    // banks. The noise is centred near zero and the amplitude is large; a
+    // small amplitude never crosses zero, since fbm's spread is a fraction of
+    // its nominal range.
+    let h = 0.7 + 6.5 * n.fbm(x * 0.006, z * 0.006, 4) + 1.2 * n.fbm(x * 0.03 + 7, z * 0.03 - 3, 2);
+    // Pools bottom out softly at about -1.6 m: shallow enough to wade, deep
+    // enough to shade as water. Smooth at zero so the shoreline stays a curve.
+    if (h < 0) h = -1.6 * (1 - Math.exp(h / 1.6));
+    return h;
   };
 
   heightAt(x: number, z: number): number {

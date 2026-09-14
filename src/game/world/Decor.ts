@@ -222,6 +222,8 @@ const MOSS = 0x5f7a45;
 /* Tropical village: weathered planking, mangrove poles, palm thatch and netting. */
 const WOOD_PLANK = 0xb59468;
 const POLE = 0x7d6242;
+/** Grave markers gone grey and soft with damp. */
+const WOOD_DARK_GRAVE = 0x4e4638;
 const THATCH = 0xc7a765;
 const THATCH_DARK = 0x9a7f49;
 const WALL_WOVEN = 0x8f7a5c;
@@ -703,6 +705,55 @@ function buildDecorItem(item: DecorItem, terrain: Terrain, flames: THREE.Vector3
       b.cone(6.2, 2.2, P.roof, { x: -8.5, y: 4.8, z: 3, ry: Math.PI / 4, seg: 4, mat: { roughness: 1, flat: true } });
       b.box(1.1, 2, 0.3, P.woodDark, { x: -6, y: 1, z: 6.2, ry: 0.16 });
       for (let i = 0; i < 4; i++) b.box(2.4, 0.3, 1.1, P.concrete, { x: -4 + i * 1.2, y: 0.15, z: 5.4 - i * 0.4 });
+      break;
+    }
+
+    case "graves": {
+      // A wartime burial ground gone back to the marsh: headstones and wooden
+      // crosses leaning every way, a few graves open with the earth thrown
+      // out beside them. Each marker finds its own ground, since the field is
+      // wider than the ground is level.
+      const rng = new Random((item.x * 19349663) ^ (item.z * 83492791));
+      const n = item.count ?? 26;
+      const w = item.width ?? 30;
+      const l = item.length ?? 40;
+      const c = Math.cos(item.heading);
+      const s = Math.sin(item.heading);
+      const ground = (lx: number, lz: number) => terrain.heightAt(item.x + lx * c + lz * s, item.z - lx * s + lz * c) - y;
+      const cols = Math.max(2, Math.round(w / 4.5));
+      for (let i = 0; i < n; i++) {
+        const lx = ((i % cols) / (cols - 1) - 0.5) * w + rng.range(-0.9, 0.9);
+        const lz = (Math.floor(i / cols) / Math.max(1, Math.ceil(n / cols) - 1) - 0.5) * l + rng.range(-1.2, 1.2);
+        const gy = ground(lx, lz);
+        if (gy + y < -0.4) continue; // drowned; the water has it
+        const lean = rng.range(-0.28, 0.28);
+        const ry = rng.range(-0.3, 0.3);
+        const kind = rng.range(0, 1);
+        if (kind < 0.55) {
+          // Headstone, rounded at the top.
+          b.box(0.75, 0.95, 0.16, STONE_DARK, { x: lx, y: gy + 0.4, z: lz, ry, rz: lean, mat: { roughness: 1 } });
+          b.cyl(0.375, 0.375, 0.16, STONE_DARK, { x: lx, y: gy + 0.85, z: lz, rx: Math.PI / 2, ry, rz: lean, order: "YXZ", seg: 8, mat: { roughness: 1 } });
+        } else if (kind < 0.9) {
+          // Wooden cross.
+          b.box(0.12, 1.5, 0.1, WOOD_DARK_GRAVE, { x: lx, y: gy + 0.7, z: lz, ry, rz: lean, mat: { roughness: 1 } });
+          b.box(0.7, 0.12, 0.1, WOOD_DARK_GRAVE, { x: lx - Math.sin(lean) * 0.35, y: gy + 1.05, z: lz, ry, rz: lean, mat: { roughness: 1 } });
+        } else {
+          // Open grave: a dark slot and the spoil heaped beside it.
+          b.box(0.9, 0.08, 2.0, 0x15140f, { x: lx, y: gy + 0.02, z: lz + 1.3, ry, mat: { roughness: 1 } });
+          b.add(new THREE.SphereGeometry(0.9, 7, 4).scale(1, 0.35, 1.3), 0x4a4034, { x: lx + 1.1, y: gy, z: lz + 1.3, ry, mat: { roughness: 1, flat: true } });
+        }
+      }
+      // A low iron fence along the front, mostly still standing.
+      const rail = w + 2;
+      for (let t = -rail / 2; t <= rail / 2; t += 2.4) {
+        const gy = ground(t, -l / 2 - 1.5);
+        b.cyl(0.05, 0.05, 1.1, P.rust, { x: t, y: gy + 0.55, z: -l / 2 - 1.5, seg: 4, mat: { metalness: 0.5, roughness: 0.6 } });
+      }
+      for (let t = -rail / 2; t < rail / 2 - 1; t += 2.4) {
+        if (rng.range(0, 1) < 0.2) continue;
+        const gy = (ground(t, -l / 2 - 1.5) + ground(t + 2.4, -l / 2 - 1.5)) / 2;
+        b.box(2.4, 0.05, 0.05, P.rust, { x: t + 1.2, y: gy + 0.95, z: -l / 2 - 1.5, mat: { metalness: 0.5, roughness: 0.6 } });
+      }
       break;
     }
 

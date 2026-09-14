@@ -604,7 +604,9 @@ export class Helicopter extends Entity {
     }
     this.unloadTimer = 0;
 
-    if (!slow || ground < 0) {
+    // Over open water there is nothing to lift; a shallow rim under the
+    // aircraft, as at a marsh bank, does not count.
+    if (!slow || ground < -0.6) {
       this.winchTarget = null;
       this.winchProgress = Math.max(0, this.winchProgress - dt * 2);
       this.rope.visible = false;

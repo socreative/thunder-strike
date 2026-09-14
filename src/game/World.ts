@@ -16,6 +16,8 @@ import { Structure, type StructureType } from "./entities/Structure";
 import { Wreck, type WreckStyle } from "./entities/Wreck";
 import { AAGun } from "./entities/enemies/AAGun";
 import { Infantry } from "./entities/enemies/Infantry";
+import { Zombie } from "./entities/enemies/Zombie";
+import { Crypt } from "./entities/enemies/Crypt";
 import { SamSite } from "./entities/enemies/SamSite";
 import { Tank } from "./entities/enemies/Tank";
 import { Gunboat } from "./entities/enemies/Gunboat";
@@ -90,6 +92,7 @@ export class World {
   /** Points that burn steadily, such as a rig's flare stack. */
   readonly decorFlames: THREE.Vector3[] = [];
   private flameTimer = 0;
+  private mistTimer = 0;
   private hemi: THREE.HemisphereLight;
   private flashDecay = 0;
   private incoming = false;
@@ -223,6 +226,8 @@ export class World {
       truck: 9,
       tower: 4,
       fuelDepot: 7,
+      zombie: 3,
+      crypt: 11,
     };
     for (const s of data.spawns) {
       const r = s.type === "wall" ? (s.length ?? 20) / 2 + 4 : (CLEAR[s.type] ?? 0);
@@ -240,7 +245,7 @@ export class World {
     }
     for (const d of data.decor ?? []) {
       if (d.kind === "floes") continue;
-      ex.push({ x: d.x, z: d.z, r: d.kind === "runway" ? (d.length ?? 120) / 2 + 12 : d.kind === "dam" ? (d.length ?? 60) / 2 + 10 : d.kind === "crash" ? 34 : 26 });
+      ex.push({ x: d.x, z: d.z, r: d.kind === "runway" ? (d.length ?? 120) / 2 + 12 : d.kind === "dam" ? (d.length ?? 60) / 2 + 10 : d.kind === "crash" ? 34 : d.kind === "village" ? Math.max(d.width ?? 46, d.length ?? 76) / 2 + 14 : 26 });
     }
     return ex;
   }
@@ -271,6 +276,12 @@ export class World {
         break;
       case "infantry":
         e = new Infantry();
+        break;
+      case "zombie":
+        e = new Zombie(s.variant === 1);
+        break;
+      case "crypt":
+        e = new Crypt(s.heading ?? 0, s.count ?? balance.enemies.crypt.burst);
         break;
       case "jeep":
         e = new Vehicle("jeep", s.heading ?? this.rng.range(0, Math.PI * 2), s.waypoints);
@@ -308,9 +319,27 @@ export class World {
       default:
         e = new Structure(s.type as StructureType, s.heading ?? 0, s.variant ?? 0, s.length ?? 20, s.count ?? 4);
     }
-    if (process.env.NODE_ENV !== "production" && s.waypoints && s.type !== "gunboat" && s.type !== "tanker" && s.type !== "minelayer") {
-      for (const [wx, wz] of s.waypoints) {
-        if (this.terrain.riverDistance(wx, wz) < 0) console.warn(`[thunder-strike] ${s.type} waypoint ${wx},${wz} is in the river`);
+    if (process.env.NODE_ENV !== "production") {
+      const afloat = s.type === "gunboat" || s.type === "tanker" || s.type === "minelayer";
+      // On a marsh the ground dips under the water in patches, so anything
+      // that stands or drives has to be checked against the water, not just
+      // the river channel. The dead wade, so they are allowed in.
+      if (!afloat && s.type !== "zombie" && y < 0) console.warn(`[thunder-strike] ${s.type} at ${s.x},${s.z} spawns in ${(-y).toFixed(1)} m of water`);
+      if (s.waypoints && !afloat) {
+        const pts = s.waypoints;
+        let wet = false;
+        for (let i = 0; i < pts.length; i++) {
+          const [ax, az] = pts[i];
+          const [bx, bz] = pts[(i + 1) % pts.length];
+          if (this.terrain.riverDistance(ax, az) < 0) console.warn(`[thunder-strike] ${s.type} waypoint ${ax},${az} is in the river`);
+          const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 10));
+          for (let k = 0; k <= steps && !wet; k++) {
+            if (this.terrain.heightAt(ax + ((bx - ax) * k) / steps, az + ((bz - az) * k) / steps) < 0.3) {
+              console.warn(`[thunder-strike] ${s.type} patrol from ${ax},${az} to ${bx},${bz} crosses water`);
+              wet = true;
+            }
+          }
+        }
       }
     }
     e.pos.set(s.x, y, s.z);
@@ -366,7 +395,9 @@ export class World {
 
   reportKill(entity: Entity, source?: Entity): void {
     const byPlayer = source?.team === "player";
-    if (byPlayer && entity.kind !== "wall" && entity.kind !== "tower") this.stats.kills++;
+    // Walls, towers and the walking dead stay out of the count: the first two
+    // are scenery, the last would turn it into a horde counter.
+    if (byPlayer && entity.kind !== "wall" && entity.kind !== "tower" && entity.kind !== "zombie") this.stats.kills++;
     this.events.emit("kill", { entity, byPlayer });
   }
 
@@ -531,6 +562,18 @@ export class World {
       if (this.flameTimer <= 0) {
         this.flameTimer = 0.06;
         for (const f of this.decorFlames) this.particles.flareStack(f);
+      }
+    }
+    // Ground mist lying on the water around the aircraft.
+    if (this.data.theme.ambient?.mist && this.heli.alive) {
+      this.mistTimer -= dt;
+      if (this.mistTimer <= 0) {
+        this.mistTimer = 0.1;
+        const a = Math.random() * Math.PI * 2;
+        const r = 20 + Math.sqrt(Math.random()) * 80;
+        const x = this.heli.pos.x + Math.cos(a) * r;
+        const z = this.heli.pos.z + Math.sin(a) * r;
+        if (this.terrain.heightAt(x, z) < 0.3) this.particles.mist(x, 0.4, z, this.data.theme.fog.color);
       }
     }
     this.particles.update(dt);

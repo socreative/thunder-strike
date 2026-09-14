@@ -23,7 +23,8 @@ export type Sfx =
   | "select"
   | "flare"
   | "missileAlert"
-  | "tick";
+  | "tick"
+  | "groan";
 
 /**
  * Fully synthesised sound: no audio files. Distant enemy sounds are attenuated
@@ -202,7 +203,7 @@ export class Audio {
     // Rate limit rapid repeats so bursts do not stack into clipping.
     const now = ctx.currentTime;
     const last = this.lastPlay.get(name) ?? -1;
-    const minGap = name === "gun" ? 0.04 : name === "aa" || name === "rifle" ? 0.05 : name === "missileAlert" ? 0.2 : 0.03;
+    const minGap = name === "gun" ? 0.04 : name === "aa" || name === "rifle" ? 0.05 : name === "missileAlert" ? 0.2 : name === "groan" ? 0.25 : 0.03;
     if (now - last < minGap) return;
     this.lastPlay.set(name, now);
 
@@ -300,6 +301,14 @@ export class Audio {
         // Countdown pulse: a short, low, slightly detuned pair so it cuts through the rotor.
         this.tone("square", 620, 600, 0.07, 0.22);
         this.tone("sine", 310, 300, 0.09, 0.2);
+        break;
+      case "groan":
+        // A throat with no breath behind it: a low sawtooth sagging in pitch
+        // under a band of rasp, then a rattle as it dies away.
+        this.tone("sawtooth", 95, 62, 0.85, 0.16 * gain);
+        this.tone("sawtooth", 143, 96, 0.7, 0.05 * gain);
+        this.sweepNoise(0.8, 420, 180, 0.12 * gain);
+        this.noiseBurst(0.3, 700, "bandpass", 0.08 * gain, 0.4, 300);
         break;
     }
   }

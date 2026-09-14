@@ -23,7 +23,7 @@ export function createSky(radius: number, pal: SkyPalette): THREE.Mesh {
 }
 
 export function createSun(pal: SkyPalette): { sun: THREE.DirectionalLight; hemi: THREE.HemisphereLight } {
-  const sun = new THREE.DirectionalLight(pal.sun, 3.0);
+  const sun = new THREE.DirectionalLight(pal.sun, pal.intensity ?? 3.0);
   sun.castShadow = true;
   // With cascaded shadows this is the resolution of each cascade, so a slice
   // near the aircraft gets the whole map to itself. It is also the fallback
@@ -42,6 +42,6 @@ export function createSun(pal: SkyPalette): { sun: THREE.DirectionalLight; hemi:
   sun.shadow.normalBias = 0.12;
   // Penumbra width in texels for the PCF filter; cascades inherit it.
   sun.shadow.radius = 2.2;
-  const hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, 0.7);
+  const hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, pal.hemiIntensity ?? 0.7);
   return { sun, hemi };
 }

@@ -89,7 +89,8 @@ export class Props {
         const x = rng.range(-half, half);
         const z = rng.range(-half, half);
         const h = terrain.heightAt(x, z);
-        if (h < theme.minHeight || blocked(x, z)) continue;
+        if (h < (set.minHeight ?? theme.minHeight) || blocked(x, z)) continue;
+        if (set.maxHeight !== undefined && h > set.maxHeight) continue;
         if (bankMargin > 0 && terrain.riverDistance(x, z) < bankMargin) continue;
         if (set.maxSlope !== undefined && terrain.normalAt(x, z, tmpNormal).y < set.maxSlope) continue;
         const s = rng.range(set.scale[0], set.scale[1]);
@@ -257,7 +258,95 @@ function buildKind(kind: PropKind): { geo: THREE.BufferGeometry; mat: THREE.Mate
       return { geo: broadleafGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, flatShading: true }) };
     case "spruce":
       return { geo: spruceGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, flatShading: true }) };
+    case "cypress":
+      return { geo: cypressGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, flatShading: true }) };
+    case "deadTree":
+      return { geo: deadTreeGeometry(), mat: new THREE.MeshStandardNodeMaterial({ color: 0x5a554a, roughness: 1, flatShading: true }) };
+    case "reeds":
+      return { geo: reedsGeometry(), mat: new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, flatShading: true }) };
   }
+}
+
+/**
+ * Swamp cypress: a flared, buttressed trunk standing in the water, a ragged
+ * canopy of two or three lobes and beards of moss hanging under it. About
+ * 10 m tall; the flare puts the roots a metre under the surface when the set
+ * sinks it.
+ */
+function cypressGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  // Buttress: a wide, short cone at the base merging into the trunk proper.
+  parts.push(tint(new THREE.CylinderGeometry(0.42, 1.3, 2.4, 7, 1, true).translate(0, 1.2, 0), 0x4a4034));
+  parts.push(tint(new THREE.CylinderGeometry(0.2, 0.42, 7.2, 6, 1, true).translate(0, 6.0, 0), 0x554839));
+  // Canopy: flattened lobes, darker on top than a jungle broadleaf.
+  parts.push(tint(new THREE.IcosahedronGeometry(2.4, 1).scale(1.15, 0.7, 1.15).translate(0, 9.2, 0), 0x2f4a26));
+  parts.push(tint(new THREE.IcosahedronGeometry(1.8, 1).scale(1.1, 0.7, 1.1).translate(1.6, 8.2, 0.6), 0x3a5a2c));
+  parts.push(tint(new THREE.IcosahedronGeometry(1.7, 1).scale(1.1, 0.65, 1.1).translate(-1.5, 8.4, -0.8), 0x2c4423));
+  // Moss: thin cones hanging point-down from the canopy's underside.
+  const beards: [number, number, number][] = [
+    [1.9, 7.6, 1.2],
+    [-2.1, 7.7, 0.4],
+    [0.6, 7.3, -2.0],
+    [-0.9, 7.5, 1.9],
+  ];
+  for (const [x, y, z] of beards) {
+    parts.push(tint(new THREE.ConeGeometry(0.28, 2.6, 4, 1, true).rotateX(Math.PI).translate(x, y - 1.3, z), 0x8a9a78));
+  }
+  return mergeColored(parts);
+}
+
+/** Dead tree: a bare, slightly crooked trunk with a few broken limbs. About 8 m tall, one colour. */
+function deadTreeGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const trunk = new THREE.CylinderGeometry(0.12, 0.5, 8, 6, 3, true);
+  trunk.translate(0, 4, 0);
+  // Crook the upper trunk by shearing it.
+  const pos = trunk.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const k = (y / 8) ** 2;
+    pos.setX(i, pos.getX(i) + k * 0.9);
+  }
+  trunk.computeVertexNormals();
+  parts.push(trunk.toNonIndexed());
+  const limbs: [number, number, number, number, number][] = [
+    // y, length, yaw, tilt from vertical, radius
+    [3.4, 2.6, 0.4, 1.1, 0.11],
+    [4.8, 2.2, 2.6, 1.3, 0.09],
+    [6.1, 1.8, 4.4, 0.9, 0.08],
+    [5.5, 1.4, 1.6, 1.5, 0.07],
+  ];
+  for (const [y, len, yaw, tilt, r] of limbs) {
+    const limb = new THREE.CylinderGeometry(r * 0.4, r, len, 5, 1, true);
+    limb.translate(0, len / 2, 0);
+    limb.rotateZ(tilt);
+    limb.rotateY(yaw);
+    limb.translate((y / 8) ** 2 * 0.9, y, 0);
+    parts.push(limb.toNonIndexed());
+  }
+  return mergeAddon(parts, false);
+}
+
+/** Reeds: a tuft of thin tapering stems with brown seed heads. About 2 m tall. */
+function reedsGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const stems = 7;
+  for (let i = 0; i < stems; i++) {
+    const a = (i / stems) * Math.PI * 2 + 0.5;
+    const r = i === 0 ? 0 : 0.18 + (i % 3) * 0.12;
+    const h = 1.6 + ((i * 7) % 5) * 0.14;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    const stem = new THREE.ConeGeometry(0.05, h, 3, 1, true);
+    stem.translate(0, h / 2, 0);
+    // Splay outward a little from the tuft's centre.
+    stem.rotateZ(-0.12 * Math.cos(a));
+    stem.rotateX(0.12 * Math.sin(a));
+    stem.translate(x, 0, z);
+    parts.push(tint(stem, i % 2 ? 0x7a8a4a : 0x6a7a3e));
+    parts.push(tint(new THREE.CylinderGeometry(0.06, 0.05, 0.36, 4, 1, false).translate(x - 0.12 * Math.cos(a) * h * 0.5, h * 0.92, z + 0.12 * Math.sin(a) * h * 0.5), 0x6b4a2e));
+  }
+  return mergeColored(parts);
 }
 
 /** Spruce: a bare trunk with three stacked cones, snow on the upper tiers. About 9 m tall. */

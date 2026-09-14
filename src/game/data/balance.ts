@@ -68,6 +68,14 @@ export const balance = {
     minelayer: { hp: 220, speed: 5, turnRate: 0.6, length: 26, mineEvery: 14 },
     mine: { hp: 8, radius: 1.6, trigger: 9, damage: 260, blast: 7 },
     silo: { hp: 320, radius: 8 },
+    /**
+     * The risen. Slow and tough for their size; they only reach the aircraft
+     * when it is slow enough to winch, so a horde under a hover is a tax on
+     * every rescue. `blockDepth` is water too deep to wade.
+     */
+    zombie: { hp: 24, speed: 2.6, radius: 1, sense: 70, grabRange: 7, grabDamage: 3, grabEvery: 1.0, wadeDepth: -1.0, blockDepth: -1.2, maxAlive: 45 },
+    zombieOfficer: { hp: 40, range: 48, reload: 2.2 },
+    crypt: { hp: 260, radius: 6, spawnEvery: 6, maxChildren: 8, wakeRange: 180, burst: 5 },
   },
   pickups: {
     fuel: 60,

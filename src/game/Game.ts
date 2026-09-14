@@ -236,7 +236,7 @@ export class Game {
       return;
     }
     this.mission = data;
-    const place = { desert: "the province", jungle: "the valley", arctic: "the ice", gulf: "the strait", atoll: "the islands" }[data.theme.id];
+    const place = { desert: "the province", jungle: "the valley", arctic: "the ice", gulf: "the strait", atoll: "the islands", swamp: "the bayou" }[data.theme.id];
     this.store.set({ loadLabel: `building ${place}, tracing the swell`, loadProgress: 0.85 });
     this.setScreen("loading");
     setTimeout(() => {
@@ -434,6 +434,7 @@ export class Game {
         if (input.wasPressed("Digit3") && MISSIONS[2]) this.selectMission(MISSIONS[2].id);
         if (input.wasPressed("Digit4") && MISSIONS[3]) this.selectMission(MISSIONS[3].id);
         if (input.wasPressed("Digit5") && MISSIONS[4]) this.selectMission(MISSIONS[4].id);
+        if (input.wasPressed("Digit6") && MISSIONS[5]) this.selectMission(MISSIONS[5].id);
         if (input.wasPressed("Enter", "Space")) this.start();
         if (input.wasPressed("Escape")) this.setScreen("title");
         break;

@@ -33,7 +33,8 @@ export function createTerrainMaterial(pal: GroundPalette): THREE.MeshStandardNod
 
   // Damp ground near the water line, then a greenish tint just under it.
   const y = positionWorld.y;
-  const wet = smoothstep(0.6, 3.2, y).oneMinus();
+  const [wetLo, wetHi] = pal.wetBand ?? [0.6, 3.2];
+  const wet = smoothstep(wetLo, wetHi, y).oneMinus();
   col = mix(col, color(pal.wet), wet);
   const under = smoothstep(-4, 0.2, y).oneMinus();
   col = mix(col, color(pal.underwater), under);

@@ -399,7 +399,10 @@ function heightOf(e: Entity): number {
     case "mine":
       return 2;
     case "infantry":
+    case "zombie":
       return 3;
+    case "crypt":
+      return 6;
     default:
       return 5;
   }

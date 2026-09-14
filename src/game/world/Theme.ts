@@ -13,6 +13,8 @@ export interface GroundPalette {
   rockB: number;
   /** Damp band just above the water line. */
   wet: number;
+  /** Heights the damp band fades over; default 0.6 to 3.2 m. Marsh wants it narrow or it covers everything. */
+  wetBand?: [number, number];
   underwater: number;
   /** Strength of the wind-ripple stripes on flat ground, 0 to 1. */
   ripple: number;
@@ -25,6 +27,10 @@ export interface SkyPalette {
   sun: number;
   hemiSky: number;
   hemiGround: number;
+  /** Sun strength; default 3. Exposure is fixed, so stay above about 2. */
+  intensity?: number;
+  /** Hemisphere fill strength; default 0.7. */
+  hemiIntensity?: number;
 }
 
 export interface WaterPalette {
@@ -61,7 +67,7 @@ export interface OverviewPalette {
   bank?: RGB;
 }
 
-export type PropKind = "rock" | "shrub" | "cactus" | "palm" | "broadleaf" | "fern" | "spruce";
+export type PropKind = "rock" | "shrub" | "cactus" | "palm" | "broadleaf" | "fern" | "spruce" | "cypress" | "deadTree" | "reeds";
 
 export interface PropSet {
   kind: PropKind;
@@ -80,6 +86,10 @@ export interface PropSet {
   bankMargin?: number;
   /** Maximum lean in radians under the rotor downwash; omit for rigid props. */
   sway?: number;
+  /** Lowest ground this kind stands on, overriding the theme; negative lets it stand in shallow water. */
+  minHeight?: number;
+  /** Highest ground this kind stands on; reeds stay by the water. */
+  maxHeight?: number;
 }
 
 export interface PropTheme {
@@ -92,9 +102,11 @@ export interface PropTheme {
 }
 
 export interface Theme {
-  id: "desert" | "jungle" | "arctic" | "gulf" | "atoll";
+  id: "desert" | "jungle" | "arctic" | "gulf" | "atoll" | "swamp";
   /** Colour used for the mission picker swatch. */
   swatch: number;
+  /** Standing effects the world runs for this map. */
+  ambient?: { mist?: boolean };
   ground: GroundPalette;
   fog: { color: number; near: number; far: number };
   sky: SkyPalette;
@@ -219,6 +231,36 @@ export const atollTheme: Theme = {
       { kind: "fern", count: 500, scale: [0.7, 1.4], castShadow: false, sink: 0.2, sway: 0.4 },
       { kind: "shrub", count: 300, scale: [0.6, 1.4], castShadow: false, sink: 0.3, color: 0x6f8a4a, sway: 0.25 },
       { kind: "rock", count: 260, scale: [0.6, 3.0], castShadow: true, sink: 0.35, color: 0x8d8375 },
+    ],
+  },
+};
+
+export const swampTheme: Theme = {
+  id: "swamp",
+  swatch: 0x556b2f,
+  ambient: { mist: true },
+  // Sedge and mud. The ground sits close to the water nearly everywhere, so
+  // the damp band is kept to the last metre or the whole map turns to mud.
+  ground: { light: 0x6b7a3e, dark: 0x45522c, rockA: 0x555a48, rockB: 0x33352c, wet: 0x4a3d2a, wetBand: [0.1, 0.9], underwater: 0x2e3320, ripple: 0 },
+  // The dome is not fogged, so the horizon and the haze match the fog.
+  fog: { color: 0xa9b39a, near: 120, far: 520 },
+  sky: { horizon: 0xa9b39a, zenith: 0x5f6f66, haze: 0xa9b39a, sun: 0xe8e2c8, hemiSky: 0x8f9c8c, hemiGround: 0x3a3f2a, intensity: 2.3, hemiIntensity: 0.8 },
+  // Still, murky water: almost no swell, a brown bed showing through.
+  water: { deep: 0x1f2a1c, shallow: 0x3b4a2c, foam: 0x8f9a78, foamAmount: 0.15, scale: 2.5, bed: 0x3d3a26, swell: 0.1, shore: 0.2, swellDir: [1, 0.2], windDir: [0.4, 1], peakWavelength: 20, gains: [0.3, 0.3, 0.6], surfaceWind: 0.4 },
+  overview: { water: [26, 36, 28], shallow: [40, 52, 36], landLow: [58, 72, 40], landHigh: [110, 118, 70] },
+  dust: { start: 0x6a6a4a, end: 0x4a4a36 },
+  wash: "leaves",
+  props: {
+    minHeight: 1.0,
+    bankMargin: 6,
+    clearSpawns: true,
+    sets: [
+      { kind: "cypress", count: 900, scale: [0.9, 1.5], castShadow: true, sink: 0.15, minHeight: -1.0, bankMargin: 0, maxSlope: 0.85, tints: [0xffffff, 0xd8e0c0, 0xc0ccb0], sway: 0.05 },
+      { kind: "deadTree", count: 350, scale: [0.8, 1.4], castShadow: true, sink: 0.1, minHeight: -0.6, bankMargin: 0, color: 0x5a554a },
+      { kind: "reeds", count: 2400, scale: [0.7, 1.4], castShadow: false, sink: 0.1, minHeight: -0.6, maxHeight: 1.0, bankMargin: 0, sway: 0.5 },
+      { kind: "fern", count: 400, scale: [0.7, 1.4], castShadow: false, sink: 0.2, sway: 0.4 },
+      { kind: "shrub", count: 300, scale: [0.6, 1.4], castShadow: false, sink: 0.3, color: 0x4f5a34, sway: 0.25 },
+      { kind: "rock", count: 150, scale: [0.6, 2.6], castShadow: true, sink: 0.35, color: 0x5a6650 },
     ],
   },
 };

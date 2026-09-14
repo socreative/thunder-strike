@@ -968,6 +968,43 @@ export class Particles {
     }
   }
 
+  /** A patch of ground mist: a wide, faint sheet that barely moves and fades over several seconds. */
+  mist(x: number, y: number, z: number, color: number): void {
+    this.smoke.spawn({
+      x,
+      y,
+      z,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: 0.05,
+      vz: (Math.random() - 0.5) * 0.4,
+      life: 4 + Math.random() * 2,
+      size: 6 + Math.random() * 3,
+      sizeEnd: 12,
+      color,
+      alpha: 0.12,
+      drag: 0.5,
+    });
+  }
+
+  /** A marsh light: a small pale green point wandering slowly upward before it goes out. */
+  wisp(p: THREE.Vector3): void {
+    this.fire.spawn({
+      x: p.x,
+      y: p.y,
+      z: p.z,
+      vx: (Math.random() - 0.5) * 0.8,
+      vy: 0.25 + Math.random() * 0.3,
+      vz: (Math.random() - 0.5) * 0.8,
+      life: 2.5 + Math.random(),
+      size: 0.4,
+      sizeEnd: 0.12,
+      color: 0x9fffb0,
+      colorEnd: 0x3a8a50,
+      alpha: 0.7,
+      drag: 0.3,
+    });
+  }
+
   /** Water thrown up by a blast or a dropped mine: a white column that falls back and a spreading ring of spray. */
   splash(p: THREE.Vector3, size: number): void {
     const n = Math.round(10 + size * 8);
